@@ -1,0 +1,298 @@
+.ledger-container {
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.ledger-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.ledger-header h2 {
+  margin: 0;
+  color: #1e3a8a;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.breadcrumb {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.breadcrumb span:last-child {
+  color: #3b82f6;
+}
+
+.filter-section {
+  background: #3b82f6;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.filter-inputs {
+  display: flex;
+  gap: 15px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.filter-group label {
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.filter-group input {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 14px;
+  min-width: 150px;
+}
+
+.filter-btn {
+  padding: 8px 24px;
+  background: #fbbf24;
+  color: #1e3a8a;
+  border: none;
+  border-radius: 5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.filter-btn:hover {
+  background: #f59e0b;
+}
+
+.search-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.search-section label {
+  font-weight: 500;
+  color: #374151;
+}
+
+.search-section input {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 14px;
+  width: 300px;
+}
+
+.ledger-table-container {
+  overflow-x: auto;
+  margin-bottom: 20px;
+}
+
+.ledger-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ledger-table thead {
+  background: #1f2937;
+  color: white;
+}
+
+.ledger-table th,
+.ledger-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.ledger-table th {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.ledger-table td {
+  font-size: 14px;
+  color: #374151;
+}
+
+.ledger-table tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+.ledger-table tfoot {
+  background: #f3f4f6;
+  font-weight: 600;
+}
+
+.total-label {
+  text-align: right !important;
+  color: #1e3a8a;
+}
+
+.total-value {
+  color: #1e3a8a;
+  font-weight: 700;
+}
+
+.no-data {
+  text-align: center !important;
+  color: #6b7280;
+  padding: 40px !important;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #6b7280;
+}
+
+.error {
+  text-align: center;
+  padding: 40px;
+  color: #dc2626;
+}
+
+.ledger-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.summary-item {
+  background: #f3f4f6;
+  padding: 15px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.summary-item label {
+  font-weight: 600;
+  color: #374151;
+}
+
+.summary-item span {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.export-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.export-btn {
+  padding: 10px 20px;
+  background: #4b5563;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.export-btn:hover {
+  background: #374151;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.export-btn.print-btn {
+  background: #16a34a;
+}
+
+.export-btn.print-btn:hover {
+  background: #15803d;
+}
+
+.print-only {
+  display: none;
+}
+
+.print-title {
+  color: #dc2626;
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.print-date-range {
+  color: #16a34a;
+  font-size: 16px;
+  margin-bottom: 20px;
+}
+
+.text-right {
+  text-align: right !important;
+}
+
+.balance-positive {
+  color: #16a34a;
+  font-weight: bold;
+}
+
+.balance-negative {
+  color: #dc2626;
+  font-weight: bold;
+}
+
+.pagination-info {
+  color: #6b7280;
+  font-size: 14px;
+  text-align: center;
+}
+
+@media print {
+  .print-only {
+    display: block !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .ledger-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .filter-inputs {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .filter-group input {
+    width: 100%;
+  }
+
+  .search-section {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .search-section input {
+    width: 100%;
+  }
+}
