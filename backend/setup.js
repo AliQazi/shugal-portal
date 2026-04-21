@@ -14,11 +14,11 @@ const setupAdmin = async () => {
     console.log(`MongoDB Connected: ${mongoose.connection.host}`.bgCyan.white);
 
     // Admin user details
-    const adminEmail = "worldflytravelisb@gmail.com";
+    const adminEmail = "shaheenwings@gmail.com";
     const adminPassword = "123456";
 
     // Demo user details
-    const demoEmail = "demo@worldflyticket.com";
+    const demoEmail = "info@shaheenwings.com";
     const demoPassword = "demo123";
 
     let adminCreated = false;
