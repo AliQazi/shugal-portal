@@ -121,7 +121,14 @@ const Ledger = () => {
       console.log('Response received:', response.status, response.headers['content-type']);
 
       // Check if response is actually an error (JSON) instead of a file
-      if (response.headers['content-type']?.includes('application/json')) {
+      const contentTypeHeader = response.headers['content-type'];
+      const contentType = typeof contentTypeHeader === 'string'
+        ? contentTypeHeader
+        : Array.isArray(contentTypeHeader)
+          ? contentTypeHeader.join(', ')
+          : '';
+
+      if (contentType.includes('application/json')) {
         // Response is JSON error, not a file - need to read the blob as text
         const reader = new FileReader();
         const errorText = await new Promise<string>((resolve) => {
