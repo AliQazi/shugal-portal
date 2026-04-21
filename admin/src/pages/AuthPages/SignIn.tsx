@@ -6,8 +6,8 @@ export default function SignIn() {
   return (
     <>
       <PageMeta
-        title="World fly travel and tours (Pvt Ltd ) SignIn Dashboard"
-        description="This is Admin SignIn Dashboard page for World fly travel and tours (Pvt Ltd )"
+        title="Shaheen Wings travel and tours (Pvt Ltd ) SignIn Dashboard"
+        description="This is Admin SignIn Dashboard page for Shaheen Wings travel and tours (Pvt Ltd )"
       />
       <AuthLayout>
         <SignInForm />

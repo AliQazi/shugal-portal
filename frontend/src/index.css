@@ -217,6 +217,89 @@ body {
     overflow-x: hidden;
 }
 
+.scroll-top-button {
+    position: fixed;
+    right: 20px;
+    bottom: 92px;
+    z-index: 1000;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border: none;
+    border-radius: 9999px;
+    background: #0f172a;
+    color: #ffffff;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.3);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.scroll-top-button:hover {
+    background: #1e293b;
+    transform: translateY(-2px);
+    box-shadow: 0 16px 30px rgba(15, 23, 42, 0.4);
+}
+
+.scroll-top-button svg {
+    width: 28px;
+    height: 28px;
+}
+
+.whatsapp-float-button {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 1000;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    border-radius: 9999px;
+    background: #25d366;
+    color: #ffffff;
+    box-shadow: 0 12px 28px rgba(37, 211, 102, 0.35);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.whatsapp-float-button:hover {
+    background: #1ebe5b;
+    transform: translateY(-2px);
+    box-shadow: 0 16px 30px rgba(37, 211, 102, 0.45);
+}
+
+.whatsapp-float-button svg {
+    width: 30px;
+    height: 30px;
+}
+
+@media screen and (max-width: 640px) {
+    .scroll-top-button {
+        right: 16px;
+        bottom: 84px;
+        width: 52px;
+        height: 52px;
+    }
+
+    .scroll-top-button svg {
+        width: 26px;
+        height: 26px;
+    }
+
+    .whatsapp-float-button {
+        right: 16px;
+        bottom: 16px;
+        width: 56px;
+        height: 56px;
+    }
+
+    .whatsapp-float-button svg {
+        width: 28px;
+        height: 28px;
+    }
+}
+
 /* Make sure containers don't overflow */
 * {
     box-sizing: border-box;

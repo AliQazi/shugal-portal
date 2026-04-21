@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import logo from "../../assets/images/logo.webp";
+import logo from "../../assets/images/logo2.png";
 import { CiMenuFries } from "react-icons/ci";
 import { AiOutlineClose } from "react-icons/ai";
 import { groupTypes } from "../../data/groupTypes";

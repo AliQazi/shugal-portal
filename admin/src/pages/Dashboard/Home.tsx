@@ -130,11 +130,11 @@ function buildCopyText(groups: UnifiedGroup[]): string {
   const footer =
     `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*
 =======================
-World Fly Travel & Tours
-Mobile: 0314-5266660
-Address: Shop No 03 G Floor G 13 Services Road G 12 Islamabad.
-Ptcl: 051-2154600
-Website: worldflytickets.com`;
+Shaheen Wings Travels
+Mobile: 0309-9802154
+Address: MA Plaza Ground Floor Shop # 3, Kahror Pacca.
+Ptcl: 0608340174
+Website: shaheenwings.com`;
 
   return [header, ...lines, "=======================", footer].join("\n");
 }
@@ -235,8 +235,8 @@ export default function Home() {
   return (
     <>
       <PageMeta
-        title="Dashboard | World Fly Ticket Travel"
-        description="Dashboard overview for World Fly Ticket Travel"
+        title="Dashboard | Shaheen Wings Ticket Travel"
+        description="Dashboard overview for Shaheen Wings Ticket Travel"
       />
 
       <div className="mb-6">

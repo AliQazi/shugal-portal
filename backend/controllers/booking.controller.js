@@ -562,6 +562,7 @@ export const createBooking = async (req, res) => {
   try {
     const {
       groupId: incomingGroupId,
+      source,
       groupType,
       airline,
       sector,
@@ -589,9 +590,9 @@ export const createBooking = async (req, res) => {
     seatCount = adultsCount + childrenCount;
     const expiresAt = new Date(Date.now() + HOLD_DURATION);
     const groupId = normalizeGroupId(incomingGroupId);
+    const bookingSource = source || (isLocalGroup(groupId) ? "admin" : "sabaoon");
 
-    // Sabaoon groups have numeric string IDs (e.g. "968"), not MongoDB ObjectIds
-    const isSabaoonGroup = !isLocalGroup(groupId);
+    const isSabaoonGroup = bookingSource === "sabaoon" && !isLocalGroup(groupId);
 
     // 1️⃣ Deduct from local DB (existing logic)
     await adjustSeatsIfLocalGroup(groupId, -seatCount, true);
@@ -618,6 +619,7 @@ export const createBooking = async (req, res) => {
       userId: req.user._id,
       status: "on hold",
       expiresAt,
+      source: bookingSource,
       sabaoonBookingStatus: isSabaoonGroup ? "pending" : "not_applicable",
     });
 

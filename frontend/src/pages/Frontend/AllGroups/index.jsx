@@ -508,7 +508,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                                                     {/* Date */}
                                                                     <td className="px-4 py-3 text-xs font-medium text-gray-600 whitespace-nowrap">
                                                                         {flight
-                                                                        ? new Date(flight.dep_date || flight.flight_date).toLocaleDateString("en-GB", {
+                                                                            ? new Date(flight.dep_date || flight.flight_date).toLocaleDateString("en-GB", {
                                                                                 day: "2-digit",
                                                                                 month: "short",
                                                                                 year: "numeric",
@@ -524,7 +524,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                                                                 {flight?.flight_no?.toUpperCase() || "—"}
                                                                             </span>
                                                                         </div>
-                                                                    </td>
+                                                                    </td> 
 
                                                                     {/* Sector with route + time UI */}
                                                                     <td className="px-4 py-3">

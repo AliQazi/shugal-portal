@@ -1,4 +1,5 @@
-import logo from "../../assets/images/logo.webp";
+import logo from "../../assets/images/logo2.png";
+import footerbg from "../../assets/images/footerbg1.jpg";
 import { CiLogin } from "react-icons/ci";
 import { FaWhatsapp, FaPhoneAlt } from "react-icons/fa";
 import { IoMail, IoLocationSharp } from "react-icons/io5";
@@ -29,7 +30,7 @@ export default function Footer({ user }) {
                   src="https://ex-coders.com/html/turmet/assets/img/plane-shape.png"
                   alt=""
                   style={{
-                    height: "150px",
+                    height: "150px", 
                   }}
                   srcset=""
                 />
@@ -83,7 +84,7 @@ export default function Footer({ user }) {
       <footer
         className="relative pt-16 text-white"
         style={{
-          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)), url(${footerBg})`,
+          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)), url(${footerbg})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
@@ -94,12 +95,12 @@ export default function Footer({ user }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Logo */}
             <div>
-              <img src={logo} alt="logo" className="w-28 mb-4" />
+              <img src={logo} alt="logo" className="w-34 mb-4 p-2 bg-white rounded-2xl" />
               <h2
                 className="text-lg font-semibold"
                 style={{ color: theme.colors.sidebarTextLight }}
               >
-                World Fly Travel & Tours (Pvt Ltd ).
+                Shaheen Wings Travels (Pvt Ltd ).
               </h2>
               <p
                 className="mt-3 text-sm leading-relaxed"
@@ -173,7 +174,7 @@ export default function Footer({ user }) {
                   className="flex items-center gap-3 hover:translate-x-1 transition"
                   style={{ color: theme.colors.sidebarText }}
                 >
-                  <FaWhatsapp className="text-2xl" /> 0314-5266660
+                  <FaWhatsapp className="text-2xl" /> 0309-9802154
                 </a>
 
                 <a
@@ -181,7 +182,7 @@ export default function Footer({ user }) {
                   className="flex items-center gap-3 hover:translate-x-1 transition"
                   style={{ color: theme.colors.sidebarText }}
                 >
-                  <FaPhoneAlt /> 0314-5222231
+                  <FaPhoneAlt /> 0307-99655120
                 </a>
 
                 <a
@@ -189,7 +190,7 @@ export default function Footer({ user }) {
                   className="flex items-center gap-3 hover:translate-x-1 transition"
                   style={{ color: theme.colors.sidebarText }}
                 >
-                  <FaPhoneAlt /> 051-2154600
+                  <FaPhoneAlt /> 0304-3121343
                 </a>
 
                 <a
@@ -197,7 +198,7 @@ export default function Footer({ user }) {
                   className="flex items-center gap-3 break-all hover:translate-x-1 transition"
                   style={{ color: theme.colors.sidebarText }}
                 >
-                  <IoMail /> worldflytravelisb@gmail.com
+                  <IoMail /> shaheenwingstravels07@gmail.com
                 </a>
 
                 <a
@@ -207,7 +208,7 @@ export default function Footer({ user }) {
                   style={{ color: theme.colors.sidebarText }}
                 >
                   <IoLocationSharp className="mt-1 text-3xl" />
-                  Shop No 03 G-Floor G-13 Services Road G-12 Islamabad
+                  MA Plaza Ground Floor Shop # 3, Kahror Pacca
                 </a>
               </div>
             </div>
@@ -223,7 +224,7 @@ export default function Footer({ user }) {
             href="https://worldflytickets.com/"
             style={{ color: theme.colors.sidebarText }}
           >
-            &copy; {dayjs().year()} World Fly Travel & Tours (Pvt Ltd ).
+            &copy; {dayjs().year()} Shaheen Wings Travels (Pvt Ltd ).
           </a>
 
           <a

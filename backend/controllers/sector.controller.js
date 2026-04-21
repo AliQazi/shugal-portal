@@ -4,8 +4,7 @@ import Sector from "../models/Sector.js";
 import UnifiedGroupCache from "../models/UnifiedGroupCache.js";
 import Booking from "../models/Booking.js";
 import Margin from "../models/Margin.js";
-import SabaoonGroupOverride from "../models/SabaoonGroupOverride.js";
-import { fetchNormalisedSabaoonGroups } from "./sabaoon.controller.js";
+import { fetchNormalisedAlHaiderGroups } from "./al-haider.controller.js";
 
 const normalizeSector = (sector) => {
   if (!sector) return null;
@@ -481,35 +480,24 @@ export const getUnifiedGroups = async (req, res) => {
     }
 
     /* ===============================
-       1️⃣1️⃣ Fetch Sabaoon Groups (live, not cached)
+       1️⃣1️⃣ Fetch Al-Haider Groups (live, not cached)
     =============================== */
-    let sabaoonGroups = [];
+    let alHaiderGroups = [];
     try {
-      const rawSabaoon = await fetchNormalisedSabaoonGroups();
+      const rawAlHaider = await fetchNormalisedAlHaiderGroups();
 
-      // Load overrides for individualMargin + hidden flag
-      const overrides = await SabaoonGroupOverride.find({}).lean();
-      const overrideMap = Object.fromEntries(
-        overrides.map((o) => [String(o.groupId), o]),
-      );
-
-      // Build airline name → shortCode map from our DB airlines
       const airlineShortMap = {};
       for (const a of airlines) {
         if (a.airlineName) airlineShortMap[a.airlineName.trim()] = a.shortCode || null;
       }
 
-      // Filter hidden groups, attach individualMargin + short_name
-      sabaoonGroups = rawSabaoon
-        .filter((g) => !overrideMap[String(g.id)]?.isHidden)
+      alHaiderGroups = rawAlHaider
         .map((g) => {
-          const override = overrideMap[String(g.id)];
           const airlineName = g.airline?.airline_name || "";
           return {
             ...g,
-            source: "sabaoon",
+            source: "al-haider",
             isOwnGroup: false,
-            individualMargin: override?.individualMargin ?? null,
             airline: g.airline
               ? {
                   ...g.airline,
@@ -521,11 +509,13 @@ export const getUnifiedGroups = async (req, res) => {
               : g.airline,
           };
         });
-    } catch (sabaoonErr) {
+      // Sabaoon and other API feeds are intentionally disabled here.
+      // All Groups should now use local admin groups plus Al-Haider groups only.
+    } catch (alHaiderErr) {
       // Non-fatal — admin groups are still returned
       console.error(
-        "Sabaoon fetch for unified groups failed:",
-        sabaoonErr.message,
+        "Al-Haider fetch for unified groups failed:",
+        alHaiderErr.message,
       );
     }
 
@@ -533,7 +523,7 @@ export const getUnifiedGroups = async (req, res) => {
        1️⃣2️⃣ Response
     =============================== */
     const adminGroupsData = cacheDoc.data.map((g) => ({ ...g, isOwnGroup: true }));
-    const combinedData = [...adminGroupsData, ...sabaoonGroups];
+     const combinedData = [...adminGroupsData, ...alHaiderGroups];
 
     // Apply sector order to the full combined dataset (admin + sabaoon)
     combinedData.sort((a, b) => {

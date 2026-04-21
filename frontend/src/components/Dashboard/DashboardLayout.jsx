@@ -322,7 +322,7 @@ const DashboardLayout = ({ user, handleLogout }) => {
             }}
           >
             <div
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/dashboard")}
               style={{
                 cursor: "pointer",
                 display: "flex",

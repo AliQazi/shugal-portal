@@ -494,6 +494,7 @@ export default function BookingForm({ user }) {
 
       const bookingData = {
         groupId: groupData.id,
+        source: groupData.source || "admin",
         groupType: groupData.type,
         airline: {
           id: groupData.airline?.id || null,

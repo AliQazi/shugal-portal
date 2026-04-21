@@ -71,7 +71,7 @@ app.use("/api/specialOffer", specialOffer);
 startBookingExpiryJob();
 
 app.get("/", (req, res) => {
-  res.send("World fly travel and tours (Pvt Ltd ) API is running");
+  res.send("Shaheen Wings travel and tours (Pvt Ltd ) API is running");
 });
 
 const PORT = process.env.PORT || 8007;

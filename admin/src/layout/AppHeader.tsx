@@ -84,11 +84,11 @@ const AppHeader: React.FC = () => {
           </button>
 
           <Link to="/" className="lg:hidden">
-            <img
+            {/* <img
               className="w-12"
               src="/admin-portal/images/logo/logo.webp"
               alt="Logo"
-            />
+            /> */}
             {/* <img
               className="hidden dark:block"
               src="./admin-portal/images/logo/logo-dark.webp"

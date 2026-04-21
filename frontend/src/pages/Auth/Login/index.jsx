@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axiosInstance from "../../../api/axios";
 import { toast } from "react-toastify";
-import logo from "../../../assets/images/logo.webp";
-import bg from "../../../assets/images/bahrain.webp";
+import logo from "../../../assets/images/logo2.png";
+import bg from "../../../assets/images/bgaeroplane.webp";
 
 const Login = ({ onLogin }) => {
   const [formData, setFormData] = useState({
@@ -118,22 +118,33 @@ const Login = ({ onLogin }) => {
       >
         <div className="flex flex-col md:flex-row w-full max-w-250 bg-white rounded-2xl shadow-2xl overflow-hidden min-h-140">
           {/* LEFT PANEL - Branded Gradient */}
-          <div className="hidden md:flex flex-1 bg-linear-to-br from-[#21397C] to-[#2CA3B4] items-center justify-center p-8 lg:p-12 relative overflow-hidden">
+          <div className="hidden md:flex flex-1 bg-linear-to-br from-[#3c62c9] to-[#2CA3B4] items-center justify-center p-8 lg:p-12 relative overflow-hidden">
             <div className="absolute top-[-50%] right-[-50%] w-[200%] h-[200%] bg-[radial-gradient(circle,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0)_70%)] pointer-events-none" />
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-linear-to-r from-white/20 via-white/80 to-white/20" />
 
             <div className="text-center text-white z-10 animate-[fadeInUp_0.6s_ease-out]">
-              <div className="w-22 h-22 mx-auto mb-6 rounded-xl flex items-center justify-center">
+              <div className="w-36 h-36 mx-auto mb-6 rounded-full bg-white flex items-center justify-center p-3">
                 <img
                   src={logo}
                   alt="logo"
                   className="w-full h-full object-contain"
                 />
               </div>
-              <h2 className="text-3xl font-semibold mb-3 tracking-tight">
-                Secure Access
-              </h2>
-              <p className="text-sm opacity-85">Sign in to your account</p>
+             <div className="text-center mb-15 mt-10 space-y-4">
+          {/* <div className="inline-block px-4 py-1 rounded-full border border-white/20 bg-white/5 backdrop-blur-md text-white/70 text-[10px] uppercase tracking-[0.4em] font-bold">
+            Established Excellence
+          </div> */}
+          <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tighter uppercase italic">
+            Shaheen <span className="text-white">Wings</span>
+          </h1>
+          <div className="flex items-center justify-center gap-4">
+            <div className="h-[1px] w-12 bg-gradient-to-r from-transparent to-white/50"></div>
+            <p className="text-sm text-gray-300 font-medium tracking-widest uppercase">
+              Travels (Pvt Ltd)
+            </p>
+            <div className="h-[1px] w-12 bg-gradient-to-l from-transparent to-white/50"></div>
+          </div>
+        </div>
             </div>
           </div>
 

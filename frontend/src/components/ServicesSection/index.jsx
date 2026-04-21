@@ -10,190 +10,118 @@ import service6 from "../../assets/images/service6.webp";
 import mosque from "../../assets/images/mosque.png";
 
 const services = [
-  {
-    id: 1,
-    title: "Air Tickets",
-    description:
-      "We arrange safe, comfortable air tickets, activities, and hotels for your stay.",
-    image: service1,
-  },
-  {
-    id: 2,
-    title: "Umrah Packages",
-    description:
-      "We offer Umrah travel packages for groups and affordable deals with top service quality.",
-    image: service2,
-  },
-  {
-    id: 3,
-    title: "Visa Services",
-    description:
-      "Efficient visa services for seamless international travel with expert guidance.",
-    image: service3,
-  },
-  {
-    id: 4,
-    title: "Hotel Packages",
-    description:
-      "Luxurious hotel stays with curated experiences at top destinations worldwide.",
-    image: service4,
-  },
-  {
-    id: 5,
-    title: "Travel Consultancy",
-    description:
-      "Expert guidance, personalized bookings, and travel tips for unforgettable adventures.",
-    image: service5,
-  },
-  {
-    id: 6,
-    title: "Meet & Assist",
-    description:
-      "Seamless meet and assist services for stress-free airport experiences.",
-    image: service6,
-  },
+  { id: 1, title: "Air Tickets", description: "Seamless sky travel. We arrange safe, comfortable air tickets and premium lounge access for your journey.", image: service1 },
+  { id: 2, title: "Umrah Packages", description: "Spiritual journeys crafted with care. Affordable group deals with top-tier service quality.", image: service2 },
+  { id: 3, title: "Visa Services", description: "Skip the paperwork. Expert guidance and efficient processing for all international destinations.", image: service3 },
+  { id: 4, title: "Hotel Packages", description: "Your home away from home. Curated stays ranging from boutique gems to 5-star luxury.", image: service4 },
+  { id: 5, title: "Travel Consultancy", description: "Personalized itineraries and insider tips to turn your dream vacation into reality.", image: service5 },
+  { id: 6, title: "Meet & Assist", description: "VIP airport treatment. Effortless transitions from the curb to the cabin.", image: service6 },
 ];
 
 export default function ServicesSection() {
   return (
-    <section
-      className="relative py-24 overflow-hidden"
-      style={{
-        // Grey Background - Different from other sections
-        background: `linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 50%, #cbd5e1 100%)`,
-      }}
-    >
-      {/* Subtle Grid Pattern for Depth */}
-      <div
-        className="absolute inset-0 opacity-20 pointer-events-none"
-        style={{
-          backgroundImage: `
-            linear-gradient(rgba(100, 116, 139, 0.08) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(100, 116, 139, 0.08) 1px, transparent 1px)
-          `,
-          backgroundSize: "40px 40px",
-        }}
-      />
+    <section className="relative py-24 bg-[#f8fafc] overflow-hidden">
+      {/* --- Decorative Elements --- */}
+      <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-white to-transparent z-0" />
+      
+      {/* Background Blobs */}
+      <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] rounded-full bg-blue-100/50 blur-[120px] pointer-events-none" />
+      <div className="absolute top-[20%] -right-[5%] w-[30%] h-[30%] rounded-full bg-indigo-50/50 blur-[100px] pointer-events-none" />
 
-      <div className="main-container relative z-10 max-w-7xl mx-auto px-6">
-        {/* Heading */}
-        <div className="text-center mb-20">
-          <p
-            className="text-sm font-semibold tracking-widest uppercase mb-3"
-            style={{ color: theme.colors.accent }}
-          >
-            OUR EXPERTISE
+      <div className="max-w-7xl mx-auto px-6 relative z-10">
+        {/* --- Header Section --- */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
+          <div className="max-w-2xl">
+            {/* <span 
+              className="inline-block px-4 py-1.5 mb-4 text-xs font-bold tracking-[0.2em] uppercase rounded-full bg-white shadow-sm border border-slate-100"
+              style={{ color: theme.colors.accent }}
+            >
+              Our Expertise
+            </span> */}
+            <h2 className="text-4xl md:text-6xl font-extrabold text-slate-900 tracking-tight">
+              Premium Travel <br/>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">
+                Solutions for You
+              </span>
+            </h2>
+          </div>
+          <p className="text-slate-500 max-w-xs text-lg leading-relaxed border-l-2 border-slate-200 pl-6">
+            We handle the details so you can focus on the memories. Explore our specialized services.
           </p>
-          <h2
-            className="text-4xl md:text-5xl font-bold tracking-tight"
-            style={{ color: theme.colors.textPrimary }}
-          >
-            Our Services
-          </h2>
-          <div
-            className="w-24 h-1 mx-auto mt-6 rounded-full"
-            style={{
-              background: theme.colors.ublGradient,
-            }}
-          />
         </div>
 
-        {/* Services Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {services.map((service) => (
+        {/* --- Services Grid --- */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-12 gap-x-8">
+          {services.map((service, index) => (
             <div
               key={service.id}
-              className="group relative rounded-3xl overflow-hidden bg-white shadow-xl hover:shadow-2xl transition-all duration-500"
+              className="group relative flex flex-col"
             >
-              {/* Animated Gradient Border */}
-              <div
-                className="absolute -inset-0.75 rounded-3xl opacity-75 pointer-events-none z-10"
-                style={{
-                  background: `conic-gradient(
-                    from 0deg,
-                    transparent 30deg,
-                    ${theme.colors.primaryLight} 80deg,
-                    ${theme.colors.accentLight} 140deg,
-                    ${theme.colors.ublGradientEnd} 220deg,
-                    ${theme.colors.primaryLight} 300deg,
-                    transparent 330deg
-                  )`,
-                  backgroundSize: "280% 280%",
-                  animation: "borderFlow 12s linear infinite",
-                  filter: "blur(5px)",
-                }}
-              />
-
-              {/* Card Content */}
-              <div className="relative z-20 bg-white rounded-3xl overflow-hidden">
-                {/* Image Section */}
-                <div className="relative h-64 overflow-hidden">
-                  <img
-                    style={{ height: "100%" }}
-                    src={service.image}
-                    alt={service.title}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  />
-
-                  {/* Image Overlay */}
-                  <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
+              {/* Image Container with Floating Effect */}
+              <div className="relative h-72 w-full rounded-2xl overflow-hidden shadow-2xl transition-all duration-500 group-hover:-translate-y-3">
+                <img
+                  src={service.image}
+                  alt={service.title}
+                  className="w-full h-full! object-cover transition-transform duration-700 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
+                
+                {/* Floating Service Number */}
+                <div className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white font-bold border border-white/30">
+                  0{index + 1}
                 </div>
+              </div>
 
-                {/* Text Content */}
-                <div className="p-8 flex flex-col">
-                  <h3
-                    className="text-2xl font-semibold mb-3 tracking-tight"
-                    style={{ color: theme.colors.textPrimary }}
-                  >
-                    {service.title}
-                  </h3>
-
-                  <p
-                    className="text-[15.5px] leading-relaxed flex-1 mb-6"
-                    style={{ color: theme.colors.textSecondary }}
-                  >
-                    {service.description}
-                  </p>
-
-                  <button
-                    className="mt-auto w-full py-3.5 rounded-2xl font-semibold text-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md flex items-center justify-center gap-2 group/btn"
-                    style={{
-                      background: theme.colors.ublGradient,
-                      color: "#fff",
-                    }}
-                  >
-                    Learn More
-                    <span className="transition-transform duration-300 group-hover/btn:translate-x-1">
-                      →
-                    </span>
-                  </button>
-                </div>
+              {/* Content Box - Overlapping the image slightly */}
+              <div className="relative -mt-12 mx-4 p-6 bg-white rounded-xl shadow-xl border border-slate-50 transition-all duration-500 group-hover:shadow-indigo-100">
+                <h3 className="text-xl font-bold text-slate-800 mb-2 group-hover:text-blue-600 transition-colors">
+                  {service.title}
+                </h3>
+                <p className="text-slate-500 text-sm leading-relaxed mb-4 line-clamp-2">
+                  {service.description}
+                </p>
+                
+                <button className="flex items-center gap-2 text-sm font-bold text-slate-900 group/btn">
+                  <span className="relative">
+                    Explore Details
+                    <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-blue-600 transition-all duration-300 group-hover/btn:w-full" />
+                  </span>
+                  <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center transition-colors group-hover/btn:bg-blue-600 group-hover/btn:text-white">
+                    →
+                  </div>
+                </button>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Background Mosque - Subtle */}
-      <img
-        src={mosque}
-        alt="mosque"
-        className="absolute bottom-0 right-0 w-3/4 sm:w-1/2 opacity-6 pointer-events-none"
-      />
+      {/* --- Aesthetic Mosque Background --- */}
+      <div className="absolute bottom-0 right-0 w-full h-full flex justify-end items-end opacity-[0.03] pointer-events-none select-none">
+        <img
+          src={mosque}
+          alt="mosque"
+          className="w-1/2 translate-y-1/4 translate-x-1/4"
+        />
+      </div>
 
-      {/* Smooth Border Animation */}
       <style jsx>{`
-        @keyframes borderFlow {
-          0% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-          100% {
-            background-position: 0% 50%;
-          }
+        /* Smooth Entrance Animation for Grid Items */
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
         }
+        
+        .grid > div {
+          animation: fadeUp 0.8s ease backwards;
+        }
+        
+        .grid > div:nth-child(1) { animation-delay: 0.1s; }
+        .grid > div:nth-child(2) { animation-delay: 0.2s; }
+        .grid > div:nth-child(3) { animation-delay: 0.3s; }
+        .grid > div:nth-child(4) { animation-delay: 0.4s; }
+        .grid > div:nth-child(5) { animation-delay: 0.5s; }
+        .grid > div:nth-child(6) { animation-delay: 0.6s; }
       `}</style>
     </section>
   );
