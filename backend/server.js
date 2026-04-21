@@ -35,6 +35,7 @@ app.use(
       "http://localhost:3001",
       "https://worldflytickets.com",
       "https://www.worldflytickets.com",
+      "https://shaheenwingstravels.com"
     ],
     credentials: true,
   }),
