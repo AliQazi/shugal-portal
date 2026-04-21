@@ -75,7 +75,7 @@ app.get("/", (req, res) => {
   res.send("Shaheen Wings travel and tours (Pvt Ltd ) API is running");
 });
 
-const PORT = process.env.PORT || 8007;
+const PORT = process.env.PORT || 8016;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 export default app;
