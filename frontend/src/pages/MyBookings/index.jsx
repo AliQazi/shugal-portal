@@ -685,7 +685,7 @@ export default function MyBookings() {
                             booking.status === "confirmed") && (
                             <div className="flex flex-row justify-center items-center gap-2 w-full mt-2">
                               {/* 1. ORIGINAL FULL PDF DOWNLOAD */}
-                              <button
+                              {/* <button
                                 onClick={() => {
                                   generateBookingPDF(booking).catch((err) => {
                                     console.error("Error generating PDF:", err);
@@ -695,7 +695,8 @@ export default function MyBookings() {
                                 className="p-2.5 text-slate-600 bg-slate-100 hover:bg-slate-200 hover:text-slate-700 rounded-lg transition-all shadow-sm hover:shadow-md border border-slate-200"
                                 title="Download Full Ticket"
                               >
-                                {/* Download Icon */}
+                                
+
                                 <svg
                                   className="w-4 h-4"
                                   fill="none"
@@ -709,10 +710,10 @@ export default function MyBookings() {
                                     d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                                   />
                                 </svg>
-                              </button>
+                              </button> */}
 
                               {/* 2. NEW CLIENT PDF DOWNLOAD (Only PNR & ID) */}
-                              <button
+                              {/* <button
                                 onClick={() => {
                                   generateClientPDF(booking).catch((err) => {
                                     console.error(
@@ -727,7 +728,7 @@ export default function MyBookings() {
                                 className="flex flex-col items-center justify-center p-2.5 text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-700 rounded-lg transition-all shadow-sm hover:shadow-md border border-red-200"
                                 title="Download Client Copy (No Agency Info)"
                               >
-                                {/* Icon */}
+                                
                                 <svg
                                   className="w-4 h-4"
                                   fill="none"
@@ -742,11 +743,11 @@ export default function MyBookings() {
                                   />
                                 </svg>
 
-                                {/* Small text below */}
+                                
                                 <span className="text-[9px] font-semibold mt-1 leading-none">
                                   PDF 2
                                 </span>
-                              </button>
+                              </button> */}
                               {/* 3. PRINT TICKET */}
                               <button
                                 onClick={() => printGDSBooking(booking)}

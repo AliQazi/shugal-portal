@@ -17,7 +17,7 @@ import {
   LogOut,
   Bell,
 } from "lucide-react";
-import logo from "../../assets/images/logo.webp";
+import logo from "../../assets/images/logo2-.png";
 
 /* ─── Ripple ─────────────────────────────────────────────── */
 const RippleButton = ({ children, style, onClick, className, to }) => {

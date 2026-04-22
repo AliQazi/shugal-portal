@@ -61,8 +61,8 @@ export default function SignInForm() {
             <div className="w-full max-w-md p-8 bg-gray-800 rounded-lg shadow-xl">
                 {/* Logo */}
                 <div className="flex justify-center mb-6">
-                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center">
-                        <img src="/admin-portal/images/logo/logo.webp" alt="Logo" className="rounded-full" />
+                    <div className="w-25 h-25 bg-white rounded-full flex items-center justify-center">
+                        <img src="src/assets/images/logo2-.png" alt="Logo" className="rounded-full" />
                     </div>
                 </div>
 

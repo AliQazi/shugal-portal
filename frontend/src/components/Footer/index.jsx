@@ -9,6 +9,8 @@ import { theme } from "../../theme/theme";
 import footerBg from "../../assets/images/uae.webp";
 import { Plane } from "lucide-react";
 
+const WHATSAPP_URL = "https://wa.me/923099802154";
+
 export default function Footer({ user }) {
   return (
     <>
@@ -122,13 +124,27 @@ export default function Footer({ user }) {
 
               <div className="flex flex-col gap-3">
                 {["Home", "About", "Packages", "Contact"].map((item) => (
-                  <button
-                    key={item}
-                    className="text-left transition-all duration-300 hover:translate-x-1"
-                    style={{ color: theme.colors.sidebarText }}
-                  >
-                    {item}
-                  </button>
+                  item === "Contact" ? (
+                    <a
+                      key={item}
+                      href={WHATSAPP_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-left ml-4 text-[15px] transition-all duration-300 hover:translate-x-1"
+                      style={{ color: theme.colors.sidebarText }}
+                    >
+                      {item}
+                    </a>
+                  ) : (
+                    <button
+                      key={item}
+                      type="button"
+                      className="text-left transition-all duration-300 hover:translate-x-1"
+                      style={{ color: theme.colors.sidebarText }}
+                    >
+                      {item}
+                    </button>
+                  )
                 ))}
               </div>
             </div>
@@ -160,17 +176,18 @@ export default function Footer({ user }) {
 
             {/* Contact */}
             <div>
-              <h3
-                className="text-xl mb-5 font-semibold"
+              {/* <h3
+                className="flex flex-col gap-4 text-[1px]"
                 style={{ color: theme.colors.sidebarTextLight }}
               >
                 Contact
-              </h3>
+              </h3> */}
 
               <div className="flex flex-col gap-4">
                 <a
-                  href="https://wa.me/+923145266660"
+                  href={WHATSAPP_URL}
                   target="_blank"
+                  rel="noopener noreferrer"
                   className="flex items-center gap-3 hover:translate-x-1 transition"
                   style={{ color: theme.colors.sidebarText }}
                 >
@@ -178,7 +195,7 @@ export default function Footer({ user }) {
                 </a>
 
                 <a
-                  href="tel:+923145222231"
+                  href="tel:+9230799655120"
                   className="flex items-center gap-3 hover:translate-x-1 transition"
                   style={{ color: theme.colors.sidebarText }}
                 >
@@ -186,7 +203,7 @@ export default function Footer({ user }) {
                 </a>
 
                 <a
-                  href="tel:0512154600"
+                  href="tel:+923043121343"
                   className="flex items-center gap-3 hover:translate-x-1 transition"
                   style={{ color: theme.colors.sidebarText }}
                 >
@@ -194,16 +211,19 @@ export default function Footer({ user }) {
                 </a>
 
                 <a
-                  href="mailto:worldflytravelisb@gmail.com"
+                  href="https://mail.google.com/mail/?view=cm&fs=1&to=shaheenwingsgrouptkt@gmail.com"
+                  target="_blank"
+                  rel="noreferrer"
                   className="flex items-center gap-3 break-all hover:translate-x-1 transition"
                   style={{ color: theme.colors.sidebarText }}
                 >
-                  <IoMail /> shaheenwingstravels07@gmail.com
+                  <IoMail /> shaheenwingsgrouptkt@gmail.com
                 </a>
 
                 <a
                   href="https://maps.app.goo.gl/FQNy83JNCoqCRcBG6"
                   target="_blank"
+                  rel="noreferrer"
                   className="flex items-start gap-3 hover:translate-x-1 transition"
                   style={{ color: theme.colors.sidebarText }}
                 >

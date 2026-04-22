@@ -12,7 +12,6 @@ dist
 dist-ssr
 *.local
 .env
-src/api/axios.js
 package-lock.json
 
 # Editor directories and files
