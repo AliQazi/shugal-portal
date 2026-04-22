@@ -1,4 +1,3 @@
-import agencyLogo from "../assets/images/logo.webp";
 export const printGDSBooking = (booking: any): void => {
   // --- 1. Helper Functions ---
   const formatFullDate = (dateStr: string | Date | undefined): string => {
@@ -73,13 +72,8 @@ export const printGDSBooking = (booking: any): void => {
   const depTime = flight.depTime || booking.depTime || "00:00";
   const arrTime = flight.arrTime || booking.arrTime || "00:00";
   const depDate = formatFullDate(booking.departureDate);
-  const arrDate = formatFullDate(booking.arrivalDate || booking.departureDate);
 
-  const baggage = booking.baggageWeight || flight.baggage || "20KG";
   const sector = `${origin} (${originCode}) - ${dest} (${destCode})`;
-
-  const planeIconBase64 =
-    "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzAwMCIgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiBzdHlsZT0idHJhbnNmb3JtOiByb3RhdGUoOTBkZWcpOyI+PHBhdGggZD0iTTIxIDE2di0ybC04LTVWMy41YzAtLjgzLS42Ny0xLjUtMS41LTEuNVMxMCAyLjY3IDEwIDMuNVY5TDIgMTR2Mmw4LTIuNVYxOWwtMiAxLjVWMjJsMy41LTEgMy41IDF2LTEuNUwxMyAxOXYtNS41bDggMi41eiIvPjwvc3ZnPg==";
 
   const passengers: any[] =
     booking.passengers && booking.passengers.length > 0
@@ -340,21 +334,6 @@ const ticketHTML = `
 };
 
 // --- Helper Functions ---
-const getAgencyName = (booking: any): string => {
-  const storedFrontendUser = getStoredFrontendUser();
-
-  if (typeof booking.userId === "object" && booking.userId?.companyName) {
-    return booking.userId.companyName;
-  }
-  if (booking.agencyName) {
-    return booking.agencyName;
-  }
-  if (storedFrontendUser.companyName) {
-    return storedFrontendUser.companyName;
-  }
-  return "SUPRA TRAVEL & TOURS";
-};
-
 const getStoredFrontendUser = (): Record<string, string> => {
   try {
     return JSON.parse(localStorage.getItem("frontend_user") || "{}");

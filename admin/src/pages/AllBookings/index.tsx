@@ -2,11 +2,9 @@ import { useState, useEffect, memo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { format } from "date-fns"
 import axiosInstance from '../../Api/axios'
-import { generateBookingPDF } from '../../utils'
 import MaskedDatePicker from '../../components/maskedDatePicker'
 import { toast } from 'react-toastify'
 import { printGDSBooking } from '../../utils/bookingPDFService'
-import { generateClientPDF } from '../../utils/genrateclientpdf'
 
 interface Booking {
     _id: string
