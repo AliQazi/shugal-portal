@@ -16,11 +16,14 @@ const LayoutContent: React.FC = () => {
       <div
         className={`flex-1 transition-all duration-300 ease-in-out ${
           isExpanded || isHovered ? "lg:ml-[290px]" : "lg:ml-[90px]"
-        } ${isMobileOpen ? "ml-0" : ""}`}
+        } ${isMobileOpen ? "ml-0" : ""} min-h-screen flex flex-col`}
       >
         <AppHeader />
-        <div className="p-4 mx-auto md:p-6">
+        <div className="flex-1 w-full p-4 mx-auto md:p-6">
           <Outlet />
+        </div>
+        <div className="w-full px-4 pb-4 text-right text-sm text-gray-500 md:px-6 dark:text-gray-400">
+          Designed and developed by Nexagen Solution
         </div>
       </div>
     </div>

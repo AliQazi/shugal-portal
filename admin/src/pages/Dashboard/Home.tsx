@@ -323,11 +323,11 @@ export default function Home() {
       </div>
 
       {/* View Sections */}
-      <div className="grid grid-cols-1 gap-4 mb-6">
+      {/* <div className="grid grid-cols-1 gap-4 mb-6">
         <button className="bg-linear-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-white font-semibold py-4 px-6 rounded-lg transition-all shadow-lg text-lg">
           View All Groups
         </button>
-      </div>
+      </div> */}
 
       {/* Apply Margin Modal */}
       <Modal
