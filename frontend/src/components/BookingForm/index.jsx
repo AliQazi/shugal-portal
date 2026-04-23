@@ -7,6 +7,12 @@ import MaskedDatePicker from "../MaskedDatePicker";
 import { X, CheckCircle } from "lucide-react";
 import TopBar from "../TopBar/TopBar";
 import { parseMRZ } from "../../utils/parseMRZ";
+import countryCodes from "../../data/countryCodes.json";
+
+const nationalityOptions = countryCodes
+  .map((item) => item.country)
+  .filter(Boolean)
+  .sort((a, b) => a.localeCompare(b));
 
 export default function BookingForm({ user }) {
   // const user = JSON.parse(localStorage.getItem("frontend_user"));
@@ -327,6 +333,41 @@ export default function BookingForm({ user }) {
     });
   };
 
+  const findNationalityMatch = (value) => {
+    const typed = (value || "").trim().toLowerCase();
+    if (typed.length < 2) return null;
+
+    const exactMatch = nationalityOptions.find(
+      (item) => item.toLowerCase() === typed,
+    );
+    if (exactMatch) return exactMatch;
+
+    const startsWithMatches = nationalityOptions.filter((item) =>
+      item.toLowerCase().startsWith(typed),
+    );
+
+    if (startsWithMatches.length === 1) return startsWithMatches[0];
+
+    return null;
+  };
+
+  const normalizeNationalityValue = (value) => {
+    if (!value) return value;
+    return findNationalityMatch(value) || value;
+  };
+
+  const handleNationalityChange = (index, value) => {
+    const matchedNationality = findNationalityMatch(value);
+    handlePassengerChange(index, "nationality", matchedNationality || value);
+  };
+
+  const handleNationalityBlur = (index, value) => {
+    const matchedNationality = findNationalityMatch(value);
+    if (matchedNationality) {
+      handlePassengerChange(index, "nationality", matchedNationality);
+    }
+  };
+
   // Store a file locally for a passenger — actual upload happens at booking submit
   const handleDocSelect = (index, file) => {
     if (!file) return;
@@ -416,7 +457,9 @@ export default function BookingForm({ user }) {
           surName: result.surName || newPassengers[idx].surName,
           givenName: result.givenName || newPassengers[idx].givenName,
           passport: result.passport || newPassengers[idx].passport,
-          nationality: result.nationality || newPassengers[idx].nationality,
+          nationality:
+            normalizeNationalityValue(result.nationality) ||
+            newPassengers[idx].nationality,
           dateOfBirth: result.dateOfBirth || newPassengers[idx].dateOfBirth,
           passportExpiry: result.passportExpiry || newPassengers[idx].passportExpiry,
           title: result.title || newPassengers[idx].title,
@@ -1131,12 +1174,12 @@ export default function BookingForm({ user }) {
                           type="text"
                           value={passenger.nationality || ""}
                           onChange={(e) =>
-                            handlePassengerChange(
-                              index,
-                              "nationality",
-                              e.target.value,
-                            )
+                            handleNationalityChange(index, e.target.value)
                           }
+                          onBlur={(e) =>
+                            handleNationalityBlur(index, e.target.value)
+                          }
+                          autoComplete="off"
                           className="w-full min-w-30  px-2 py-1 bg-white border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Nationality"
                         />

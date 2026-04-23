@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router";
 import axiosInstance from "../../Api/axios";
 import PageMeta from "../../components/common/PageMeta";
 import { toast } from "react-toastify";
+
+const API_GROUP_CATEGORIES = [
+    { key: "all", label: "All Groups" },
+    { key: "uae", label: "UAE" },
+    { key: "ksa", label: "KSA" },
+    { key: "muscat", label: "Muscat" },
+    { key: "umrah", label: "Umrah" },
+];
 
 const PlaneSVG = ({ className = "" }: { className?: string }) => (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor" width="1em" height="1em">
@@ -71,15 +80,21 @@ interface GroupedEntry {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function ApiGroups() {
+    const [searchParams] = useSearchParams();
     const [groups, setGroups] = useState<ApiGroup[]>([]);
     const [loading, setLoading] = useState(true);
+    const activeCategory = searchParams.get("category") || "all";
+    const activeCategoryLabel =
+        API_GROUP_CATEGORIES.find((item) => item.key === activeCategory)?.label || "All Groups";
 
     // ── Fetch ─────────────────────────────────────────────────────────────────
 
     const fetchGroups = async () => {
         try {
             setLoading(true);
-            const res = await axiosInstance.get("/al-haider/available-bookings-by-group");
+            const res = await axiosInstance.get("/al-haider/available-bookings-by-group", {
+                params: activeCategory === "all" ? {} : { category: activeCategory },
+            });
             if (res.data?.success) {
                 const data: ApiGroup[] = res.data.data || [];
                 setGroups(data);
@@ -94,7 +109,7 @@ export default function ApiGroups() {
 
     useEffect(() => {
         fetchGroups();
-    }, []);
+    }, [activeCategory]);
 
     // ── Group by airline × sector ─────────────────────────────────────────────
 
@@ -132,16 +147,18 @@ export default function ApiGroups() {
     return (
         <>
             <PageMeta
-                title="All API Groups | Admin"
+                title={`${activeCategoryLabel} API Groups | Admin`}
                 description="View Al-Haider API group flights"
             />
 
             <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/3 min-h-screen">
                 {/* ─── Page header ─────────────────────────────────────────────── */}
                 <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-                    <h1 className="text-xl font-bold text-gray-800 dark:text-white">
-                        All API Groups
-                    </h1>
+                    <div>
+                        <h1 className="text-xl font-bold text-gray-800 dark:text-white">
+                            {activeCategoryLabel} API Groups
+                        </h1>
+                    </div>
 
                     <button
                         onClick={fetchGroups}
@@ -151,6 +168,27 @@ export default function ApiGroups() {
                         <RefreshSVG className={`text-base ${loading ? "animate-spin" : ""}`} />
                         Refresh
                     </button>
+                </div>
+
+                <div className="mb-6 flex flex-wrap gap-3">
+                    {API_GROUP_CATEGORIES.map((category) => {
+                        const target = category.key === "all"
+                            ? "/api-groups"
+                            : `/api-groups?category=${encodeURIComponent(category.key)}`;
+
+                        return (
+                            <Link
+                                key={category.key}
+                                to={target}
+                                className={`rounded-full border px-4 py-2 text-sm font-medium transition ${activeCategory === category.key
+                                    ? "border-blue-600 bg-blue-600 text-white"
+                                    : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                                    }`}
+                            >
+                                {category.label}
+                            </Link>
+                        );
+                    })}
                 </div>
 
                 {/* ─── Info banner ─────────────────────────────────────────────── */}
@@ -168,7 +206,7 @@ export default function ApiGroups() {
                     <LoadingSkeleton />
                 ) : groups.length === 0 ? (
                     <div className="text-center py-16 text-gray-400">
-                        No groups returned from Al-Haider API
+                        No {activeCategoryLabel.toLowerCase()} groups returned from Al-Haider API
                     </div>
                 ) : (
                     <div className="space-y-4">

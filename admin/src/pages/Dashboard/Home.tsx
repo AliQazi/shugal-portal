@@ -1,11 +1,10 @@
 import PageMeta from "../../components/common/PageMeta";
-import { ArrowRightIcon, UsersIcon, IdentificationIcon } from "@heroicons/react/24/outline";
-import { Link, useNavigate } from "react-router";
+import { ArrowRightIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
+import { Link } from "react-router";
 import AgentStatusChart from "../../components/charts/AgentStatusChart";
 import { useEffect, useState } from "react";
 import axiosInstance from "../../Api/axios";
 import { Modal } from "../../components/ui/modal";
-
 
 interface UnifiedGroup {
   id: string;
@@ -25,6 +24,44 @@ interface UnifiedGroup {
 
 const MONTHS_TITLE = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const DASHBOARD_CATEGORIES = [
+  {
+    title: "All Groups",
+    description: "Fetch all available bookings.",
+    category: "all",
+    accentClass: "from-slate-500 to-blue-600",
+    badgeClass: "bg-blue-50 text-blue-700 border-blue-100",
+  },
+  {
+    title: "UAE",
+    description: "Fetch UAE group bookings.",
+    category: "uae",
+    accentClass: "from-cyan-500 to-sky-600",
+    badgeClass: "bg-sky-50 text-sky-700 border-sky-100",
+  },
+  {
+    title: "KSA",
+    description: "Fetch KSA group bookings.",
+    category: "ksa",
+    accentClass: "from-emerald-500 to-teal-600",
+    badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-100",
+  },
+  {
+    title: "Muscat",
+    description: "Fetch Muscat group bookings.",
+    category: "muscat",
+    accentClass: "from-violet-500 to-indigo-600",
+    badgeClass: "bg-violet-50 text-violet-700 border-violet-100",
+  },
+  {
+    title: "Umrah",
+    description: "Fetch Umrah group bookings.",
+    category: "umrah",
+    accentClass: "from-rose-500 to-red-600",
+    badgeClass: "bg-rose-50 text-rose-700 border-rose-100",
+  },
+];
 
 function trimTime(t: string): string {
   if (!t) return "";
@@ -140,7 +177,6 @@ Website: shaheenwings.com`;
 }
 
 export default function Home() {
-  const navigate = useNavigate()
   const [unifiedGroups, setUnifiedGroups] = useState<UnifiedGroup[]>([]);
   const [copied, setCopied] = useState(false);
   const [isMarginModalOpen, setIsMarginModalOpen] = useState(false);
@@ -290,31 +326,79 @@ export default function Home() {
         </button>
       </div>
 
-      {/* Top Cards Section */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mb-6">
-        {/* Agents Card */}
-        <div className="bg-linear-to-br from-teal-500 to-emerald-600 dark:from-teal-600 dark:to-emerald-700 rounded-lg p-6 text-white relative shadow-lg">
-          <div className="absolute top-6 right-6 opacity-20">
-            <UsersIcon className="w-16 h-16" />
+      {/* Categories Section */}
+      <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+        <div className="mb-5 flex flex-col gap-3 border-b border-gray-100 pb-5 dark:border-gray-800 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white/90">
+              Group Categories
+            </h2>
           </div>
-          <h3 className="text-xl font-semibold mb-2">Agents</h3>
-          <p className="text-teal-100 mb-4 text-sm">My Agents</p>
-          <Link to="/registered-agencies" className="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded text-sm transition-colors">
-            Go to list <ArrowRightIcon className="w-3.5 h-3.5" />
-          </Link>
+{/* 
+          <div className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+            {DASHBOARD_CATEGORIES.length} live API categories
+          </div> */}
         </div>
 
-        {/* Index Cards */}
-        <div className="bg-linear-to-br from-slate-500 to-blue-600 dark:from-slate-600 dark:to-blue-700 rounded-lg p-6 text-white relative shadow-lg">
-          <div className="absolute top-6 right-6 opacity-20">
-            <IdentificationIcon className="w-16 h-16" />
-          </div>
-          <h3 className="text-xl font-semibold mb-2">Index Cards</h3>
-          <p className="text-slate-100 mb-4 text-sm">Index Cards</p>
-          <button onClick={() => { navigate("/special-offers") }} className="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded text-sm transition-colors">
-            Go to list <ArrowRightIcon className="w-3.5 h-3.5" />
-          </button>
+        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-4">
+          {DASHBOARD_CATEGORIES.map((category, idx) => {
+            const target = category.category === "all"
+              ? "/api-groups"
+              : `/api-groups?category=${encodeURIComponent(category.category)}`;
+
+            return (
+              <Link
+                key={category.title}
+                to={target}
+                className="group relative overflow-hidden rounded-3xl border border-gray-100 dark:border-gray-800 bg-white/70 dark:bg-gray-900/60 shadow-xl backdrop-blur-lg p-0 transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl"
+                style={{ boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.18)' }}
+              >
+                {/* Animated Gradient Overlay */}
+                <div className={`absolute inset-0 z-0 pointer-events-none animate-gradient-x ${category.accentClass}`} style={{ opacity: 0.35 }} />
+                {/* Glassmorphism Blur Layer */}
+                <div className="absolute inset-0 z-0 bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl" />
+                <div className="relative z-10 p-7 flex flex-col h-full">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className={`flex h-14 w-14 items-center justify-center rounded-2xl border-2 shadow-lg bg-gradient-to-br ${category.accentClass} ${category.badgeClass} ring-2 ring-white/60 dark:ring-gray-900/60`}> 
+                      <Squares2X2Icon className="h-7 w-7 drop-shadow-lg text-white" />
+                    </div>
+                    <span className="ml-auto px-4 py-1 rounded-full text-xs font-extrabold bg-white/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 shadow-md tracking-wide">
+                      {category.title}
+                    </span>
+                  </div>
+                  <div className="flex-1 flex flex-col justify-between">
+                    <div>
+                      <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-1 drop-shadow-lg tracking-tight">
+                        {category.title}
+                      </h3>
+                      <p className="text-base text-gray-700 dark:text-gray-300 mb-3 font-medium">
+                        {category.description}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between mt-6">
+                      <span className={`inline-block px-4 py-1 rounded-full text-xs font-bold border ${category.badgeClass} shadow-md bg-white/70 dark:bg-gray-900/70`}>Category: {category.category.toUpperCase()}</span>
+                      <span className="inline-flex items-center gap-2 text-base font-bold text-blue-700 dark:text-blue-300 group-hover:text-blue-900 dark:group-hover:text-blue-200 transition-colors">
+                        See bookings
+                        <ArrowRightIcon className="h-5 w-5 transition-transform group-hover:translate-x-1.5" />
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
         </div>
+        {/* Custom CSS for animated gradient */}
+        <style>{`
+          @keyframes gradient-x {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+          }
+          .animate-gradient-x {
+            background-size: 200% 200%;
+            animation: gradient-x 4s ease-in-out infinite;
+          }
+        `}</style>
       </div>
 
       {/* Agent Status Chart */}

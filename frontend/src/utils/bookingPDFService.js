@@ -13,6 +13,9 @@ export const printGDSBooking = (booking) => {
     // --- 2. Data Preparation (Preserving your logic + adding PDF specific helpers) ---
     const flight = booking.flights?.[0] || {};
 
+    // Booking Status
+    const bookingStatus = (booking.status || booking.bookingStatus || "N/A").toUpperCase();
+
     // Airline & Logos
     const airlineName = (
         booking.airline?.name ||
@@ -254,6 +257,10 @@ export const printGDSBooking = (booking) => {
             <div class="sum-card">
                 <div class="sum-label">ROUTE</div>
                 <div class="sum-val">${sector}</div>
+            </div>
+            <div class="sum-card">
+                <div class="sum-label">STATUS</div>
+                <div class="sum-val">${bookingStatus}</div>
             </div>
         </div>
 

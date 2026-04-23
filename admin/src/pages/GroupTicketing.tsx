@@ -1,8 +1,18 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import axiosInstance from "../Api/axios";
 import PageMeta from "../components/common/PageMeta";
 import PageBreadCrumb from "../components/common/PageBreadCrumb";
+
+const GROUP_TYPE_OPTIONS = [
+  "UAE Groups",
+  "KSA Groups",
+  "Bahrain Groups",
+  "Mascat Groups",
+  "Qatar Groups",
+  "UK Groups",
+  "Umrah Groups",
+];
 
 interface Flight {
   airline: string;
@@ -57,7 +67,7 @@ interface GroupTicketing {
   groupCategory?: string;
   groupName?: string;
   showSeat?: boolean;
-  groupType: "Hajj" | "Umrah";
+  groupType: string;
   flights: Flight[];
   passengers: Passenger;
   price: Price;
@@ -73,6 +83,7 @@ interface GroupTicketing {
 
 const GroupTicketing = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [bookings, setBookings] = useState<GroupTicketing[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -84,6 +95,11 @@ const GroupTicketing = () => {
   useEffect(() => {
     fetchBookings();
   }, []);
+
+  useEffect(() => {
+    const queryGroupType = new URLSearchParams(location.search).get("groupType");
+    setGroupTypeFilter(queryGroupType || "All");
+  }, [location.search]);
 
   const fetchBookings = async () => {
     try {
@@ -177,13 +193,11 @@ const GroupTicketing = () => {
                 className="w-full h-11 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
               >
                 <option value="All">All Types</option>
-                <option value="UAE Groups">UAE Groups</option>
-                <option value="KSA Groups">KSA Groups</option>
-                <option value="Bahrain Groups">Bahrain Groups</option>
-                <option value="Mascat Groups">Mascat Groups</option>
-                <option value="Qatar Groups">Qatar Groups</option>
-                <option value="UK Groups">UK Groups</option>
-                <option value="Umrah Groups">Umrah Groups</option>
+                {GROUP_TYPE_OPTIONS.map((groupType) => (
+                  <option key={groupType} value={groupType}>
+                    {groupType}
+                  </option>
+                ))}
               </select>
             </div>
             <div>

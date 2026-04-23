@@ -189,7 +189,7 @@ export const sendPasswordResetEmail = async (
 
     // Construct reset link
     const frontendURL =
-      process.env.FRONTEND_URL || "https://worldflytickets.com";
+      process.env.FRONTEND_URL || "https://shaheenwingstravels.com";
     const resetLink = `${frontendURL}/auth/forgot-password?token=${resetToken}&userId=${userId}`;
 
     const mailOptions = {
@@ -349,7 +349,7 @@ const getCredentialsEmailHTML = (
           </div>
 
           <div style="text-align: center;">
-            <a href="${process.env.FRONTEND_URL || "https://worldflytickets.com"}/auth/login" class="button">Login to Your Account</a>
+            <a href="${process.env.FRONTEND_URL || "https://shaheenwingstravels.com"}/auth/login" class="button">Login to Your Account</a>
           </div>
 
           <div class="warning">
@@ -416,7 +416,7 @@ export const sendCredentialsEmail = async (
         userName,
         companyName,
       ),
-      text: `Hello ${userName},\n\nWelcome to Shaheen Wings travel and tours (Pvt Ltd )! Your agency account has been created successfully.\n\nCompany: ${companyName}\n\nYour Login Credentials:\nAgent Code: ${agentCode}\nEmail: ${email}\nPassword: ${password}\n\nLogin URL: ${process.env.FRONTEND_URL || "https://worldflytickets.com"}/auth/login\n\nSecurity Tips:\n- Keep your credentials safe and secure\n- Do not share your password with anyone\n- We recommend changing your password after first login\n\nBest regards,\nShaheen Wings travel and tours (Pvt Ltd )`,
+      text: `Hello ${userName},\n\nWelcome to Shaheen Wings travel and tours (Pvt Ltd )! Your agency account has been created successfully.\n\nCompany: ${companyName}\n\nYour Login Credentials:\nAgent Code: ${agentCode}\nEmail: ${email}\nPassword: ${password}\n\nLogin URL: ${process.env.FRONTEND_URL || "https://shaheenwingstravels.com"}/auth/login\n\nSecurity Tips:\n- Keep your credentials safe and secure\n- Do not share your password with anyone\n- We recommend changing your password after first login\n\nBest regards,\nShaheen Wings travel and tours (Pvt Ltd )`,
     };
 
     const info = await transporter.sendMail(mailOptions);

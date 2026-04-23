@@ -44,6 +44,20 @@ const normalizeAlHaiderType = (value) => {
     return typeMap[rawType] || rawType;
 };
 
+const getAlHaiderTypeFilters = (category) => {
+    const key = String(category || "all").toLowerCase().trim();
+
+    const filters = {
+        all: null,
+        uae: ["UAE ONE WAY GROUP"],
+        ksa: ["ONE WAY GROUP"],
+        muscat: ["OMAN ONE WAY GROUP"],
+        umrah: ["UMRAH GROUP"],
+    };
+
+    return filters[key] ?? null;
+};
+
 const normalizeFlightDetail = (detail, fallbackDepDate = null) => {
     const depDate = formatDate(
         detail?.dep_date || detail?.flight_date || detail?.departure_date || detail?.date || fallbackDepDate,
@@ -154,10 +168,14 @@ export const fetchNormalisedAlHaiderGroups = async () => {
 export const getAvailableBookingsByGroup = async (req, res) => {
     try {
         const groups = await fetchNormalisedAlHaiderGroups();
+        const allowedTypes = getAlHaiderTypeFilters(req.query.category);
+        const filteredGroups = allowedTypes
+            ? groups.filter((group) => allowedTypes.includes(group.type))
+            : groups;
 
         res.status(200).json({
             success: true,
-            data: groups
+            data: filteredGroups
         });
     } catch (error) {
         console.error("AL-HAIDER API ERROR:", error.message || error);

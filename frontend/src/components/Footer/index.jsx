@@ -248,8 +248,6 @@ export default function Footer({ user }) {
           </a>
 
           <a
-            target="_blank"
-            href="https://nexagensolution.com/"
             className="text-sm"
             style={{ color: theme.colors.sidebarText }}
           >
