@@ -241,7 +241,7 @@ export default function Footer({ user }) {
           style={{ borderColor: theme.colors.sidebarBorder }}
         >
           <a
-            href="https://worldflytickets.com/"
+            href="https://shaheenwingstravels.com/"
             style={{ color: theme.colors.sidebarText }}
           >
             &copy; {dayjs().year()} Shaheen Wings Travels (Pvt Ltd ).
