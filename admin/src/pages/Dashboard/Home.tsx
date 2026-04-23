@@ -341,7 +341,7 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-4">
-          {DASHBOARD_CATEGORIES.map((category, idx) => {
+          {DASHBOARD_CATEGORIES.map((category) => {
             const target = category.category === "all"
               ? "/api-groups"
               : `/api-groups?category=${encodeURIComponent(category.category)}`;
