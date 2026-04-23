@@ -20,6 +20,7 @@ import DashboardLayout from "../../components/Dashboard/DashboardLayout";
 import Dashboard from "./Dashboard";
 import Ledger from "./Ledger";
 import ChangePassword from "../../components/ChangePassword/ChnagePassword";
+import TeamContactList from "./Dashboard/TeamContactList";
 import Profile from "../../components/Profile/Profile";
 import MyBookings from "../MyBookings";
 import BookingDetail from "../BookingDetail";
@@ -35,7 +36,7 @@ export default function Frontend() {
     const fetchUserProfile = async () => {
       try {
         const response = await getUserProfile();
-        const userData = response.data; // ← Make sure this is correct
+        const userData = response.data; 
 
         if (userData) {
           setUser(userData);
@@ -246,6 +247,7 @@ export default function Frontend() {
         <Route path="edit-booking/:id" element={<BookingForm />} />
         <Route path="change-password" element={<ChangePassword />} />
         <Route path="profile" element={<Profile />} />
+        <Route path="team-contacts" element={<TeamContactList />} />
       </Route>
 
       {/* Profile Route - Standalone Protected */}

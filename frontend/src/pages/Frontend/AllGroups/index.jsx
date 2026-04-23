@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
+import { DashboardUIContext } from "../../../components/Dashboard/DashboardLayout";
 import { Ticket, Menu, X } from "lucide-react";
 import {
     FaPlane,
@@ -17,6 +18,16 @@ import TopBar from "../../../components/TopBar/TopBar";
 import { groupTypes } from "../../../data/groupTypes";
 
 export default function AllGroups({ headerType, header, searchParams, user }) {
+    // Access Dashboard UI context if available (only in dashboard route)
+    const dashboardUI = useContext(DashboardUIContext);
+        // On mount: close sidebar and open advanced search if in dashboard
+        useEffect(() => {
+            if (dashboardUI) {
+                dashboardUI.setSidebarOpen(false);
+                setShowAdvancedSearch(true);
+            }
+            // eslint-disable-next-line
+        }, []);
     const navigate = useNavigate();
 
     const [groups, setGroups] = useState([]);

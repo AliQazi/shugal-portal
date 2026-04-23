@@ -67,6 +67,11 @@ const navItems: NavItem[] = [
     path: "/api-groups",
   },
   {
+    icon: <UserCircleIcon />,
+    name: "Team Contacts",
+    path: "/team-contacts",
+  },
+  {
     icon: <TableIcon />,
     name: "Group Ticketing",
     subItems: [

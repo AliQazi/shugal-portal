@@ -16,6 +16,8 @@ import bookingRoutes from "./routes/booking.routes.js";
 import exportRoutes from "./routes/export.routes.js";
 import specialOffer from "./routes/specialOffer.route.js";
 
+import teamContactRoutes from "./routes/teamContact.routes.js";
+
 import { getValidSabaoonToken, initializeSabaoonToken } from "./utils/sabaoonToken.js";
 import testEmail from "./utils/testEmail.js";
 import { startBookingExpiryJob } from "./utils/bookingExpiryJob.js";
@@ -54,6 +56,8 @@ app.use("/api/sabaoon", sabaoonAPIRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/export", exportRoutes);
 app.use("/api/specialOffer", specialOffer);
+
+app.use("/api/team-contacts", teamContactRoutes);
 
 /* Initialize Sabaoon token: if DB is empty, hit login API and save token */
 (async () => {

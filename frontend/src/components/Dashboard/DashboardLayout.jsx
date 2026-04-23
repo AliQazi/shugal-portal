@@ -1,4 +1,4 @@
-﻿import { useState, useMemo, useEffect, useRef } from "react";
+﻿import { useState, useMemo, useEffect, useRef, createContext } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   ChevronDown,
@@ -81,6 +81,8 @@ const RippleButton = ({ children, style, onClick, className, to }) => {
 };
 
 /* ─── Layout ─────────────────────────────────────────────── */
+export const DashboardUIContext = createContext();
+
 const DashboardLayout = ({ user, handleLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [bookingsExpanded, setBookingsExpanded] = useState(false);
@@ -178,6 +180,11 @@ const DashboardLayout = ({ user, handleLogout }) => {
       icon: <UserCircle size={18} />,
     },
     {
+      path: "/dashboard/team-contacts",
+      label: "Team Contacts",
+      icon: <Users size={18} />,
+    },
+    {
       path: "/dashboard/change-password",
       label: "Change Password",
       icon: <Lock size={18} />,
@@ -197,6 +204,7 @@ const DashboardLayout = ({ user, handleLogout }) => {
   const isActive = (path) => location.pathname + location.search === path;
 
   return (
+    <DashboardUIContext.Provider value={{ sidebarOpen, setSidebarOpen, bookingsExpanded, setBookingsExpanded, setSearchQuery }}>
     <>
       {/* ── Keyframes injected once ── */}
       <style>{`
@@ -857,6 +865,7 @@ const DashboardLayout = ({ user, handleLogout }) => {
         </div>
       </div>
     </>
+    </DashboardUIContext.Provider>
   );
 };
 

@@ -5,6 +5,7 @@ import ChangePassword from "./pages/AuthPages/ChangePassword";
 import ForgotPassword from "./pages/AuthPages/ForgotPassword";
 import ManageUserPasswords from "./pages/AuthPages/ManageUserPasswords";
 import NotFound from "./pages/OtherPage/NotFound";
+import TeamContactAdminPage from "./pages/TeamContactAdminPage";
 import UserProfiles from "./pages/UserProfiles";
 import Videos from "./pages/UiElements/Videos";
 import Images from "./pages/UiElements/Images";
@@ -89,6 +90,7 @@ export default function App() {
                 <Route path="/basic-tables" element={<BasicTables />} />
 
                 {/* Ui Elements */}
+                <Route path="/team-contacts" element={<TeamContactAdminPage />} />
                 <Route path="/alerts" element={<Alerts />} />
                 <Route path="/avatars" element={<Avatars />} />
                 <Route path="/badge" element={<Badges />} />
