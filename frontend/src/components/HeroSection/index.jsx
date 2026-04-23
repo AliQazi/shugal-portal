@@ -52,7 +52,7 @@ export default function HeroSection() {
           <div className="flex items-center justify-center gap-4">
             <div className="h-[1px] w-12 bg-gradient-to-r from-transparent to-white/50"></div>
             <p className="text-lg md:text-xl text-gray-300 font-medium tracking-widest uppercase">
-              Travels (Pvt Ltd)
+              Travels
             </p>
             <div className="h-[1px] w-12 bg-gradient-to-l from-transparent to-white/50"></div>
           </div>
