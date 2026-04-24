@@ -100,6 +100,11 @@ export default function BookingForm({ user }) {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [isReviewed, setIsReviewed] = useState(false);
 
+
+  useEffect(() => {
+  fetchBookingVoucher(); // always fetch seat map
+}, []);
+
   // Load existing booking if in edit mode
   useEffect(() => {
     if (isEditMode && bookingId) {
@@ -110,30 +115,30 @@ export default function BookingForm({ user }) {
   }, [bookingId, isEditMode]);
 
 
-  const fetchBookingVoucher = async () => {
-    const res = await axiosInstance.get("/bookings/");
-    setBookingList(res.data.data);
+ const fetchBookingVoucher = async () => {
+    try {
+        const res = await axiosInstance.get("/bookings/");
+        const map = {};
 
-    const map = {};
+        res.data.data.forEach((booking) => {
+            const passengersLength = booking.passengers?.length || 0;
+            if (booking.status !== "cancelled") {
+                booking.flights?.forEach((flight) => {
+                    // Normalize the key: Clean flight number and YYYY-MM-DD date
+                    const flightNo = flight.flightNo?.toUpperCase().replace("-", "").trim();
+                    const depDate = new Date(flight.depDate).toISOString().split("T")[0];
+                    const key = `${flightNo}_${depDate}`;
+                    
+                    map[key] = (map[key] || 0) + passengersLength;
+                });
+            }
+        });
+        setBookedSeatsMap(map);
+    } catch (err) {
+        console.error("Error fetching seat map:", err);
+    }
+};
 
-    res.data.data.forEach((booking) => {
-      const passengersLength = booking.passengers?.length || 0;
-
-      booking.flights?.forEach((flight) => {
-        const key = `${flight.flightNo}_${new Date(flight.depDate)
-          .toISOString()
-          .split("T")[0]}`;
-
-        // ignore cancelled if needed
-        if (booking.status !== "cancelled") {
-          map[key] = (map[key] || 0) + passengersLength;
-        }
-      });
-    });
-
-    console.log("FINAL MAP:", map); // 👈 DEBUG THIS
-    setBookedSeatsMap(map);
-  };
 
   const fetchBookingForEdit = async () => {
     try {
@@ -817,19 +822,23 @@ export default function BookingForm({ user }) {
                     Available Seats
                   </p>
                   <p className="text-sm font-extrabold text-[#3d6a8f] bg-blue-50 px-2 py-1 rounded-2xl">
-                    {(() => {
-                      if (!groupData) return 0;
+    {(() => {
+  if (!groupData || !groupData.details || !groupData.details[0]) return 0;
 
-                      const date = formatDate(groupData.depDate);
-                      if (!date) return groupData.available_no_of_pax || 0;
+  const flight = groupData.details[0];
 
-                      const key = `${groupData.flightNo}_${date}`;
+  // Normalize EXACTLY like fetchBookingVoucher builds the map key
+  const flightNo = flight.flight_no?.toUpperCase().replace("-", "").trim();
+  const rawDate = flight.dep_date || flight.flight_date;
+  const depDate = new Date(rawDate).toISOString().split("T")[0];
+  const key = `${flightNo}_${depDate}`;
 
-                      const bookedSeats = bookedSeatsMap[key] || 0;
+  const booked = bookedSeatsMap[key] || 0;
+  const total = groupData.available_no_of_pax || 0;
 
-                      return (groupData.available_no_of_pax || 0) - bookedSeats;
-                    })()}
-                  </p>
+  return total - booked;
+})()}
+  </p>
                 </div>
                 <div className="flex flex-col">
                   <p className="text-xs text-gray-600 font-semibold mb-0.5">
