@@ -584,21 +584,35 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                                                     <td className="px-4 py-3 text-center">
                                                                         {group.isOwnGroup ? (
                                                                             group.showSeat ? (
-                                                                                <span className="text-sm font-bold" style={{ color: theme.colors.ublGradientStart }}>
-                                                                                    {group.available_no_of_pax}
-                                                                                </span>
+                                                                                <div className="flex flex-col items-center">
+                                                                                    <span className="text-sm font-bold" style={{ color: theme.colors.ublGradientStart }}>
+                                                                                        {group.available_no_of_pax}
+                                                                                    </span>
+                                                                                    {group._onHoldSeats > 0 && (
+                                                                                        <span className="text-xs text-orange-500 font-medium">
+                                                                                            ({group._onHoldSeats} on hold)
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
                                                                             ) : (
                                                                                 <span className="text-gray-400 text-xs">—</span>
                                                                             )
                                                                         ) : (
-                                                                            <span
-                                                                                className="text-sm font-bold"
-                                                                                style={{ color: theme.colors.ublGradientStart }}
-                                                                            >
-                                                                                {flight && typeof flight.bookedSeats === 'number'
-                                                                                  ? group.available_no_of_pax - flight.bookedSeats
-                                                                                  : group.available_no_of_pax}
-                                                                            </span>
+                                                                            <div className="flex flex-col items-center">
+                                                                                <span
+                                                                                    className="text-sm font-bold"
+                                                                                    style={{ color: theme.colors.ublGradientStart }}
+                                                                                >
+                                                                                    {flight && typeof flight.bookedSeats === 'number'
+                                                                                      ? group.available_no_of_pax - flight.bookedSeats
+                                                                                      : group.available_no_of_pax}
+                                                                                </span>
+                                                                                {flight?.bookedSeats > 0 && (
+                                                                                    <span className="text-xs text-orange-500 font-medium">
+                                                                                        ({flight.bookedSeats} booked)
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
                                                                         )}
                                                                     </td>
 

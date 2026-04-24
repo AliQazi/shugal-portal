@@ -531,7 +531,25 @@ const HOLD_DURATION = 30 * 60 * 1000; // 30 minutes
 const isLocalGroup = (groupId) => mongoose.Types.ObjectId.isValid(groupId);
 const normalizeGroupId = (groupId) => groupId?.toString();
 
-// Adjust seats only for local groups
+/**
+ * Adjust seats for local groups (admin groups)
+ * 
+ * This function is atomic and thread-safe using MongoDB's $inc operator.
+ * 
+ * Positive seatChange: Releases seats (booking cancelled)
+ * Negative seatChange: Deducts seats (booking created/on-hold)
+ * 
+ * @param {String} groupId - MongoDB ObjectId of the GroupTicketing
+ * @param {Number} seatChange - Seats to add (+) or remove (-)
+ * @param {Boolean} checkAvailability - If true, throws error if insufficient seats
+ * 
+ * @example
+ * // Booking created with 2 passengers
+ * await adjustSeatsIfLocalGroup(groupId, -2, true); // Check availability
+ * 
+ * // Booking cancelled
+ * await adjustSeatsIfLocalGroup(groupId, 2); // Release 2 seats
+ */
 const adjustSeatsIfLocalGroup = async (
   groupId,
   seatChange,
@@ -550,11 +568,32 @@ const adjustSeatsIfLocalGroup = async (
   if (result.matchedCount === 0) return; // Not local → ignore
   if (checkAvailability && result.modifiedCount === 0)
     throw new Error("Not enough seats available");
+
+  // Log the seat adjustment
+  console.log(`[SEAT ADJUSTMENT] GroupID: ${groupId}, Change: ${seatChange}, Success: ${result.modifiedCount > 0}`);
 };
 
 // -------------------------
 // CREATE BOOKING
 // -------------------------
+/**
+ * Creates a new booking with automatic seat deduction
+ * 
+ * Flow:
+ * 1. Validate passenger count and pricing
+ * 2. Deduct seats from GroupTicketing (throws if insufficient)
+ * 3. Create booking with "on hold" status
+ * 4. Set expiry timer (30 minutes)
+ * 5. Seats are automatically released if booking expires or is cancelled
+ * 
+ * Seat Tracking:
+ * - Only counts adults + children (infants don't occupy seats)
+ * - Deducted immediately (GroupTicketing.totalSeats -= seats)
+ * - Will be restored by cron job if booking expires
+ * - Can be manually restored by cancellation
+ * 
+ * @returns {Object} Booking document with auto-generated reference
+ */
 export const createBooking = async (req, res) => {
   let seatCount = 0;
   let booking = null;
@@ -587,6 +626,7 @@ export const createBooking = async (req, res) => {
     if (Math.abs(calculatedTotal - pricing.grandTotal) > 0.01)
       throw new Error("Price mismatch");
 
+    // ⭐ Only adults + children occupy seats (infants don't)
     seatCount = adultsCount + childrenCount;
     const expiresAt = new Date(Date.now() + HOLD_DURATION);
     const groupId = normalizeGroupId(incomingGroupId);
@@ -595,11 +635,13 @@ export const createBooking = async (req, res) => {
     const isSabaoonGroup = bookingSource === "sabaoon" && !isLocalGroup(groupId);
 
     // 1️⃣ Deduct from local DB (existing logic)
+    // This will throw an error if not enough seats available
     await adjustSeatsIfLocalGroup(groupId, -seatCount, true);
 
     // 2️⃣ Deduct from unified cache too
     await deductSeatsFromCache(groupId, seatCount);
 
+    // 3️⃣ Create the booking
     booking = await Booking.create({
       groupId,
       groupType,
@@ -652,7 +694,7 @@ export const createBooking = async (req, res) => {
 
     res.status(201).json({ success: true, data: booking });
   } catch (err) {
-    // Rollback local DB seats
+    // Rollback local DB seats if booking creation failed AFTER seat deduction
     if (seatCount > 0) {
       await adjustSeatsIfLocalGroup(
         normalizeGroupId(req.body.groupId),

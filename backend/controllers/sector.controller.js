@@ -299,9 +299,24 @@ export const getUnifiedGroups = async (req, res) => {
       sectorOrderMap[normalizeSector(s.sectorTitle)] = s.order ?? 999;
     });
 
-    /* 5️⃣ Fetch bookings for all admin groups */
+    /* 5️⃣ Fetch bookings for all admin groups (include cancelled for reference) */
     const groupIds = adminGroups.map(g => g._id.toString());
     const bookings = await Booking.find({ groupId: { $in: groupIds }, status: { $in: ["on hold", "confirmed"] } }).lean();
+
+    // Build a map: groupId -> total on-hold/confirmed passengers for the entire group
+    const totalHeldSeatsMap = {};
+    for (const booking of bookings) {
+      const gid = booking.groupId;
+      const seatsHeld = booking.adultsCount + booking.childrenCount;
+      totalHeldSeatsMap[gid] = (totalHeldSeatsMap[gid] || 0) + seatsHeld;
+    }
+
+    // Also track booking count per group for admin visibility
+    const bookingCountMap = {};
+    for (const booking of bookings) {
+      const gid = booking.groupId;
+      bookingCountMap[gid] = (bookingCountMap[gid] || 0) + 1;
+    }
 
     // Build a map: groupId -> { flightKey: total booked passengers }
     // flightKey = flightNo + '|' + depDate (ISO string)
@@ -316,21 +331,28 @@ export const getUnifiedGroups = async (req, res) => {
           if (!flightNo || !depDate) continue;
           const depDateStr = new Date(depDate).toISOString().split('T')[0];
           const key = flightNo + '|' + depDateStr;
-          bookedMap[gid][key] = (bookedMap[gid][key] || 0) + (booking.totalPassengers || 0);
+          bookedMap[gid][key] = (bookedMap[gid][key] || 0) + (booking.adultsCount + booking.childrenCount || 0);
         }
       }
+    }
+
+    console.log(`[GET UNIFIED GROUPS] Fetched ${adminGroups.length} admin groups, ${bookings.length} active bookings`);
+    for (const [gid, seats] of Object.entries(totalHeldSeatsMap)) {
+      console.log(`  GroupID: ${gid}, On-Hold Seats: ${seats}, Bookings: ${bookingCountMap[gid]}`);
     }
 
     /* 4️⃣ Transform Admin Groups → Unified (with bookedSeats per flight) */
     const transformedAdmin = adminGroups.map((g) => {
       const airline = airlines.find((a) => a.airlineName === g.airline);
+      const gidString = g._id.toString();
+      
       // Prepare details with bookedSeats per flight
       const details = g.flights?.map((f, i) => {
         const flightNo = f.flightNo;
         const depDate = f.depDate;
         const depDateStr = depDate ? new Date(depDate).toISOString().split('T')[0] : '';
         const key = flightNo + '|' + depDateStr;
-        const bookedSeats = bookedMap[g._id.toString()]?.[key] || 0;
+        const bookedSeats = bookedMap[gidString]?.[key] || 0;
         return {
           sr: i + 1,
           flight_no: flightNo,
@@ -349,6 +371,14 @@ export const getUnifiedGroups = async (req, res) => {
       // For backward compatibility, sum all bookedSeats for this group (all flights)
       const totalBooked = details.reduce((sum, d) => sum + (d.bookedSeats || 0), 0);
 
+      // ⭐ Key: totalSeats is ALREADY deducted in DB when booking is on hold
+      // So available_no_of_pax = g.totalSeats (remaining after all on-hold/confirmed bookings)
+      const availableSeats = g.totalSeats;
+      const totalOnHoldSeats = totalHeldSeatsMap[gidString] || 0;
+      
+      // Original seats can be calculated if needed
+      const originalSeats = availableSeats + totalOnHoldSeats;
+
       return {
         id: g._id,
         source: "admin",
@@ -358,8 +388,14 @@ export const getUnifiedGroups = async (req, res) => {
         sectorKey: normalizeSector(g.sector), // for sorting only
         type: g.groupType,
 
-        available_no_of_pax: g.totalSeats,
+        // Available seats after on-hold deductions
+        available_no_of_pax: availableSeats,
+        // Show seat field
         showSeat: g.showSeat,
+        // Metadata for admin dashboard
+        _totalOriginalSeats: originalSeats,
+        _onHoldSeats: totalOnHoldSeats,
+        _activeBookings: bookingCountMap[gidString] || 0,
 
         price: g.price?.sellingAdultPriceB2B || 0,
         childPrice: g.price?.sellingChildPriceB2B || 0,
