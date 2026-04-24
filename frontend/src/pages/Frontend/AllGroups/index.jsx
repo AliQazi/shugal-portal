@@ -20,14 +20,14 @@ import { groupTypes } from "../../../data/groupTypes";
 export default function AllGroups({ headerType, header, searchParams, user }) {
     // Access Dashboard UI context if available (only in dashboard route)
     const dashboardUI = useContext(DashboardUIContext);
-        // On mount: close sidebar and open advanced search if in dashboard
-        useEffect(() => {
-            if (dashboardUI) {
-                dashboardUI.setSidebarOpen(false);
-                setShowAdvancedSearch(true);
-            }
-            // eslint-disable-next-line
-        }, []);
+    // On mount: close sidebar and open advanced search if in dashboard
+    useEffect(() => {
+        if (dashboardUI) {
+            dashboardUI.setSidebarOpen(false);
+            setShowAdvancedSearch(true);
+        }
+        // eslint-disable-next-line
+    }, []);
     const navigate = useNavigate();
 
     const [groups, setGroups] = useState([]);
@@ -535,7 +535,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                                                                 {flight?.flight_no?.toUpperCase() || "—"}
                                                                             </span>
                                                                         </div>
-                                                                    </td> 
+                                                                    </td>
 
                                                                     {/* Sector with route + time UI */}
                                                                     <td className="px-4 py-3">
@@ -591,8 +591,13 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                                                                 <span className="text-gray-400 text-xs">—</span>
                                                                             )
                                                                         ) : (
-                                                                            <span className="text-sm font-bold" style={{ color: theme.colors.ublGradientStart }}>
-                                                                                {group.available_no_of_pax}
+                                                                            <span
+                                                                                className="text-sm font-bold"
+                                                                                style={{ color: theme.colors.ublGradientStart }}
+                                                                            >
+                                                                                {flight && typeof flight.bookedSeats === 'number'
+                                                                                  ? group.available_no_of_pax - flight.bookedSeats
+                                                                                  : group.available_no_of_pax}
                                                                             </span>
                                                                         )}
                                                                     </td>

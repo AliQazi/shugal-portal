@@ -59,16 +59,7 @@ app.use("/api/specialOffer", specialOffer);
 
 app.use("/api/team-contacts", teamContactRoutes);
 
-/* Initialize Sabaoon token: if DB is empty, hit login API and save token */
-(async () => {
-  try {
-    // Wait a bit for DB connection to be established
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    await initializeSabaoonToken();
-  } catch (err) {
-    console.warn("Sabaoon token initialization failed:", err.message);
-  }
-})();
+// Sabaoon integration removed. Only Al-Haider API is used for group data.
 
 /* 🔥 Start Expiry Cron Job */
 startBookingExpiryJob();

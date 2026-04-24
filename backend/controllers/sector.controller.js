@@ -274,6 +274,7 @@ const makeGroupKey = (g) => {
 // };
 
 export const getUnifiedGroups = async (req, res) => {
+
   try {
     /* ===============================
        1️⃣ Fetch Admin Groups
@@ -297,11 +298,56 @@ export const getUnifiedGroups = async (req, res) => {
     sectors.forEach((s) => {
       sectorOrderMap[normalizeSector(s.sectorTitle)] = s.order ?? 999;
     });
-    /* ===============================
-       4️⃣ Transform Admin Groups → Unified
-    =============================== */
+
+    /* 5️⃣ Fetch bookings for all admin groups */
+    const groupIds = adminGroups.map(g => g._id.toString());
+    const bookings = await Booking.find({ groupId: { $in: groupIds }, status: { $in: ["on hold", "confirmed"] } }).lean();
+
+    // Build a map: groupId -> { flightKey: total booked passengers }
+    // flightKey = flightNo + '|' + depDate (ISO string)
+    const bookedMap = {};
+    for (const booking of bookings) {
+      const gid = booking.groupId;
+      if (!bookedMap[gid]) bookedMap[gid] = {};
+      if (Array.isArray(booking.flights)) {
+        for (const flight of booking.flights) {
+          const flightNo = flight.flightNo;
+          const depDate = (flight.depDate || flight.flightDate);
+          if (!flightNo || !depDate) continue;
+          const depDateStr = new Date(depDate).toISOString().split('T')[0];
+          const key = flightNo + '|' + depDateStr;
+          bookedMap[gid][key] = (bookedMap[gid][key] || 0) + (booking.totalPassengers || 0);
+        }
+      }
+    }
+
+    /* 4️⃣ Transform Admin Groups → Unified (with bookedSeats per flight) */
     const transformedAdmin = adminGroups.map((g) => {
       const airline = airlines.find((a) => a.airlineName === g.airline);
+      // Prepare details with bookedSeats per flight
+      const details = g.flights?.map((f, i) => {
+        const flightNo = f.flightNo;
+        const depDate = f.depDate;
+        const depDateStr = depDate ? new Date(depDate).toISOString().split('T')[0] : '';
+        const key = flightNo + '|' + depDateStr;
+        const bookedSeats = bookedMap[g._id.toString()]?.[key] || 0;
+        return {
+          sr: i + 1,
+          flight_no: flightNo,
+          dep_date: depDate,
+          dept_time: f.depTime,
+          origin: f.fromTerminal,
+          destination: f.toTerminal,
+          arv_date: f.arrDate,
+          arv_time: f.arrTime,
+          baggage: f.baggage,
+          meal: f.meal,
+          bookedSeats,
+        };
+      }) || [];
+
+      // For backward compatibility, sum all bookedSeats for this group (all flights)
+      const totalBooked = details.reduce((sum, d) => sum + (d.bookedSeats || 0), 0);
 
       return {
         id: g._id,
@@ -324,18 +370,7 @@ export const getUnifiedGroups = async (req, res) => {
         dept_date: g.flights?.[0]?.depDate || null,
         arv_date: g.flights?.[g.flights.length - 1]?.arrDate || null,
 
-        details: g.flights?.map((f, i) => ({
-          sr: i + 1,
-          flight_no: f.flightNo,
-          dep_date: f.depDate,
-          dept_time: f.depTime,
-          origin: f.fromTerminal,
-          destination: f.toTerminal,
-          arv_date: f.arrDate,
-          arv_time: f.arrTime,
-          baggage: f.baggage,
-          meal: f.meal,
-        })),
+        details,
 
         airline: {
           id: airline?._id || null,
@@ -343,6 +378,7 @@ export const getUnifiedGroups = async (req, res) => {
           short_name: airline?.shortCode || null,
           logo_url: airline?.logo || null,
         },
+        bookedSeats: totalBooked,
       };
     });
 

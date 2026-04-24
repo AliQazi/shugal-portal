@@ -568,7 +568,7 @@ export const createBooking = async (req, res) => {
       sector,
       pnr,
       contactPersonName,
-      adultsCount,
+      adultsCount,  
       childrenCount,
       infantsCount,
       totalPassengers,
