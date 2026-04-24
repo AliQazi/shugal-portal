@@ -29,7 +29,7 @@ export default function BookingForm({ user }) {
       .then((res) => {
         if (res.data?.success) setDbMargin(res.data.data);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // 3-tier margin priority:
@@ -81,6 +81,9 @@ export default function BookingForm({ user }) {
     passengers: [],
   });
 
+
+  const [bookingList, setBookingList] = useState([]);
+  const [bookedSeatsMap, setBookedSeatsMap] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingBooking, setLoadingBooking] = useState(isEditMode);
   // const [existingBooking, setExistingBooking] = useState(null);
@@ -101,9 +104,36 @@ export default function BookingForm({ user }) {
   useEffect(() => {
     if (isEditMode && bookingId) {
       fetchBookingForEdit();
+      fetchBookingVoucher();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookingId, isEditMode]);
+
+
+  const fetchBookingVoucher = async () => {
+    const res = await axiosInstance.get("/bookings/");
+    setBookingList(res.data.data);
+
+    const map = {};
+
+    res.data.data.forEach((booking) => {
+      const passengersLength = booking.passengers?.length || 0;
+
+      booking.flights?.forEach((flight) => {
+        const key = `${flight.flightNo}_${new Date(flight.depDate)
+          .toISOString()
+          .split("T")[0]}`;
+
+        // ignore cancelled if needed
+        if (booking.status !== "cancelled") {
+          map[key] = (map[key] || 0) + passengersLength;
+        }
+      });
+    });
+
+    console.log("FINAL MAP:", map); // 👈 DEBUG THIS
+    setBookedSeatsMap(map);
+  };
 
   const fetchBookingForEdit = async () => {
     try {
@@ -228,6 +258,17 @@ export default function BookingForm({ user }) {
       }),
     }));
   }, [formData.adults, formData.children, formData.infants, isEditMode]);
+  const formatDate = (date) => {
+  const d = new Date(date);
+
+  if (isNaN(d.getTime())) return null;
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
 
   // --- Helper to safely render dates ---
   const formatDateForDisplay = (dateValue) => {
@@ -497,13 +538,35 @@ export default function BookingForm({ user }) {
       return handleUpdate();
     }
 
+    const normalizeFlightNo = (fn) =>
+      fn?.toUpperCase().replace("-", "").trim();
+
+    // 🔑 get flight from groupData (same as table)
+    const flight = groupData?.details?.[0];
+
+    let booked = 0;
+    let key = "";
+    if (flight) {
+      key = `${normalizeFlightNo(flight.flight_no)}_${new Date(
+        flight.dep_date || flight.flight_date
+      )
+        .toISOString()
+        .split("T")[0]}`;
+      booked = bookedSeatsMap[key] || 0;
+    }
+
     const payingPassengers =
       (parseInt(formData.adults) || 0) +
       (parseInt(formData.children) || 0) +
       (parseInt(formData.infants) || 0);
-    if (payingPassengers > (groupData?.available_no_of_pax || 0)) {
+
+    // ✅ final available seats AFTER deduction
+    const remainingSeats =
+      (groupData?.available_no_of_pax || 0) - booked;
+    // ❌ validation
+    if (payingPassengers > remainingSeats) {
       toast.error(
-        `Total passengers (${payingPassengers}) cannot exceed available seats (${groupData?.available_no_of_pax || 0})`,
+        `Total passengers (${payingPassengers}) cannot exceed available seats (${remainingSeats})`
       );
       return;
     }
@@ -754,8 +817,18 @@ export default function BookingForm({ user }) {
                     Available Seats
                   </p>
                   <p className="text-sm font-extrabold text-[#3d6a8f] bg-blue-50 px-2 py-1 rounded-2xl">
-                    {" "}
-                    {groupData?.available_no_of_pax?.toLocaleString() || 0}
+                    {(() => {
+                      if (!groupData) return 0;
+
+                      const date = formatDate(groupData.depDate);
+                      if (!date) return groupData.available_no_of_pax || 0;
+
+                      const key = `${groupData.flightNo}_${date}`;
+
+                      const bookedSeats = bookedSeatsMap[key] || 0;
+
+                      return (groupData.available_no_of_pax || 0) - bookedSeats;
+                    })()}
                   </p>
                 </div>
                 <div className="flex flex-col">
@@ -1065,7 +1138,7 @@ export default function BookingForm({ user }) {
                           </button>
                         </div>
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2"> 
                         <select
                           value={passenger.title}
                           onChange={(e) =>

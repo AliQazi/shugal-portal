@@ -35,6 +35,8 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     const [loading, setLoading] = useState(true);
     const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
     const [dbMargin, setDbMargin] = useState(null);
+    const [bookingList, setBookingList] = useState([]);
+    const [bookedSeatsMap, setBookedSeatsMap] = useState({});
 
     const [filters, setFilters] = useState({
         sectors: [],
@@ -92,9 +94,35 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     useEffect(() => {
         window.scrollTo(0, 0);
         fetchGroups();
+        fetchBookingVoucher();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchParams]);
 
+    const fetchBookingVoucher = async () => {
+        const res = await axiosInstance.get("/bookings/");
+        setBookingList(res.data.data);
+
+        const map = {};
+
+        res.data.data.forEach((booking) => {
+            const passengersLength = booking.passengers?.length || 0;
+
+            booking.flights?.forEach((flight) => {
+                const key = `${flight.flightNo}_${new Date(flight.depDate)
+                    .toISOString()
+                    .split("T")[0]}`;
+
+                // ignore cancelled if needed
+                if (booking.status !== "cancelled") {
+                    map[key] = (map[key] || 0) + passengersLength;
+                }
+            });
+        });
+
+        console.log("FINAL MAP:", map); // 👈 DEBUG THIS
+        setBookedSeatsMap(map);
+    };
+    // console.log(bookings, "hello2222")
     const fetchGroups = async () => {
         try {
             setLoading(true);
@@ -585,33 +613,45 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                                                         {group.isOwnGroup ? (
                                                                             group.showSeat ? (
                                                                                 <div className="flex flex-col items-center">
-                                                                                    <span className="text-sm font-bold" style={{ color: theme.colors.ublGradientStart }}>
+                                                                                    <span
+                                                                                        className="text-sm font-bold"
+                                                                                        style={{ color: theme.colors.ublGradientStart }}
+                                                                                    >
                                                                                         {group.available_no_of_pax}
                                                                                     </span>
-                                                                                    {group._onHoldSeats > 0 && (
-                                                                                        <span className="text-xs text-orange-500 font-medium">
-                                                                                            ({group._onHoldSeats} on hold)
-                                                                                        </span>
-                                                                                    )}
                                                                                 </div>
                                                                             ) : (
                                                                                 <span className="text-gray-400 text-xs">—</span>
                                                                             )
                                                                         ) : (
                                                                             <div className="flex flex-col items-center">
-                                                                                <span
-                                                                                    className="text-sm font-bold"
-                                                                                    style={{ color: theme.colors.ublGradientStart }}
-                                                                                >
-                                                                                    {flight && typeof flight.bookedSeats === 'number'
-                                                                                      ? group.available_no_of_pax - flight.bookedSeats
-                                                                                      : group.available_no_of_pax}
-                                                                                </span>
-                                                                                {flight?.bookedSeats > 0 && (
-                                                                                    <span className="text-xs text-orange-500 font-medium">
-                                                                                        ({flight.bookedSeats} booked)
-                                                                                    </span>
-                                                                                )}
+                                                                                {(() => {
+                                                                                    if (!flight) return group.available_no_of_pax;
+
+                                                                                    const key = `${flight.flight_no}_${new Date(
+                                                                                        flight.dep_date || flight.flight_date
+                                                                                    )
+                                                                                        .toISOString()
+                                                                                        .split("T")[0]}`;
+
+                                                                                    const booked = bookedSeatsMap[key] || 0;
+
+                                                                                    return (
+                                                                                        <>
+                                                                                            <span
+                                                                                                className="text-sm font-bold"
+                                                                                                style={{ color: theme.colors.ublGradientStart }}
+                                                                                            >
+                                                                                                {group.available_no_of_pax - booked}
+                                                                                            </span>
+
+                                                                                            {booked > 0 && (
+                                                                                                <span className="text-xs text-orange-500 font-medium">
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </>
+                                                                                    );
+                                                                                })()}
                                                                             </div>
                                                                         )}
                                                                     </td>
