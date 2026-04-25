@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useContext } from "react";
+import { FaRegCopy, FaCheck } from "react-icons/fa";
 import { DashboardUIContext } from "../../../components/Dashboard/DashboardLayout";
 import { Ticket, Menu, X } from "lucide-react";
 import {
@@ -18,6 +19,152 @@ import TopBar from "../../../components/TopBar/TopBar";
 import { groupTypes } from "../../../data/groupTypes";
 
 export default function AllGroups({ headerType, header, searchParams, user }) {
+        // Copy feedback state
+        const [copiedAll, setCopiedAll] = useState(false);
+        const [copiedRow, setCopiedRow] = useState({});
+        // Build copy text for all groups (similar to admin dashboard)
+        const buildCopyText = (groupsList) => {
+            if (!groupsList.length) return "";
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const MONTHS_TITLE = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const header = `                *=====${String(today.getDate()).padStart(2, "0")} ${MONTHS_TITLE[today.getMonth()].toUpperCase()} UPDATES=====*`;
+            const lines = groupsList.map((g) => {
+                const d = g.details?.[0] || {};
+                const rawDate = d.dep_date || d.flight_date || g.dept_date;
+                if (!rawDate) return null;
+                const date = new Date(rawDate);
+                if (isNaN(date.getTime())) return null;
+                const dd = String(date.getDate()).padStart(2, "0");
+                const mon = MONTHS_TITLE[date.getMonth()];
+                const year = date.getFullYear();
+                const flightNo = (d.flight_no || d.flightNo || "").toUpperCase();
+                const origin = d.origin || d.from || "";
+                const dest = d.destination || d.to || "";
+                const depTime = (d.dept_time || d.dep_time || d.depTime || "").slice(0,5);
+                const arvTime = (d.arv_time || d.arr_time || d.arrTime || "").slice(0,5);
+                const depPart = depTime ? ` (${depTime})` : "";
+                const arvPart = arvTime ? ` (${arvTime})` : "";
+                const price = g.price || 0;
+                return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}..... *PKR ${price}*`;
+            }).filter(Boolean);
+            const footer = `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*\n=======================\nShaheen Wings Travels\nMobile: 0309-9802154\nAddress: MA Plaza Ground Floor Shop # 3, Kahror Pacca.\nPtcl: 0608340174\nWebsite: shaheenwings.com`;
+            return [header, ...lines, "=======================", footer].join("\n");
+        };
+
+        // Build copy text for a single group/flight row (with footer)
+        const buildRowCopyText = (group) => {
+            const MONTHS_TITLE = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const d = group.details?.[0] || {};
+            const rawDate = d.dep_date || d.flight_date || group.dept_date;
+            if (!rawDate) return "";
+            const date = new Date(rawDate);
+            if (isNaN(date.getTime())) return "";
+            const dd = String(date.getDate()).padStart(2, "0");
+            const mon = MONTHS_TITLE[date.getMonth()];
+            const year = date.getFullYear();
+            const flightNo = (d.flight_no || d.flightNo || "").toUpperCase();
+            const origin = d.origin || d.from || "";
+            const dest = d.destination || d.to || "";
+            const depTime = (d.dept_time || d.dep_time || d.depTime || "").slice(0,5);
+            const arvTime = (d.arv_time || d.arr_time || d.arrTime || "").slice(0,5);
+            const depPart = depTime ? ` (${depTime})` : "";
+            const arvPart = arvTime ? ` (${arvTime})` : "";
+            const price = group.price || 0;
+            const footer = `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*\n=======================\nShaheen Wings Travels\nMobile: 0309-9802154\nAddress: MA Plaza Ground Floor Shop # 3, Kahror Pacca.\nPtcl: 0608340174\nWebsite: shaheenwings.com`;
+            return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}..... *PKR ${price}*\n=======================\n${footer}`;
+        };
+
+        // Build copy text for all groups in a sector (with footer)
+        const buildSectorCopyText = (sectorGroups) => {
+            if (!sectorGroups.length) return "";
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const MONTHS_TITLE = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const header = `                *=====${String(today.getDate()).padStart(2, "0")} ${MONTHS_TITLE[today.getMonth()].toUpperCase()} UPDATES=====*`;
+            const lines = sectorGroups.map((g) => {
+                const d = g.details?.[0] || {};
+                const rawDate = d.dep_date || d.flight_date || g.dept_date;
+                if (!rawDate) return null;
+                const date = new Date(rawDate);
+                if (isNaN(date.getTime())) return null;
+                const dd = String(date.getDate()).padStart(2, "0");
+                const mon = MONTHS_TITLE[date.getMonth()];
+                const year = date.getFullYear();
+                const flightNo = (d.flight_no || d.flightNo || "").toUpperCase();
+                const origin = d.origin || d.from || "";
+                const dest = d.destination || d.to || "";
+                const depTime = (d.dept_time || d.dep_time || d.depTime || "").slice(0,5);
+                const arvTime = (d.arv_time || d.arr_time || d.arrTime || "").slice(0,5);
+                const depPart = depTime ? ` (${depTime})` : "";
+                const arvPart = arvTime ? ` (${arvTime})` : "";
+                const price = g.price || 0;
+                return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}..... *PKR ${price}*`;
+            }).filter(Boolean);
+            const footer = `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*\n=======================\nShaheen Wings Travels\nMobile: 0309-9802154\nAddress: MA Plaza Ground Floor Shop # 3, Kahror Pacca.\nPtcl: 0608340174\nWebsite: shaheenwings.com`;
+            return [header, ...lines, "=======================", footer].join("\n");
+        };
+
+        // Copy handler for sector
+        const [copiedSector, setCopiedSector] = useState({});
+        const handleCopySector = async (sectorKey, sectorGroups) => {
+            const text = buildSectorCopyText(sectorGroups);
+            try {
+                await navigator.clipboard.writeText(text);
+                setCopiedSector((prev) => ({ ...prev, [sectorKey]: true }));
+                setTimeout(() => setCopiedSector((prev) => ({ ...prev, [sectorKey]: false })), 2000);
+            } catch {
+                const el = document.createElement('textarea');
+                el.value = text;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+                setCopiedSector((prev) => ({ ...prev, [sectorKey]: true }));
+                setTimeout(() => setCopiedSector((prev) => ({ ...prev, [sectorKey]: false })), 2000);
+            }
+        };
+
+        // Copy handlers
+        const handleCopyAll = async () => {
+            const text = buildCopyText(groups);
+            try {
+                await navigator.clipboard.writeText(text);
+                setCopiedAll(true);
+                setTimeout(() => setCopiedAll(false), 2000);
+            } catch {
+                // fallback
+                const el = document.createElement('textarea');
+                el.value = text;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+                setCopiedAll(true);
+                setTimeout(() => setCopiedAll(false), 2000);
+            }
+        };
+
+        const handleCopyRow = async (group) => {
+            const text = buildRowCopyText(group);
+            try {
+                await navigator.clipboard.writeText(text);
+                setCopiedRow((prev) => ({ ...prev, [group.id]: true }));
+                setTimeout(() => setCopiedRow((prev) => ({ ...prev, [group.id]: false })), 2000);
+            } catch {
+                const el = document.createElement('textarea');
+                el.value = text;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+                setCopiedRow((prev) => ({ ...prev, [group.id]: true }));
+                setTimeout(() => setCopiedRow((prev) => ({ ...prev, [group.id]: false })), 2000);
+            }
+        };
     // Access Dashboard UI context if available (only in dashboard route)
     const dashboardUI = useContext(DashboardUIContext);
     // On mount: close sidebar and open advanced search if in dashboard
@@ -361,6 +508,34 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     return (
         <>
             <TopBar title={"Group Tickets"} />
+            {/* Copy All Button (only in agent dashboard) */}
+            {headerType === 'dashboard' && (
+                <div className="flex justify-end mb-2">
+                    <button
+                        onClick={handleCopyAll}
+                        disabled={groups.length === 0}
+                        title={groups.length === 0 ? "No data available to copy" : "Copy all group data"}
+                        style={{
+                            background: groups.length === 0 ? '#d1d5db' : copiedAll ? '#22c55e' : theme.colors.ublGradient,
+                            color: 'white',
+                            opacity: groups.length === 0 ? 0.6 : 1,
+                            borderRadius: 8,
+                            minWidth: 120,
+                            fontWeight: 600,
+                            fontSize: 13,
+                            padding: '7px 18px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            cursor: groups.length === 0 ? 'not-allowed' : 'pointer',
+                        }}
+                        className="transition-all shadow-sm hover:shadow"
+                    >
+                        {copiedAll ? <FaCheck size={15} /> : <FaRegCopy size={15} />}
+                        {copiedAll ? 'Copied!' : `Copy All (${groups.length})`}
+                    </button>
+                </div>
+            )}
             <div
                 className="w-full min-h-screen"
                 style={{ background: theme.colors.background }}
@@ -487,7 +662,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                         className="rounded-2xl overflow-hidden bg-white border border-neutral-200"
                                     >
                                         {/* Sector Header Bar */}
-                                        <div className="bg-linear-to-r from-blue-50 via-transparent to-blue-50 flex justify-center items-center gap-6 py-2.5 border-b border-neutral-200">
+                                        <div className="bg-linear-to-r from-blue-50 via-transparent to-blue-50 flex justify-center items-center gap-6 py-2.5 border-b border-neutral-200 relative">
                                             {/* Airline Logo Area */}
                                             <div className="bg-white flex items-center justify-center border-b border-neutral-100">
                                                 {data.airlineLogo ? (
@@ -515,6 +690,34 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                                     {data.sector}
                                                 </span>
                                             </div>
+
+                                            {/* Copy Sector Button (only in agent dashboard) */}
+                                            {headerType === 'dashboard' && (
+                                                <button
+                                                    onClick={() => handleCopySector(key, data.groups)}
+                                                    title="Copy all data for this sector"
+                                                    style={{
+                                                        position: 'absolute',
+                                                        right: 16,
+                                                        top: 12,
+                                                        background: copiedSector[key] ? '#22c55e' : '#e5e7eb',
+                                                        color: copiedSector[key] ? 'white' : '#3b82f6',
+                                                        borderRadius: 6,
+                                                        fontWeight: 500,
+                                                        fontSize: 12,
+                                                        padding: '4px 10px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: 6,
+                                                        cursor: 'pointer',
+                                                        zIndex: 2,
+                                                    }}
+                                                    className="transition-all shadow-sm hover:shadow"
+                                                >
+                                                    {copiedSector[key] ? <FaCheck size={13} /> : <FaRegCopy size={13} />}
+                                                    {copiedSector[key] ? 'Copied' : 'Copy Sector'}
+                                                </button>
+                                            )}
                                         </div>
 
                                         {/* Flight Table */}
@@ -670,7 +873,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                                                     </td>
 
                                                                     {/* Action */}
-                                                                    <td className="w-36 px-4 py-3 flex justify-center">
+                                                                    <td className="w-36 px-4 py-3 flex flex-col items-center gap-2">
                                                                         <button
                                                                             onClick={() => handleBookNow(group)}
                                                                             disabled={!user?.showHideButton}
@@ -685,6 +888,29 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                                                             <Ticket size={13} />
                                                                             <span>Book Now</span>
                                                                         </button>
+                                                                        {/* Copy Row Button (only in agent dashboard) */}
+                                                                        {headerType === 'dashboard' && (
+                                                                            <button
+                                                                                onClick={() => handleCopyRow(group)}
+                                                                                title="Copy this flight/group data"
+                                                                                style={{
+                                                                                    background: copiedRow[group.id] ? '#22c55e' : '#e5e7eb',
+                                                                                    color: copiedRow[group.id] ? 'white' : '#3b82f6',
+                                                                                    borderRadius: 6,
+                                                                                    fontWeight: 500,
+                                                                                    fontSize: 12,
+                                                                                    padding: '4px 10px',
+                                                                                    display: 'flex',
+                                                                                    alignItems: 'center',
+                                                                                    gap: 6,
+                                                                                    cursor: 'pointer',
+                                                                                }}
+                                                                                className="transition-all shadow-sm hover:shadow"
+                                                                            >
+                                                                                {copiedRow[group.id] ? <FaCheck size={13} /> : <FaRegCopy size={13} />}
+                                                                                {copiedRow[group.id] ? 'Copied' : 'Copy'}
+                                                                            </button>
+                                                                        )}
                                                                     </td>
                                                                 </tr>
                                                             );

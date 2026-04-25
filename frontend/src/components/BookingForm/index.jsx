@@ -102,8 +102,8 @@ export default function BookingForm({ user }) {
 
 
   useEffect(() => {
-  fetchBookingVoucher(); // always fetch seat map
-}, []);
+    fetchBookingVoucher(); // always fetch seat map
+  }, []);
 
   // Load existing booking if in edit mode
   useEffect(() => {
@@ -115,29 +115,29 @@ export default function BookingForm({ user }) {
   }, [bookingId, isEditMode]);
 
 
- const fetchBookingVoucher = async () => {
+  const fetchBookingVoucher = async () => {
     try {
-        const res = await axiosInstance.get("/bookings/");
-        const map = {};
+      const res = await axiosInstance.get("/bookings/");
+      const map = {};
 
-        res.data.data.forEach((booking) => {
-            const passengersLength = booking.passengers?.length || 0;
-            if (booking.status !== "cancelled") {
-                booking.flights?.forEach((flight) => {
-                    // Normalize the key: Clean flight number and YYYY-MM-DD date
-                    const flightNo = flight.flightNo?.toUpperCase().replace("-", "").trim();
-                    const depDate = new Date(flight.depDate).toISOString().split("T")[0];
-                    const key = `${flightNo}_${depDate}`;
-                    
-                    map[key] = (map[key] || 0) + passengersLength;
-                });
-            }
-        });
-        setBookedSeatsMap(map);
+      res.data.data.forEach((booking) => {
+        const passengersLength = booking.passengers?.length || 0;
+        if (booking.status !== "cancelled") {
+          booking.flights?.forEach((flight) => {
+            // Normalize the key: Clean flight number and YYYY-MM-DD date
+            const flightNo = flight.flightNo?.toUpperCase().replace("-", "").trim();
+            const depDate = new Date(flight.depDate).toISOString().split("T")[0];
+            const key = `${flightNo}_${depDate}`;
+
+            map[key] = (map[key] || 0) + passengersLength;
+          });
+        }
+      });
+      setBookedSeatsMap(map);
     } catch (err) {
-        console.error("Error fetching seat map:", err);
+      console.error("Error fetching seat map:", err);
     }
-};
+  };
 
 
   const fetchBookingForEdit = async () => {
@@ -264,16 +264,16 @@ export default function BookingForm({ user }) {
     }));
   }, [formData.adults, formData.children, formData.infants, isEditMode]);
   const formatDate = (date) => {
-  const d = new Date(date);
+    const d = new Date(date);
 
-  if (isNaN(d.getTime())) return null;
+    if (isNaN(d.getTime())) return null;
 
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
 
-  return `${year}-${month}-${day}`;
-};
+    return `${year}-${month}-${day}`;
+  };
 
   // --- Helper to safely render dates ---
   const formatDateForDisplay = (dateValue) => {
@@ -822,23 +822,29 @@ export default function BookingForm({ user }) {
                     Available Seats
                   </p>
                   <p className="text-sm font-extrabold text-[#3d6a8f] bg-blue-50 px-2 py-1 rounded-2xl">
-    {(() => {
-  if (!groupData || !groupData.details || !groupData.details[0]) return 0;
+                    {(() => {
+                      if (!groupData || !groupData.details || !groupData.details[0]) return 0;
 
-  const flight = groupData.details[0];
+                      const flight = groupData.details[0];
 
-  // Normalize EXACTLY like fetchBookingVoucher builds the map key
-  const flightNo = flight.flight_no?.toUpperCase().replace("-", "").trim();
-  const rawDate = flight.dep_date || flight.flight_date;
-  const depDate = new Date(rawDate).toISOString().split("T")[0];
-  const key = `${flightNo}_${depDate}`;
+                      // Normalize EXACTLY like fetchBookingVoucher builds the map key
+                      const flightNo = flight.flight_no?.toUpperCase().replace("-", "").trim();
+                      const rawDate = flight.dep_date || flight.flight_date;
+                      const depDate = new Date(rawDate).toISOString().split("T")[0];
+                      const key = `${flightNo}_${depDate}`;
 
-  const booked = bookedSeatsMap[key] || 0;
-  const total = groupData.available_no_of_pax || 0;
+                      const booked = bookedSeatsMap[key] || 0;
+                      const total = groupData.available_no_of_pax || 0;
 
-  return total - booked;
-})()}
-  </p>
+                      const currentBookingPassengers = isEditMode
+  ? (parseInt(formData.adults) || 0) +
+    (parseInt(formData.children) || 0) +
+    (parseInt(formData.infants) || 0)
+  : 0;
+
+return total - booked + currentBookingPassengers;
+                    })()}
+                  </p>
                 </div>
                 <div className="flex flex-col">
                   <p className="text-xs text-gray-600 font-semibold mb-0.5">
@@ -1147,7 +1153,7 @@ export default function BookingForm({ user }) {
                           </button>
                         </div>
                       </td>
-                      <td className="px-3 py-2"> 
+                      <td className="px-3 py-2">
                         <select
                           value={passenger.title}
                           onChange={(e) =>

@@ -523,8 +523,7 @@ import Register from "../models/Register.js";
 import { deductSeatsFromCache } from "../utils/cacheHelpers.js";
 import { createSabaoonBooking } from "./sabaoon.controller.js";
 
-const HOLD_DURATION = 30 * 60 * 1000; // 30 minutes
-
+const HOLD_DURATION = 2 * 60 * 60 * 1000;
 // -------------------------
 // Helper Functions
 // -------------------------
@@ -665,6 +664,7 @@ export const createBooking = async (req, res) => {
       sabaoonBookingStatus: isSabaoonGroup ? "pending" : "not_applicable",
     });
 
+
     // ─── Call Sabaoon booking API for external (Sabaoon) groups ───
     if (isSabaoonGroup) {
       try {
@@ -689,6 +689,46 @@ export const createBooking = async (req, res) => {
         await booking.save();
         // We still return success to the user — local booking is saved.
         // The admin can retry / reconcile manually.
+      }
+    }
+
+    // ─── Call Al-Haider booking API for external (Al-Haider) groups ───
+    if (bookingSource === "al-haider") {
+      try {
+        // Map our booking to Al-Haider API format
+        const alHaiderBooking = {
+          group_id: groupId,
+          agency_info: {
+            group_id: groupId,
+            agent_name: req.user?.name || req.user?.fullName || "",
+            agency_name: req.user?.companyName || req.user?.agencyName || "",
+            email: req.user?.email || "",
+            mobile: req.user?.phone || req.user?.mobile || "",
+            adults: adultsCount,
+            child: childrenCount,
+            infant: infantsCount,
+            agent_notes: null,
+          },
+          booking_details: (passengers || []).map((p) => ({
+            type: p.type,
+            surname: p.surname || p.surName || "",
+            given_name: p.given_name || p.givenName || "",
+            title: p.title.toUpperCase(),
+            passport_no: p.passport_no || p.passportNo || p.passport || "",
+            dob: p.dob || p.dateOfBirth || "",
+            doe: p.doe || p.passportExpiry || "",
+          })),
+        };
+        const alHaiderResp = await import("./al-haider.controller.js").then(m => m.createAlHaiderBooking(alHaiderBooking));
+        booking.alHaiderBookingStatus = alHaiderResp.success ? "success" : "failed";
+        booking.alHaiderBookingResponse = alHaiderResp;
+        await booking.save();
+        console.log("Al-Haider booking created", alHaiderResp);
+      } catch (alHaiderErr) {
+        console.error("Al-Haider booking API failed:", alHaiderErr.message);
+        booking.alHaiderBookingStatus = "failed";
+        booking.alHaiderBookingResponse = { error: alHaiderErr.message };
+        await booking.save();
       }
     }
 

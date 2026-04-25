@@ -1,3 +1,19 @@
+/**
+ * Create a booking on Al-Haider API
+ * @param {object} bookingData - Booking data as per Al-Haider API
+ * @returns {Promise<object>} - API response
+ */
+export const createAlHaiderBooking = async (bookingData) => {
+    const token = getAlHaiderToken();
+    const url = `${process.env.ALI_HAIDER_API_URL}api/create/booking`;
+    const response = await axios.post(url, bookingData, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+    });
+    return response.data;
+};
 import axios from "axios";
 
 const getAlHaiderToken = () => {
