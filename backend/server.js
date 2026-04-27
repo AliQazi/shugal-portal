@@ -78,8 +78,13 @@ startBookingExpiryJob();
 app.use(express.static(frontendDistPath));
 app.use("/admin-portal", express.static(adminDistPath));
 
+// Canonical admin root URL with trailing slash
+app.get("/admin-portal", (req, res) => {
+  res.redirect(301, "/admin-portal/");
+});
+
 // Ensure admin SPA deep links work on page refresh
-app.get(/^\/admin-portal(?:\/.*)?$/, (req, res) => {
+app.get(/^\/admin-portal\/(?:.*)?$/, (req, res) => {
   res.sendFile(adminIndexPath);
 });
 
@@ -89,6 +94,11 @@ app.use((req, res, next) => {
   // Skip API routes - they should have been handled above
   if (req.path.startsWith("/api/")) {
     return res.status(404).json({ message: "API endpoint not found" });
+  }
+
+  // Keep admin root URL canonical
+  if (req.path === "/admin-portal") {
+    return res.redirect(301, "/admin-portal/");
   }
 
   // Check if the request is for admin portal
