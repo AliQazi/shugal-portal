@@ -101,8 +101,10 @@ app.use((req, res, next) => {
     return res.redirect(301, "/admin-portal/");
   }
 
-  // Check if the request is for admin portal
-  if (req.path.startsWith("/admin-portal")) {
+  // Allow all client routes under /admin-portal/
+  const isAdminPortalRoute = req.path === "/admin-portal/" || req.path.startsWith("/admin-portal/");
+
+  if (isAdminPortalRoute) {
     res.sendFile(adminIndexPath);
   } else {
     res.sendFile(frontendIndexPath);
