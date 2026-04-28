@@ -14,7 +14,8 @@ export const printGDSBooking = (booking) => {
     const flight = booking.flights?.[0] || {};
 
     // Booking Status
-    const bookingStatus = (booking.status || booking.bookingStatus || "N/A").toUpperCase();
+    const bookingStatusRaw = booking.status || booking.bookingStatus || "N/A";
+    const bookingStatus = bookingStatusRaw.toUpperCase();
 
     // Airline & Logos
     const airlineName = (
@@ -86,7 +87,7 @@ export const printGDSBooking = (booking) => {
 
     // Baggage & Sector
     const baggage = booking.baggageWeight || flight.baggage || "20KG";
-    const sector = `${origin} (${originCode}) - ${dest} (${destCode})`;
+    const sector = `(${originCode}) - (${destCode})`;
 
     // Plane Icon (Base64 from your PDF code)
     const planeIconBase64 =
@@ -134,7 +135,17 @@ export const printGDSBooking = (booking) => {
         "N/A";
 
     // --- 3. Construct the HTML String (PDF Design -> Black & White) ---
-  const ticketHTML = `
+    // Only show PNR if booking status does not contain 'HOLD' (case-insensitive)
+    const showPNR = !/hold/i.test(bookingStatusRaw);
+    // Only render PNR box if not HOLD
+    const pnrHTML = showPNR ? `<div class="sum-card">
+        <div class="sum-label">PNR</div>
+        <div class="sum-val">${pnr}</div>
+    </div>` : "";
+    const pnrSegmentHTML = showPNR ? `<th>PNR</th>` : "";
+    const pnrValueHTML = showPNR ? `<td>${pnr}</td>` : "";
+
+    const ticketHTML = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -162,11 +173,11 @@ export const printGDSBooking = (booking) => {
         .brand-text p { margin: 0; font-size: 11px; color: #b0b0b0; }
         
         .ref-box { text-align: right; }
-        .ref-label { font-size: 13px; font-weight: bold; color: #8c8c8c; }
-        .ref-value { font-size: 24px; font-weight: bold; color: #505050; margin-top: -2px; }
+        .ref-label { font-size: 15px; font-weight: bold; color: #8c8c8c; }
+        .ref-value { font-size: 17px; font-weight: bold; color: #505050; margin-top: -2px; }
 
         /* 2. Top Summary Boxes */
-        .summary-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 30px; }
+        .summary-row { display: grid; grid-template-columns: repeat(${showPNR ? 4 : 3}, 1fr); gap: 15px; margin-bottom: 30px; }
         .sum-card { 
             border: 1px solid #f0f0f0; 
             border-radius: 12px; 
@@ -183,7 +194,7 @@ export const printGDSBooking = (booking) => {
             color: #333; 
             margin-bottom: 12px; 
             text-transform: uppercase;
-            border-bottom: 1px solid #f0f0f0;
+            border-bottom: 1px solid black;
             padding-bottom: 5px;
         }
 
@@ -195,7 +206,7 @@ export const printGDSBooking = (booking) => {
             color: #b0b0b0; 
             font-weight: normal; 
             padding: 8px 0; 
-            border-bottom: 1px solid #f0f0f0;
+            border-bottom: 1px solid black;
         }
         td { padding: 12px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px; color: #444; }
         .bold-td { font-weight: bold; color: #000; }
@@ -234,14 +245,14 @@ export const printGDSBooking = (booking) => {
             <div class="brand">
                 <img src="${airlineLogo}" alt="Airline Logo" />
                 <div class="brand-text">
-                    <h1>saudiair</h1>
+                    <h1>${airlineName}</h1>
                     <p>Electronic Ticket / Itinerary Receipt</p>
                 </div>
             </div>
-            <div class="ref-box">
+            ${showPNR ? `<div class="ref-box">
                 <div class="ref-label">BOOKING REF</div>
                 <div class="ref-value">${bookingRef}</div>
-            </div>
+            </div>` : ""}
         </div>
 
         <!-- Summary Row -->
@@ -250,10 +261,7 @@ export const printGDSBooking = (booking) => {
                 <div class="sum-label">FLIGHT</div>
                 <div class="sum-val">${airlineName} ${flightNum}</div>
             </div>
-            <div class="sum-card">
-                <div class="sum-label">PNR</div>
-                <div class="sum-val">${pnr}</div>
-            </div>
+            ${pnrHTML}
             <div class="sum-card">
                 <div class="sum-label">ROUTE</div>
                 <div class="sum-val">${sector}</div>
@@ -275,6 +283,7 @@ export const printGDSBooking = (booking) => {
                     <th>Departure Date</th>
                     <th>Departure Time</th>
                     <th>Arrival Time</th>
+                    ${showPNR ? '<th>PNR</th>' : ''}
                 </tr>
             </thead>
             <tbody>
@@ -285,6 +294,7 @@ export const printGDSBooking = (booking) => {
                     <td>${depDate}</td>
                     <td>${depTime}</td>
                     <td>${arrTime}</td>
+                    ${showPNR ? `<td>${pnr}</td>` : ''}
                 </tr>
             </tbody>
         </table>
