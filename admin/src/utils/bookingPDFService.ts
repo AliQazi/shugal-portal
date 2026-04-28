@@ -13,6 +13,10 @@ export const printGDSBooking = (booking: any): void => {
   // --- 2. Data Preparation ---
   const flight = booking.flights?.[0] || {};
 
+  // Booking Status
+  const bookingStatusRaw = booking.status || booking.bookingStatus || "N/A";
+  const bookingStatus = bookingStatusRaw.toUpperCase();
+
   const airlineName = (
     booking.airline?.name ||
     flight.airlineName ||
@@ -27,12 +31,12 @@ export const printGDSBooking = (booking: any): void => {
 
   const flightNum = booking.flightNumber || flight.flightNo || "XX000";
 
-  const origin = (
-    booking.origin ||
-    booking.originCity ||
-    flight.origin ||
-    ""
-  ).toUpperCase();
+  // const origin = (
+  //   booking.origin ||
+  //   booking.originCity ||
+  //   flight.origin ||
+  //   ""
+  // ).toUpperCase();
 
   let originCode = (
     booking.originCode ||
@@ -42,12 +46,12 @@ export const printGDSBooking = (booking: any): void => {
     ""
   ).toUpperCase();
 
-  const dest = (
-    booking.destination ||
-    booking.destinationCity ||
-    flight.destination ||
-    ""
-  ).toUpperCase();
+  // const dest = (
+  //   booking.destination ||
+  //   booking.destinationCity ||
+  //   flight.destination ||
+  //   ""
+  // ).toUpperCase();
 
   let destCode = (
     booking.destinationCode ||
@@ -73,7 +77,7 @@ export const printGDSBooking = (booking: any): void => {
   const arrTime = flight.arrTime || booking.arrTime || "00:00";
   const depDate = formatFullDate(booking.departureDate);
 
-  const sector = `${origin} (${originCode}) - ${dest} (${destCode})`;
+  const sector = `${originCode} - ${destCode}`;
 
   const passengers: any[] =
     booking.passengers && booking.passengers.length > 0
@@ -87,218 +91,230 @@ export const printGDSBooking = (booking: any): void => {
           },
         ];
 
-  const storedFrontendUser = (() => {
-    try {
-      return JSON.parse(localStorage.getItem("frontend_user") || "{}");
-    } catch (e) {
-      return {};
-    }
-  })();
+  // const storedFrontendUser = (() => {
+  //   try {
+  //     return JSON.parse(localStorage.getItem("frontend_user") || "{}");
+  //   } catch (e) {
+  //     return {};
+  //   }
+  // })();
 
-  console.log(storedFrontendUser);
+    // --- 3. Construct the HTML String (PDF Design -> Black & White) ---
+    // Only show PNR if booking status does not contain 'HOLD' (case-insensitive)
+    const showPNR = !/hold/i.test(bookingStatusRaw);
+    // Only render PNR box if not HOLD
+    const pnrHTML = showPNR ? `<div class="sum-card">
+      <div class="sum-label">PNR</div>
+      <div class="sum-val">${pnr}</div>
+    </div>` : "";
 
-  // --- 3. Construct the HTML String ---
-  // Note: Fixed the broken <div> tag in Terms & Conditions below
-const ticketHTML = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Print Ticket</title>
-            <style>
-                @media print {
-                    @page { margin: 10mm; size: A4 portrait; }
-                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                }
-                body {
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                    font-size: 13px;
-                    color: #333;
-                    line-height: 1.6;
-                    background: #fff;
-                    margin: 0;
-                    padding: 40px;
-                }
-                /* Header Styles */
-                .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
-                .airline-info { display: flex; align-items: center; gap: 15px; }
-                .airline-info img { height: 45px; }
-                .airline-text h1 { margin: 0; font-size: 22px; color: #888; font-weight: bold; line-height: 1; }
-                .airline-text p { margin: 0; font-size: 12px; color: #bbb; }
-                
-                .booking-ref { text-align: right; }
-                .ref-label { font-size: 14px; font-weight: bold; color: #888; margin-bottom: 2px; }
-                .ref-value { font-size: 26px; font-weight: bold; color: #555; }
+    const ticketHTML = `
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <title>Print Ticket</title>
+    <style>
+      @media print {
+        @page { margin: 10mm; size: A4 portrait; }
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      }
+      body {
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-size: 13px;
+        color: #333;
+        line-height: 1.5;
+        background: #fff;
+        margin: 0;
+        padding: 40px;
+      }
 
-                /* Summary Boxes */
-                .summary-container { display: grid; grid-template-columns: 1fr 1.2fr 1.2fr; gap: 15px; margin-bottom: 30px; }
-                .sum-box { 
-                    border: 1px solid #eee; 
-                    border-radius: 12px; 
-                    padding: 15px 10px; 
-                    text-align: center; 
-                    background: #fff;
-                }
-                .sum-label { font-size: 11px; font-weight: bold; color: #999; text-transform: uppercase; margin-bottom: 5px; }
-                .sum-val { font-size: 16px; font-weight: 800; color: #333; }
+      /* 1. Header Section */
+      .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; }
+      .brand { display: flex; align-items: center; gap: 12px; }
+      .brand img { height: 40px; }
+      .brand-text h1 { margin: 0; font-size: 20px; color: #8c8c8c; font-weight: bold; }
+      .brand-text p { margin: 0; font-size: 11px; color: #b0b0b0; }
+        
+      .ref-box { text-align: right; }
+      .ref-label { font-size: 15px; font-weight: bold; color: #8c8c8c; }
+      .ref-value { font-size: 17px; font-weight: bold; color: #505050; margin-top: -2px; }
 
-                /* Sections */
-                .section-title { 
-                    font-size: 13px; 
-                    font-weight: 800; 
-                    color: #333; 
-                    margin-bottom: 12px; 
-                    text-transform: uppercase;
-                    border-bottom: 1px solid #eee;
-                    padding-bottom: 5px;
-                }
+      /* 2. Top Summary Boxes */
+      .summary-row { display: grid; grid-template-columns: repeat(${showPNR ? 4 : 3}, 1fr); gap: 15px; margin-bottom: 30px; }
+      .sum-card { 
+        border: 1px solid #f0f0f0; 
+        border-radius: 12px; 
+        padding: 15px; 
+        text-align: center; 
+      }
+      .sum-label { font-size: 10px; font-weight: bold; color: #b0b0b0; text-transform: uppercase; margin-bottom: 4px; }
+      .sum-val { font-size: 15px; font-weight: bold; color: #333; }
 
-                /* Table Styling */
-                table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
-                th { 
-                    text-align: left; 
-                    font-size: 11px; 
-                    color: #bbb; 
-                    font-weight: 600; 
-                    padding: 8px 0; 
-                    border-bottom: 1px solid #eee;
-                }
-                td { padding: 12px 0; border-bottom: 1px solid #eee; font-size: 12px; color: #555; }
-                .bold-cell { font-weight: bold; color: #000; }
+      /* 3. Section Styling */
+      .section-title { 
+        font-size: 12px; 
+        font-weight: 800; 
+        color: #333; 
+        margin-bottom: 12px; 
+        text-transform: uppercase;
+        border-bottom: 1px solid black;
+        padding-bottom: 5px;
+      }
 
-                /* Footer Info */
-                .info-group { margin-bottom: 20px; }
-                .info-header { font-weight: 800; color: #333; margin-bottom: 10px; font-size: 13px; }
-                .info-item { font-size: 14px; color: #444; margin-bottom: 5px; }
-                .info-item span { font-weight: 600; }
+      /* 4. Table Design (Clean - No Vertical Lines) */
+      table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+      th { 
+        text-align: left; 
+        font-size: 11px; 
+        color: #b0b0b0; 
+        font-weight: normal; 
+        padding: 8px 0; 
+        border-bottom: 1px solid black;
+      }
+      td { padding: 12px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px; color: #444; }
+      .bold-td { font-weight: bold; color: #000; }
 
-                /* Important List */
-                .important-list { padding-left: 18px; margin: 10px 0; }
-                .important-list li { font-size: 12px; color: #555; margin-bottom: 4px; }
+      /* 5. Details Section */
+      .info-block { margin-bottom: 20px; }
+      .info-title { font-weight: bold; font-size: 13px; margin-bottom: 8px; color: #333; }
+      .info-row { font-size: 14px; margin-bottom: 6px; }
+      .info-row span { font-weight: bold; }
 
-                /* Location Pill */
-                .location-pill {
-                    display: inline-flex;
-                    align-items: center;
-                    border: 1px solid #888;
-                    border-radius: 50px;
-                    padding: 6px 18px;
-                    margin-top: 15px;
-                    font-size: 11px;
-                    color: #888;
-                    text-transform: uppercase;
-                    font-weight: 600;
-                    gap: 8px;
-                }
-                .location-pin { color: #e74c3c; font-size: 14px; }
-            </style>
-        </head>
-        <body>
-            <!-- Header Row -->
-            <div class="header">
-                <div class="airline-info">
-                    <img src="${airlineLogo}" alt="saudia" />
-                    <div class="airline-text">
-                        <h1>saudiair</h1>
-                        <p>Electronic Ticket / Itinerary Receipt</p>
-                    </div>
-                </div>
-                <div class="booking-ref">
-                    <div class="ref-label">BOOKING REF</div>
-                    <div class="ref-value">${bookingRef}</div>
-                </div>
-            </div>
+      /* Important list dots */
+      .imp-list { padding-left: 18px; margin: 5px 0; }
+      .imp-list li { font-size: 12px; color: #555; margin-bottom: 4px; }
 
-            <!-- Top Summary Boxes -->
-            <div class="summary-container">
-                <div class="sum-box">
-                    <div class="sum-label">FLIGHT</div>
-                    <div class="sum-val">${airlineName} ${flightNum}</div>
-                </div>
-                <div class="sum-box">
-                    <div class="sum-label">PNR</div>
-                    <div class="sum-val">${pnr}</div>
-                </div>
-                <div class="sum-box">
-                    <div class="sum-label">ROUTE</div>
-                    <div class="sum-val">${sector}</div>
-                </div>
-            </div>
+      /* 6. Location Pill at Bottom */
+      .pill-address {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid #8c8c8c;
+        border-radius: 50px;
+        padding: 5px 15px;
+        margin-top: 15px;
+        font-size: 11px;
+        color: #8c8c8c;
+        font-weight: bold;
+        gap: 6px;
+      }
+      .pin { color: #e74c3c; font-size: 14px; }
+    </style>
+  </head>
+  <body>
+    <div style="max-width: 800px; margin: 0 auto;">
+        
+      <!-- Header -->
+      <div class="header">
+        <div class="brand">
+          <img src="${airlineLogo}" alt="Airline Logo" />
+          <div class="brand-text">
+            <h1>${airlineName}</h1>
+            <p>Electronic Ticket / Itinerary Receipt</p>
+          </div>
+        </div>
+        ${showPNR ? `<div class="ref-box">
+          <div class="ref-label">BOOKING REF</div>
+          <div class="ref-value">${bookingRef}</div>
+        </div>` : ""}
+      </div>
 
-            <!-- Flight Segments Section -->
-            <div class="section-title">FLIGHT SEGMENTS</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Airline</th>
-                        <th>Flight</th>
-                        <th>Route</th>
-                        <th>Departure Date</th>
-                        <th>Departure Time</th>
-                        <th>Arrival Time</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>${airlineName}</td>
-                        <td>${flightNum}</td>
-                        <td>${sector.split('-').slice(0,2).join('-')}</td>
-                        <td>${depDate}</td>
-                        <td>${depTime}</td>
-                        <td>${arrTime}</td>
-                    </tr>
-                    <!-- Additional segments can go here -->
-                </tbody>
-            </table>
+      <!-- Summary Row -->
+      <div class="summary-row">
+        <div class="sum-card">
+          <div class="sum-label">FLIGHT</div>
+          <div class="sum-val">${airlineName} ${flightNum}</div>
+        </div>
+        ${pnrHTML}
+        <div class="sum-card">
+          <div class="sum-label">ROUTE</div>
+          <div class="sum-val">${sector}</div>
+        </div>
+        <div class="sum-card">
+          <div class="sum-label">STATUS</div>
+          <div class="sum-val">${bookingStatus}</div>
+        </div>
+      </div>
 
-            <!-- Passengers Section -->
-            <div class="section-title">PASSENGER(S)</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width: 40%;">Name</th>
-                        <th>Type</th>
-                        <th>Passport</th>
-                        <th>Nationality</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${passengers.map(p => `
-                        <tr>
-                            <td class="bold-cell">${p.title || ""} ${p.givenName || ""} ${p.surName || ""}</td>
-                            <td>adult</td>
-                            <td>${p.passport || "N/A"}</td>
-                            <td>Pakistani</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
+      <!-- Flight Segments -->
+      <div class="section-title">FLIGHT SEGMENTS</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Airline</th>
+            <th>Flight</th>
+            <th>Route</th>
+            <th>Departure Date</th>
+            <th>Departure Time</th>
+            <th>Arrival Time</th>
+            ${showPNR ? '<th>PNR</th>' : ''}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${airlineName}</td>
+            <td>${flightNum}</td>
+            <td>${sector.split('-').slice(0, 2).join('-')}</td>
+            <td>${depDate}</td>
+            <td>${depTime}</td>
+            <td>${arrTime}</td>
+            ${showPNR ? `<td>${pnr}</td>` : ''}
+          </tr>
+        </tbody>
+      </table>
 
-            <!-- Issued By Section -->
-            <div class="info-group">
-                <div class="info-header">ISSUED BY</div>
-                <div class="info-item">Agent Name: <span>${getName(booking)}</span></div>
-                <div class="info-item">Contact Email: <span>${getAgencyEmail(booking)}</span></div>
-                <div class="info-item">Phone: <span>${getAgencyPhone(booking)}</span></div>
-            </div>
+      <!-- Passenger(s) -->
+      <div class="section-title">PASSENGER(S)</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 40%;">Name</th>
+            <th>Type</th>
+            <th>Passport</th>
+            <th>Nationality</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${passengers.map(p => `
+            <tr>
+              <td class="bold-td">${p.title || ""} ${p.givenName || ""} ${p.surName || ""}</td>
+              <td>adult</td>
+              <td>${p.passport || "N/A"}</td>
+              <td>Pakistani</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
 
-            <!-- Important Section -->
-            <div class="info-group">
-                <div class="info-header">IMPORTANT</div>
-                <ul class="important-list">
-                    <li>Arrive at the airport at least 4 hours before departure.</li>
-                    <li>Valid government photo ID is required.</li>
-                    <li>Baggage allowances may vary by airline and fare.</li>
-                </ul>
-            </div>
+      <!-- Issued By -->
+      <div class="info-block">
+        <div class="info-title">ISSUED BY</div>
+        <div class="info-row">Agent Name: <span>${getName(booking)}</span></div>
+        <div class="info-row">Contact Email: <span>${getAgencyEmail(booking)}</span></div>
+        <div class="info-row">Phone: <span>${getAgencyPhone(booking)}</span></div>
+      </div>
 
-            <!-- Location Pill -->
-            <div class="location-pill">
-                <span class="location-pin">📍</span>
-                AL RASHEED PLAZA MAIN RAY ROAD PAKISTAN HOTEL
-            </div>
-        </body>
-        </html>
-    `;
+      <!-- Important -->
+      <div class="info-block">
+        <div class="info-title">IMPORTANT</div>
+        <ul class="imp-list">
+          <li>Arrive at the airport at least 4 hours before departure.</li>
+          <li>Valid government photo ID is required.</li>
+          <li>Baggage allowances may vary by airline and fare.</li>
+        </ul>
+      </div>
+
+      <!-- Footer Address Pill -->
+      <div class="pill-address">
+        <span class="pin">📍</span>
+        AL RASHEED PLAZA MAIN RAY ROAD PAKISTAN HOTEL
+      </div>
+
+    </div>
+  </body>
+  </html>
+  `;
+
+      // ...existing code...
   // --- 4. The Iframe Trick ---
   const iframe = document.createElement("iframe");
   Object.assign(iframe.style, {
