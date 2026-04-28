@@ -48,6 +48,7 @@ const RegisteredAgencies = () => {
   const [approvalLoading, setApprovalLoading] = useState<string | null>(null);
   const [sendingCredentials, setSendingCredentials] = useState<string | null>(null);
   const [entriesPerPage, setEntriesPerPage] = useState(50);
+  const [currentPage, setCurrentPage] = useState(1);
   const [downloadingPDF, setDownloadingPDF] = useState(false);
   const [downloadingExcel, setDownloadingExcel] = useState(false);
   const [priceLoading, setPriceLoading] = useState<string | null>(null);
@@ -63,6 +64,7 @@ const RegisteredAgencies = () => {
 
   useEffect(() => {
     filterUsers();
+    setCurrentPage(1); // Reset to first page on filter change
   }, [users, searchTerm, cityFilter, statusFilter]);
 
   const fetchUsers = async () => {
@@ -114,6 +116,13 @@ const RegisteredAgencies = () => {
 
     setFilteredUsers(filtered);
   };
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredUsers.length / entriesPerPage);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * entriesPerPage,
+    currentPage * entriesPerPage
+  );
 
   const updateUserStatus = async (userId: string, newStatus: "Active" | "Inactive" | "Pending") => {
     try {
@@ -654,13 +663,13 @@ const RegisteredAgencies = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-gray-50 dark:bg-gray-800/50">
-                  {filteredUsers.slice(0, entriesPerPage).map((user, index) => (
+                  {paginatedUsers.map((user, index) => (
                     <tr
                       key={user._id}
                       className="border-b border-gray-200 dark:border-gray-700"
                     >
                       <td className="px-4 py-4 text-sm text-gray-800 dark:text-white/90">
-                        {index + 1}
+                        {(currentPage - 1) * entriesPerPage + index + 1}
                         <div className="text-xs text-gray-500 dark:text-gray-400">
                           Agent Code: {user.agencyCode || "N/A"}
                         </div>
@@ -774,6 +783,38 @@ const RegisteredAgencies = () => {
               </table>
             </div>
           )}
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 mt-6">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 rounded bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-white/80 disabled:opacity-50"
+            >
+              Prev
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`px-3 py-1 rounded ${
+                  currentPage === page
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-white/80"
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 rounded bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-white/80 disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        )}
         </div>
       </div>
     </>
