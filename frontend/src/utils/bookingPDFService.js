@@ -87,7 +87,7 @@ export const printGDSBooking = (booking) => {
 
     // Baggage & Sector
     const baggage = booking.baggageWeight || flight.baggage || "20KG";
-    const sector = `(${originCode}) - (${destCode})`;
+    const sector = `${originCode} - ${destCode}`;
 
     // Plane Icon (Base64 from your PDF code)
     const planeIconBase64 =
