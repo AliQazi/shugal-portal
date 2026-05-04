@@ -5,6 +5,7 @@ import * as Yup from "yup";
 
 import Input from "../form/input/InputField";
 import Button from "../ui/button/Button";
+import logo from '../../assets/images/logo2-.png'
 import { useAuth } from "../../context/AuthContext";
 import axiosInstance from "../../Api/axios";
 
@@ -62,7 +63,7 @@ export default function SignInForm() {
                 {/* Logo */}
                 <div className="flex justify-center mb-6">
                     <div className="w-25 h-25 bg-white rounded-full flex items-center justify-center">
-                        <img src="src/assets/images/logo2-.png" alt="Logo" className="rounded-full" />
+                        <img src={logo} alt="Logo" className="rounded-full" />
                     </div>
                 </div>
 
