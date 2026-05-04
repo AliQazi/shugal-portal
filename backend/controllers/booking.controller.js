@@ -700,10 +700,10 @@ export const createBooking = async (req, res) => {
           group_id: groupId,
           agency_info: {
             group_id: groupId,
-            agent_name: req.user?.name || req.user?.fullName || "",
-            agency_name: req.user?.companyName || req.user?.agencyName || "",
-            email: req.user?.email || "",
-            mobile: req.user?.phone || req.user?.mobile || "",
+            agent_name: process.env.name,
+            agency_name: process.env.name,
+            email: process.env.email,
+            mobile: process.env.mobile_no,
             adults: adultsCount,
             child: childrenCount,
             infant: infantsCount,
@@ -788,7 +788,7 @@ export const getAllBookings = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(Number(limit))
-      .populate("userId", "name email agencyCode companyName phone");
+      .populate("userId", "name email agencyCode companyName phone address");
 
     const total = await Booking.countDocuments(query);
 
@@ -815,7 +815,7 @@ export const getBookingById = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id).populate(
       "userId",
-      "name email agencyCode companyName",
+      "name email agencyCode companyName phone address",
     );
 
     if (!booking)
@@ -846,7 +846,7 @@ export const getBookingByReference = async (req, res) => {
   try {
     const booking = await Booking.findOne({
       bookingReference: req.params.reference,
-    }).populate("userId", "name email agencyCode companyName");
+    }).populate("userId", "name email agencyCode companyName phone address");
 
     if (!booking)
       return res

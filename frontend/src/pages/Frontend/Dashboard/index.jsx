@@ -200,7 +200,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="w-full lg:w-110 h-full relative flex items-center justify-center">
+          <div className="w-full lg:max-w-md h-full relative flex items-center justify-center">
             {loadingCards ? (
               <div>Loading...</div>
             ) : cardsError ? (
@@ -208,7 +208,7 @@ const Dashboard = () => {
             ) : indexCards.length === 0 ? (
               <div className="text-gray-400">No Offers Found</div>
             ) : (
-              <div className="relative w-full">
+              <div className="relative w-full px-10">
                 <button
                   onClick={prevSlide}
                   className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow-md rounded-full w-10 h-10 flex items-center justify-center hover:bg-gray-100"
@@ -216,7 +216,7 @@ const Dashboard = () => {
                   ←
                 </button>
 
-                <div className="mx-2 w-[420px] h-[500px] bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-500">
+                <div className="mx-auto w-full max-w-[420px] bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-500">
                   <img
                     src={indexCards[currentIndex].image}
                     alt={indexCards[currentIndex].title}

@@ -122,6 +122,13 @@ const DashboardLayout = ({ user, handleLogout }) => {
     return () => document.removeEventListener("keydown", handleEsc);
   }, [sidebarOpen, isMobile]);
 
+  // Clear search when mobile sidebar closes
+  useEffect(() => {
+    if (isMobile && !sidebarOpen) {
+      setSearchQuery("");
+    }
+  }, [sidebarOpen, isMobile]);
+
   // Close dropdown on outside click
   useEffect(() => {
     const handler = (e) => {
@@ -205,9 +212,9 @@ const DashboardLayout = ({ user, handleLogout }) => {
 
   return (
     <DashboardUIContext.Provider value={{ sidebarOpen, setSidebarOpen, bookingsExpanded, setBookingsExpanded, setSearchQuery }}>
-    <>
-      {/* ── Keyframes injected once ── */}
-      <style>{`
+      <>
+        {/* ── Keyframes injected once ── */}
+        <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
         * { box-sizing: border-box; }
@@ -269,602 +276,612 @@ const DashboardLayout = ({ user, handleLogout }) => {
         }
       `}</style>
 
-      <div
-        className="db-layout"
-        style={{ display: "flex", minHeight: "100vh", background: "#f0f2f7" }}
-      >
-        {/* Mobile overlay */}
-        {sidebarOpen && isMobile && (
-          <div
-            onClick={toggleSidebar}
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0,0,0,0.5)",
-              zIndex: 998, // ← Sidebar se neeche
-              backdropFilter: "blur(3px)",
-              touchAction: "none", // mobile touch ke liye better
-            }}
-          />
-        )}
-
-        {/* ── Sidebar ── */}
-        <aside
-          className="db-sidebar"
-          style={{
-            width: isMobile ? "280px" : sidebarOpen ? "272px" : "72px",
-            background: "#fff",
-            borderRight: isMobile ? "none" : "1px solid #e8eaf0",
-            display: "flex",
-            flexDirection: "column",
-            flexShrink: 0,
-            boxShadow: isMobile
-              ? "8px 0 40px rgba(0, 0, 0, 0.3)"
-              : "4px 0 24px rgba(33,57,124,0.06)",
-
-            overflow: "hidden",
-
-            // ← Yeh important changes
-            position: "fixed",
-            top: 0,
-            left: 0,
-            height: "100vh",
-            zIndex: 999, // ← Overlay se upar
-
-            transform:
-              isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)",
-
-            transition: isMobile
-              ? "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)"
-              : "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          }}
+        <div
+          className="db-layout"
+          style={{ display: "flex", minHeight: "100vh", background: "#f0f2f7" }}
         >
-          {/* Logo */}
-          <div
+          {/* Mobile overlay */}
+          {sidebarOpen && isMobile && (
+            <div
+              onClick={toggleSidebar}
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,0.5)",
+                zIndex: 998, // ← Sidebar se neeche
+                backdropFilter: "blur(3px)",
+                touchAction: "none", // mobile touch ke liye better
+              }}
+            />
+          )}
+
+          {/* ── Sidebar ── */}
+          <aside
+            className="db-sidebar"
             style={{
-              padding: "20px 16px 16px",
-              borderBottom: "1px solid #f0f2f7",
+              width: isMobile ? "280px" : sidebarOpen ? "272px" : "72px",
+              background: "#fff",
+              borderRight: isMobile ? "none" : "1px solid #e8eaf0",
               display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              flexDirection: "column",
+              flexShrink: 0,
+              boxShadow: isMobile
+                ? "8px 0 40px rgba(0, 0, 0, 0.3)"
+                : "4px 0 24px rgba(33,57,124,0.06)",
+
+              overflow: "hidden",
+
+              // ← Yeh important changes
+              position: "fixed",
+              top: 0,
+              left: 0,
+              height: "100vh",
+              zIndex: 999, // ← Overlay se upar
+
+              transform:
+                isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)",
+
+              transition: isMobile
+                ? "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)"
+                : "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
             }}
           >
+            {/* Logo */}
             <div
-              onClick={() => navigate("/dashboard")}
               style={{
-                cursor: "pointer",
+                padding: "20px 16px 16px",
+                borderBottom: "1px solid #f0f2f7",
                 display: "flex",
                 alignItems: "center",
-                gap: "10px",
                 justifyContent: "center",
-                overflow: "hidden",
               }}
             >
-              <img
-                src={user?.logo || logo}
-                alt="Logo"
+              <div
+                onClick={() => navigate("/dashboard")}
                 style={{
-                  width: sidebarOpen ? "100px" : "36px",
-                  height: "100px",
-                  objectFit: "contain",
-                  transition: "width 0.3s cubic-bezier(0.4,0,0.2,1)",
-                  flexShrink: 0,
-                }}
-              />
-            </div>
-            {sidebarOpen && isMobile && (
-              <button
-                className="sidebar-close-btn"
-                onClick={toggleSidebar}
-                style={{
-                  background: "#f4f6fb",
-                  border: "1px solid #e8eaf0",
-                  borderRadius: "8px",
-                  padding: "6px",
                   cursor: "pointer",
                   display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  justifyContent: "center",
+                  overflow: "hidden",
                 }}
               >
-                <X size={16} color="#555" />
-              </button>
-            )}
-          </div>
-
-          {/* Search */}
-          {sidebarOpen && (
-            <div style={{ padding: "14px 16px 8px" }}>
-              <div style={{ position: "relative" }}>
-                <Search
-                  size={14}
+                <img
+                  src={user?.logo || logo}
+                  alt="Logo"
                   style={{
-                    position: "absolute",
-                    left: "10px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: "#aaa",
-                  }}
-                />
-                <input
-                  className="db-search"
-                  type="text"
-                  placeholder="Search menu…"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "8px 10px 8px 32px",
-                    border: "1.5px solid #e8eaf0",
-                    borderRadius: "8px",
-                    fontSize: "13px",
-                    color: "#444",
-                    background: "#f8f9fc",
-                    outline: "none",
-                    transition: "border-color 0.2s, box-shadow 0.2s",
+                    width: sidebarOpen ? "100px" : "36px",
+                    height: "100px",
+                    objectFit: "contain",
+                    transition: "width 0.3s cubic-bezier(0.4,0,0.2,1)",
+                    flexShrink: 0,
                   }}
                 />
               </div>
+              {sidebarOpen && isMobile && (
+                <button
+                  className="sidebar-close-btn"
+                  onClick={toggleSidebar}
+                  style={{
+                    background: "#f4f6fb",
+                    border: "1px solid #e8eaf0",
+                    borderRadius: "8px",
+                    padding: "6px",
+                    cursor: "pointer",
+                    display: "flex",
+                  }}
+                >
+                  <X size={16} color="#555" />
+                </button>
+              )}
             </div>
-          )}
 
-          {/* Nav */}
-          <nav className="sidebar-nav">
-            <ul
-              style={{
-                listStyle: "none",
-                padding: 0,
-                margin: 0,
-                display: "flex",
-                flexDirection: "column",
-                gap: "2px",
-              }}
-            >
-              {filteredMenu.map((item, index) => (
-                <li key={index}>
-                  {item.hasSubMenu ? (
-                    <>
-                      <RippleButton
-                        onClick={() =>
-                          sidebarOpen && setBookingsExpanded(!bookingsExpanded)
-                        }
-                        className="menu-link"
-                        style={{
-                          alignItems: "center",
-                          gap: "12px",
-                          padding: sidebarOpen ? "11px 14px" : "11px 0",
-                          justifyContent: sidebarOpen ? "flex-start" : "center",
-                          borderRadius: "10px",
-                          color: "#555",
-                          fontWeight: "500",
-                          fontSize: "14px",
-                          cursor: "pointer",
-                          textDecoration: "none",
-                          transition: "background 0.15s",
-                        }}
-                      >
-                        <span style={{ flexShrink: 0, color: "#7a8aaa" }}>
-                          {item.icon}
-                        </span>
-                        {sidebarOpen && (
-                          <>
-                            <span style={{ flex: 1 }}>{item.label}</span>
-                            <span
-                              style={{
-                                transform: bookingsExpanded
-                                  ? "rotate(180deg)"
-                                  : "rotate(0deg)",
-                                transition:
-                                  "transform 0.25s cubic-bezier(0.4,0,0.2,1)",
-                                color: "#aaa",
-                              }}
-                            >
-                              <ChevronDown size={15} />
-                            </span>
-                          </>
-                        )}
-                      </RippleButton>
+            {/* Search */}
+            {sidebarOpen && (
+              <div style={{ padding: "14px 16px 8px" }}>
+                <div style={{ position: "relative" }}>
+                  <Search
+                    size={14}
+                    style={{
+                      position: "absolute",
+                      left: "10px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      color: "#aaa",
+                    }}
+                  />
+                  <input
+                    className="db-search"
+                    type="text"
+                    placeholder="Search menu…"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "8px 10px 8px 32px",
+                      border: "1.5px solid #e8eaf0",
+                      borderRadius: "8px",
+                      fontSize: "13px",
+                      color: "#444",
+                      background: "#f8f9fc",
+                      outline: "none",
+                      transition: "border-color 0.2s, box-shadow 0.2s",
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
-                      {/* Submenu with smooth animation */}
-                      <div
-                        style={{
-                          maxHeight:
-                            bookingsExpanded && sidebarOpen ? "300px" : "0px",
-                          overflow: "hidden",
-                          transition:
-                            "max-height 0.3s cubic-bezier(0.4,0,0.2,1)",
-                        }}
-                      >
-                        <ul
-                          style={{
-                            listStyle: "none",
-                            padding: "4px 0 4px 12px",
-                            margin: 0,
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "2px",
-                          }}
-                        >
-                          {item.subItems.map((sub, sIdx) => {
-                            const active = isActive(sub.path);
-                            return (
-                              <li key={sIdx}>
-                                <RippleButton
-                                  to={sub.path}
-                                  onClick={handleMenuClick}
-                                  className={active ? "" : "menu-link"}
-                                  style={{
-                                    padding: "9px 14px 9px 16px",
-                                    borderRadius: "8px",
-                                    fontSize: "13px",
-                                    fontWeight: active ? "600" : "400",
-                                    alignItems: "center",
-                                    gap: "8px",
-                                    background: active
-                                      ? "linear-gradient(90deg,#21397C,#2CA3B4)"
-                                      : "transparent",
-                                    color: active ? "#fff" : "#666",
-                                    textDecoration: "none",
-                                    animation: bookingsExpanded
-                                      ? `subMenuSlide 0.2s ease ${sIdx * 40}ms both`
-                                      : "none",
-                                  }}
-                                >
-                                  {active && (
-                                    <span className="sub-active-dot" />
-                                  )}
-                                  {sub.label}
-                                </RippleButton>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
-                    </>
-                  ) : (
-                    (() => {
-                      const active = isActive(item.path);
-                      return (
+            {/* Nav */}
+            <nav className="sidebar-nav">
+              <ul
+                style={{
+                  listStyle: "none",
+                  padding: 0,
+                  margin: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "2px",
+                }}
+              >
+                {filteredMenu.map((item, index) => (
+                  <li key={index}>
+                    {item.hasSubMenu ? (
+                      <>
                         <RippleButton
-                          to={item.path}
-                          onClick={handleMenuClick}
-                          className={active ? "" : "menu-link"}
+                          onClick={() =>
+                            sidebarOpen && setBookingsExpanded(!bookingsExpanded)
+                          }
+                          className="menu-link"
                           style={{
                             alignItems: "center",
                             gap: "12px",
                             padding: sidebarOpen ? "11px 14px" : "11px 0",
-                            justifyContent: sidebarOpen
-                              ? "flex-start"
-                              : "center",
+                            justifyContent: sidebarOpen ? "flex-start" : "center",
                             borderRadius: "10px",
-                            background: active
-                              ? "linear-gradient(90deg,#21397C 0%,#2CA3B4 100%)"
-                              : "transparent",
-                            color: active ? "#fff" : "#555",
-                            fontWeight: active ? "600" : "500",
+                            color: "#555",
+                            fontWeight: "500",
                             fontSize: "14px",
+                            cursor: "pointer",
                             textDecoration: "none",
                             transition: "background 0.15s",
                           }}
                         >
-                          <span
-                            style={{
-                              flexShrink: 0,
-                              color: active ? "#fff" : "#7a8aaa",
-                            }}
-                          >
+                          <span style={{ flexShrink: 0, color: "#7a8aaa" }}>
                             {item.icon}
                           </span>
-                          {sidebarOpen && <span>{item.label}</span>}
+                          {sidebarOpen && (
+                            <>
+                              <span style={{ flex: 1 }}>{item.label}</span>
+                              <span
+                                style={{
+                                  transform: bookingsExpanded
+                                    ? "rotate(180deg)"
+                                    : "rotate(0deg)",
+                                  transition:
+                                    "transform 0.25s cubic-bezier(0.4,0,0.2,1)",
+                                  color: "#aaa",
+                                }}
+                              >
+                                <ChevronDown size={15} />
+                              </span>
+                            </>
+                          )}
                         </RippleButton>
-                      );
-                    })()
-                  )}
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </aside>
 
-        {/* ── Main ── */}
-        <div
-          className="db-main"
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            minWidth: 0,
-            // Mobile pe kabhi margin mat do jab sidebar closed ho
-            marginLeft: isMobile ? 0 : sidebarOpen ? "272px" : "72px",
-            transition: "margin-left 0.3s cubic-bezier(0.4,0,0.2,1)",
-          }}
-        >
-          {/* Header */}
-          <header
+                        {/* Submenu with smooth animation */}
+                        <div
+                          style={{
+                            maxHeight:
+                              sidebarOpen && (bookingsExpanded || (searchQuery.trim() && item.subItems?.some(s => s.label.toLowerCase().includes(searchQuery.toLowerCase()))))
+                                ? "300px"
+                                : "0px",
+                            overflow: "hidden",
+                            transition:
+                              "max-height 0.3s cubic-bezier(0.4,0,0.2,1)",
+                          }}
+                        >
+                          <ul
+                            style={{
+                              listStyle: "none",
+                              padding: "4px 0 4px 12px",
+                              margin: 0,
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "2px",
+                            }}
+                          >
+                            {item.subItems.map((sub, sIdx) => {
+                              const active = isActive(sub.path);
+                              return (
+                                <li key={sIdx}>
+                                  <RippleButton
+                                    to={sub.path}
+                                    onClick={handleMenuClick}
+                                    className={active ? "" : "menu-link"}
+                                    style={{
+                                      padding: "9px 14px 9px 16px",
+                                      borderRadius: "8px",
+                                      fontSize: "13px",
+                                      fontWeight: active ? "600" : "400",
+                                      alignItems: "center",
+                                      gap: "8px",
+                                      background: active
+                                        ? "linear-gradient(90deg,#21397C,#2CA3B4)"
+                                        : "transparent",
+                                      color: active ? "#fff" : "#666",
+                                      textDecoration: "none",
+                                      animation: bookingsExpanded
+                                        ? `subMenuSlide 0.2s ease ${sIdx * 40}ms both`
+                                        : "none",
+                                    }}
+                                  >
+                                    {active && (
+                                      <span className="sub-active-dot" />
+                                    )}
+                                    {sub.label}
+                                  </RippleButton>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      </>
+                    ) : (
+                      (() => {
+                        const active = isActive(item.path);
+                        return (
+                          <RippleButton
+                            to={item.path}
+                            onClick={handleMenuClick}
+                            className={active ? "" : "menu-link"}
+                            style={{
+                              alignItems: "center",
+                              gap: "12px",
+                              padding: sidebarOpen ? "11px 14px" : "11px 0",
+                              justifyContent: sidebarOpen
+                                ? "flex-start"
+                                : "center",
+                              borderRadius: "10px",
+                              background: active
+                                ? "linear-gradient(90deg,#21397C 0%,#2CA3B4 100%)"
+                                : "transparent",
+                              color: active ? "#fff" : "#555",
+                              fontWeight: active ? "600" : "500",
+                              fontSize: "14px",
+                              textDecoration: "none",
+                              transition: "background 0.15s",
+                            }}
+                          >
+                            <span
+                              style={{
+                                flexShrink: 0,
+                                color: active ? "#fff" : "#7a8aaa",
+                              }}
+                            >
+                              {item.icon}
+                            </span>
+                            {sidebarOpen && <span>{item.label}</span>}
+                          </RippleButton>
+                        );
+                      })()
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </aside>
+
+          {/* ── Main ── */}
+          <div
+            className="db-main"
             style={{
-              background: "#fff",
-              padding: "0 24px",
-              height: "64px",
+              flex: 1,
               display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              borderBottom: "1px solid #e8eaf0",
-              boxShadow: "0 2px 12px rgba(33,57,124,0.05)",
-              position: "sticky",
-              top: 0,
-              zIndex: 100,
+              flexDirection: "column",
+              minWidth: 0,
+              // Mobile pe kabhi margin mat do jab sidebar closed ho
+              marginLeft: isMobile ? 0 : sidebarOpen ? "272px" : "72px",
+              transition: "margin-left 0.3s cubic-bezier(0.4,0,0.2,1)",
             }}
           >
-            {/* Hamburger */}
-            <button
-              onClick={toggleSidebar}
+            {/* Header */}
+            <header
               style={{
-                cursor: "pointer",
-                border: "1.5px solid #e8eaf0",
-                background: "#f8f9fc",
-                borderRadius: "9px",
-                padding: "8px",
+                background: "#fff",
+                padding: isMobile ? "0 12px" : "0 24px",
+                height: "64px",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                transition: "background 0.15s, box-shadow 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "#eef0f8";
-                e.currentTarget.style.boxShadow =
-                  "0 2px 8px rgba(33,57,124,0.1)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "#f8f9fc";
-                e.currentTarget.style.boxShadow = "none";
+                justifyContent: "space-between",
+                borderBottom: "1px solid #e8eaf0",
+                boxShadow: "0 2px 12px rgba(33,57,124,0.05)",
+                position: "sticky",
+                top: 0,
+                zIndex: 100,
+                gap: "8px",
               }}
             >
-              <Menu size={19} color="#444" />
-            </button>
-
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              {/* Bell */}
+              {/* Hamburger */}
               <button
+                onClick={toggleSidebar}
                 style={{
-                  background: "#f8f9fc",
+                  cursor: "pointer",
                   border: "1.5px solid #e8eaf0",
+                  background: "#f8f9fc",
                   borderRadius: "9px",
                   padding: "8px",
                   display: "flex",
-                  cursor: "pointer",
-                  position: "relative",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "background 0.15s, box-shadow 0.15s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#eef0f8";
+                  e.currentTarget.style.boxShadow =
+                    "0 2px 8px rgba(33,57,124,0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "#f8f9fc";
+                  e.currentTarget.style.boxShadow = "none";
                 }}
               >
-                <Bell size={18} color="#7a8aaa" />
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "6px",
-                    right: "6px",
-                    width: "8px",
-                    height: "8px",
-                    background: "#ef4444",
-                    borderRadius: "50%",
-                    border: "2px solid #fff",
-                  }}
-                />
+                <Menu size={19} color="#444" />
               </button>
 
-              {/* User Dropdown */}
-              <div ref={dropdownRef} style={{ position: "relative" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "8px" : "12px" }}>
+                {/* Bell */}
                 <button
-                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    background: userDropdownOpen ? "#f0f2f7" : "#f8f9fc",
+                    background: "#f8f9fc",
                     border: "1.5px solid #e8eaf0",
-                    padding: "6px 10px 6px 6px",
-                    borderRadius: "10px",
+                    borderRadius: "9px",
+                    padding: "8px",
+                    display: "flex",
                     cursor: "pointer",
-                    transition: "background 0.2s, box-shadow 0.2s",
-                    boxShadow: userDropdownOpen
-                      ? "0 2px 12px rgba(33,57,124,0.12)"
-                      : "none",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!userDropdownOpen)
-                      e.currentTarget.style.background = "#eef0f8";
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!userDropdownOpen)
-                      e.currentTarget.style.background = "#f8f9fc";
+                    position: "relative",
                   }}
                 >
-                  {/* Avatar */}
-                  <div
+                  <Bell size={18} color="#7a8aaa" />
+                  <span
                     style={{
-                      width: "34px",
-                      height: "34px",
-                      borderRadius: "8px",
-                      background: user?.logo
-                        ? `url(${user.logo}) center/cover`
-                        : "linear-gradient(135deg,#21397C 0%,#2CA3B4 100%)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#fff",
-                      fontWeight: "700",
-                      fontSize: "14px",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {!user?.logo && (user?.name?.[0]?.toUpperCase() || "U")}
-                  </div>
-
-                  <div style={{ textAlign: "left", lineHeight: 1.3 }}>
-                    <div
-                      style={{
-                        fontSize: "13px",
-                        fontWeight: "600",
-                        color: "#222",
-                      }}
-                    >
-                      {user?.name || "User"}
-                    </div>
-                    <div style={{ fontSize: "11px", color: "#aaa" }}>
-                      {user?.email || ""}
-                    </div>
-                  </div>
-
-                  <ChevronDown
-                    size={15}
-                    style={{
-                      color: "#999",
-                      transition: "transform 0.25s cubic-bezier(0.4,0,0.2,1)",
-                      transform: userDropdownOpen
-                        ? "rotate(180deg)"
-                        : "rotate(0deg)",
-                      flexShrink: 0,
+                      position: "absolute",
+                      top: "6px",
+                      right: "6px",
+                      width: "8px",
+                      height: "8px",
+                      background: "#ef4444",
+                      borderRadius: "50%",
+                      border: "2px solid #fff",
                     }}
                   />
                 </button>
 
-                {/* ── Dropdown Panel ── */}
-                {userDropdownOpen && (
-                  <div
+                {/* User Dropdown */}
+                <div ref={dropdownRef} style={{ position: "relative" }}>
+                  <button
+                    onClick={() => setUserDropdownOpen(!userDropdownOpen)}
                     style={{
-                      position: "absolute",
-                      top: "calc(100% + 10px)",
-                      right: 0,
-                      background: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      background: userDropdownOpen ? "#f0f2f7" : "#f8f9fc",
                       border: "1.5px solid #e8eaf0",
-                      borderRadius: "14px",
-                      minWidth: "220px",
-                      boxShadow:
-                        "0 16px 48px rgba(33,57,124,0.15), 0 4px 16px rgba(0,0,0,0.06)",
-                      zIndex: 1000,
-                      overflow: "hidden",
-                      animation:
-                        "dropdownReveal 0.2s cubic-bezier(0.34,1.56,0.64,1) both",
-                      transformOrigin: "top right",
+                      padding: "6px 8px 6px 6px",
+                      borderRadius: "10px",
+                      cursor: "pointer",
+                      transition: "background 0.2s, box-shadow 0.2s",
+                      boxShadow: userDropdownOpen
+                        ? "0 2px 12px rgba(33,57,124,0.12)"
+                        : "none",
+                      maxWidth: isMobile ? "160px" : "none",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!userDropdownOpen)
+                        e.currentTarget.style.background = "#eef0f8";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!userDropdownOpen)
+                        e.currentTarget.style.background = "#f8f9fc";
                     }}
                   >
-                    {/* User info header */}
+                    {/* Avatar */}
                     <div
                       style={{
-                        padding: "14px 16px",
-                        borderBottom: "1px solid #f0f2f7",
-                        background:
-                          "linear-gradient(135deg, #f8f9fc 0%, #eef0f8 100%)",
+                        width: "34px",
+                        height: "34px",
+                        borderRadius: "8px",
+                        background: user?.logo
+                          ? `url(${user.logo}) center/cover`
+                          : "linear-gradient(135deg,#21397C 0%,#2CA3B4 100%)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#fff",
+                        fontWeight: "700",
+                        fontSize: "14px",
+                        flexShrink: 0,
                       }}
                     >
+                      {!user?.logo && (user?.name?.[0]?.toUpperCase() || "U")}
+                    </div>
+
+                    <div style={{ textAlign: "left", lineHeight: 1.3, overflow: "hidden", display: isMobile ? "none" : "block", minWidth: 0 }}>
                       <div
                         style={{
                           fontSize: "13px",
-                          fontWeight: "700",
+                          fontWeight: "600",
                           color: "#222",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          maxWidth: "120px",
                         }}
                       >
                         {user?.name || "User"}
                       </div>
-                      <div
-                        style={{
-                          fontSize: "11px",
-                          color: "#999",
-                          marginTop: "2px",
-                        }}
-                      >
+                      <div style={{ fontSize: "11px", color: "#aaa", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "120px" }}>
                         {user?.email || ""}
                       </div>
                     </div>
 
-                    <div style={{ padding: "6px" }}>
-                      <Link
-                        to="/dashboard/profile"
-                        onClick={() => setUserDropdownOpen(false)}
-                        className="dd-item"
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "10px",
-                          padding: "10px 12px",
-                          textDecoration: "none",
-                          color: "#333",
-                          borderRadius: "8px",
-                          fontSize: "13px",
-                          fontWeight: "500",
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: "32px",
-                            height: "32px",
-                            borderRadius: "8px",
-                            background: "#f0f2f7",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <UserCircle size={16} color="#21397C" />
-                        </div>
-                        My Profile
-                      </Link>
+                    <ChevronDown
+                      size={15}
+                      style={{
+                        color: "#999",
+                        transition: "transform 0.25s cubic-bezier(0.4,0,0.2,1)",
+                        transform: userDropdownOpen
+                          ? "rotate(180deg)"
+                          : "rotate(0deg)",
+                        flexShrink: 0,
+                        display: isMobile ? "none" : "block",
+                      }}
+                    />
+                  </button>
 
+                  {/* ── Dropdown Panel ── */}
+                  {userDropdownOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "calc(100% + 10px)",
+                        right: 0,
+                        background: "#fff",
+                        border: "1.5px solid #e8eaf0",
+                        borderRadius: "14px",
+                        minWidth: "200px",
+                        maxWidth: "calc(100vw - 24px)",
+                        boxShadow:
+                          "0 16px 48px rgba(33,57,124,0.15), 0 4px 16px rgba(0,0,0,0.06)",
+                        zIndex: 1000,
+                        overflow: "hidden",
+                        animation:
+                          "dropdownReveal 0.2s cubic-bezier(0.34,1.56,0.64,1) both",
+                        transformOrigin: "top right",
+                      }}
+                    >
+                      {/* User info header */}
                       <div
                         style={{
-                          height: "1px",
-                          background: "#f0f2f7",
-                          margin: "4px 0",
-                        }}
-                      />
-
-                      <button
-                        className="dd-item dd-item-danger"
-                        onClick={() => {
-                          setUserDropdownOpen(false);
-                          handleLogout();
-                          navigate("/");
-                        }}
-                        style={{
-                          width: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "10px",
-                          padding: "10px 12px",
-                          background: "transparent",
-                          border: "none",
-                          textAlign: "left",
-                          cursor: "pointer",
-                          color: "#e11d48",
-                          borderRadius: "8px",
-                          fontSize: "13px",
-                          fontWeight: "500",
+                          padding: "14px 16px",
+                          borderBottom: "1px solid #f0f2f7",
+                          background:
+                            "linear-gradient(135deg, #f8f9fc 0%, #eef0f8 100%)",
                         }}
                       >
                         <div
                           style={{
-                            width: "32px",
-                            height: "32px",
-                            borderRadius: "8px",
-                            background: "#fff1f2",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
+                            fontSize: "13px",
+                            fontWeight: "700",
+                            color: "#222",
                           }}
                         >
-                          <LogOut size={16} color="#e11d48" />
+                          {user?.name || "User"}
                         </div>
-                        Logout
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </header>
+                        <div
+                          style={{
+                            fontSize: "11px",
+                            color: "#999",
+                            marginTop: "2px",
+                          }}
+                        >
+                          {user?.email || ""}
+                        </div>
+                      </div>
 
-          <main style={{ padding: "24px", flex: 1 }}>
-            <Outlet />
-          </main>
+                      <div style={{ padding: "6px" }}>
+                        <Link
+                          to="/dashboard/profile"
+                          onClick={() => setUserDropdownOpen(false)}
+                          className="dd-item"
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            padding: "10px 12px",
+                            textDecoration: "none",
+                            color: "#333",
+                            borderRadius: "8px",
+                            fontSize: "13px",
+                            fontWeight: "500",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: "32px",
+                              height: "32px",
+                              borderRadius: "8px",
+                              background: "#f0f2f7",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <UserCircle size={16} color="#21397C" />
+                          </div>
+                          My Profile
+                        </Link>
+
+                        <div
+                          style={{
+                            height: "1px",
+                            background: "#f0f2f7",
+                            margin: "4px 0",
+                          }}
+                        />
+
+                        <button
+                          className="dd-item dd-item-danger"
+                          onClick={() => {
+                            setUserDropdownOpen(false);
+                            handleLogout();
+                            navigate("/");
+                          }}
+                          style={{
+                            width: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            padding: "10px 12px",
+                            background: "transparent",
+                            border: "none",
+                            textAlign: "left",
+                            cursor: "pointer",
+                            color: "#e11d48",
+                            borderRadius: "8px",
+                            fontSize: "13px",
+                            fontWeight: "500",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: "32px",
+                              height: "32px",
+                              borderRadius: "8px",
+                              background: "#fff1f2",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <LogOut size={16} color="#e11d48" />
+                          </div>
+                          Logout
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </header>
+
+            <main style={{ padding: isMobile ? "12px" : "24px", flex: 1, minWidth: 0 }}>
+              <Outlet />
+            </main>
+          </div>
         </div>
-      </div>
-    </>
+      </>
     </DashboardUIContext.Provider>
   );
 };

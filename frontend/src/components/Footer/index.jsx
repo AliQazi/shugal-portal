@@ -221,7 +221,7 @@ export default function Footer({ user }) {
                 </a>
 
                 <a
-                  href="https://maps.app.goo.gl/FQNy83JNCoqCRcBG6"
+                  href="https://maps.app.goo.gl/qqeU3vAAfZ6jqFBaA"
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-start gap-3 hover:translate-x-1 transition"

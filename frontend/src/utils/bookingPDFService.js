@@ -343,7 +343,7 @@ export const printGDSBooking = (booking) => {
         <!-- Footer Address Pill -->
         <div class="pill-address">
             <span class="pin">📍</span>
-            AL RASHEED PLAZA MAIN RAY ROAD PAKISTAN HOTEL
+            ${getAgencyAddress(booking)}
         </div>
 
     </div>
@@ -467,4 +467,22 @@ const getAgencyPhone = (booking) => {
         return storedFrontendUser.phone;
     }
     return "N/A";
+};
+
+const getAgencyAddress = (booking) => {
+    const storedFrontendUser = getStoredFrontendUser();
+
+    if (typeof booking.userId === "object" && booking.userId?.address) {
+        return booking.userId.address;
+    }
+    if (booking.address) {
+        return booking.address;
+    }
+    if (booking.contactAddress) {
+        return booking.contactAddress;
+    }
+    if (storedFrontendUser.address) {
+        return storedFrontendUser.address;
+    }
+    return "AL RASHEED PLAZA MAIN RAY ROAD PAKISTAN HOTEL";
 };

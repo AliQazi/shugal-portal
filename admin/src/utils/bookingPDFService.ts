@@ -99,23 +99,25 @@ export const printGDSBooking = (booking: any): void => {
   //   }
   // })();
 
-    // --- 3. Construct the HTML String (PDF Design -> Black & White) ---
-    // Only show PNR if booking status does not contain 'HOLD' (case-insensitive)
-    const showPNR = !/hold/i.test(bookingStatusRaw);
-    // Only render PNR box if not HOLD
-    const pnrHTML = showPNR ? `<div class="sum-card">
+  // --- 3. Construct the HTML String (PDF Design -> Black & White) ---
+  // Only show PNR if booking status does not contain 'HOLD' (case-insensitive)
+  const showPNR = !/hold/i.test(bookingStatusRaw);
+  // Only render PNR box if not HOLD
+  const pnrHTML = showPNR
+    ? `<div class="sum-card">
       <div class="sum-label">PNR</div>
       <div class="sum-val">${pnr}</div>
-    </div>` : "";
+    </div>`
+    : "";
 
-    const ticketHTML = `
+  const ticketHTML = `
   <!DOCTYPE html>
   <html>
   <head>
     <title>Print Ticket</title>
     <style>
       @media print {
-        @page { margin: 10mm; size: A4 portrait; }
+        @page { margin: 10mm; size: A4 portrait; }  
         body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       }
       body {
@@ -212,10 +214,14 @@ export const printGDSBooking = (booking: any): void => {
             <p>Electronic Ticket / Itinerary Receipt</p>
           </div>
         </div>
-        ${showPNR ? `<div class="ref-box">
+        ${
+          showPNR
+            ? `<div class="ref-box">
           <div class="ref-label">BOOKING REF</div>
           <div class="ref-value">${bookingRef}</div>
-        </div>` : ""}
+        </div>`
+            : ""
+        }
       </div>
 
       <!-- Summary Row -->
@@ -246,18 +252,18 @@ export const printGDSBooking = (booking: any): void => {
             <th>Departure Date</th>
             <th>Departure Time</th>
             <th>Arrival Time</th>
-            ${showPNR ? '<th>PNR</th>' : ''}
+            ${showPNR ? "<th>PNR</th>" : ""}
           </tr>
         </thead>
         <tbody>
           <tr>
             <td>${airlineName}</td>
             <td>${flightNum}</td>
-            <td>${sector.split('-').slice(0, 2).join('-')}</td>
+            <td>${sector.split("-").slice(0, 2).join("-")}</td>
             <td>${depDate}</td>
             <td>${depTime}</td>
             <td>${arrTime}</td>
-            ${showPNR ? `<td>${pnr}</td>` : ''}
+            ${showPNR ? `<td>${pnr}</td>` : ""}
           </tr>
         </tbody>
       </table>
@@ -274,14 +280,18 @@ export const printGDSBooking = (booking: any): void => {
           </tr>
         </thead>
         <tbody>
-          ${passengers.map(p => `
+          ${passengers
+            .map(
+              (p) => `
             <tr>
               <td class="bold-td">${p.title || ""} ${p.givenName || ""} ${p.surName || ""}</td>
               <td>adult</td>
               <td>${p.passport || "N/A"}</td>
               <td>Pakistani</td>
             </tr>
-          `).join('')}
+          `,
+            )
+            .join("")}
         </tbody>
       </table>
 
@@ -304,17 +314,17 @@ export const printGDSBooking = (booking: any): void => {
       </div>
 
       <!-- Footer Address Pill -->
-      <div class="pill-address">
-        <span class="pin">📍</span>
-        AL RASHEED PLAZA MAIN RAY ROAD PAKISTAN HOTEL
-      </div>
+       <div class="pill-address">
+            <span class="pin">📍</span>
+            ${getAgencyAddress(booking)}
+        </div>
 
     </div>
   </body>
   </html>
   `;
 
-      // ...existing code...
+  // ...existing code...
   // --- 4. The Iframe Trick ---
   const iframe = document.createElement("iframe");
   Object.assign(iframe.style, {
@@ -416,4 +426,22 @@ const getAgencyPhone = (booking: any): string => {
     return storedFrontendUser.phone;
   }
   return "N/A";
+};
+
+const getAgencyAddress = (booking: any): string => {
+  const storedFrontendUser = getStoredFrontendUser();
+
+  if (typeof booking.userId === "object" && booking.userId?.address) {
+    return booking.userId.address;
+  }
+  if (booking.address) {
+    return booking.address;
+  }
+  if (booking.contactAddress) {
+    return booking.contactAddress;
+  }
+  if (storedFrontendUser.address) {
+    return storedFrontendUser.address;
+  }
+  return "AL RASHEED PLAZA MAIN RAY ROAD PAKISTAN HOTEL";
 };

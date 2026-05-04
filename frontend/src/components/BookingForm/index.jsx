@@ -102,7 +102,7 @@ export default function BookingForm({ user }) {
 
 
   useEffect(() => {
-    fetchBookingVoucher(); // always fetch seat map
+    fetchBookingVoucher(); // always fetch seat map  
   }, []);
 
   // Load existing booking if in edit mode
