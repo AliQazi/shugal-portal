@@ -112,7 +112,7 @@ app.use((req, res, next) => {
 });
 
 app.get("/", (req, res) => {
-  res.send("Shaheen Wings travel and tours (Pvt Ltd ) API is running");
+  res.send("Shaheen Wings travel and tours   ) API is running");
 });
 
 const PORT = process.env.PORT || 8016;

@@ -258,7 +258,7 @@ export const printGDSBooking = (booking) => {
         <!-- Summary Row -->
         <div class="summary-row">
             <div class="sum-card">
-                <div class="sum-label">FLIGHT</div>
+                <div class="sum-label">FLIGHT</div> 
                 <div class="sum-val">${airlineName} ${flightNum}</div>
             </div>
             ${pnrHTML}
