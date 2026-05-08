@@ -30,8 +30,8 @@ const Login = ({ onLogin }) => {
       });
       if (res.status === 200 && res.data.success) {
         const { token, user } = res.data;
-        localStorage.setItem("frontend_token", token);
-        localStorage.setItem("frontend_user", JSON.stringify(user));
+        sessionStorage.setItem("frontend_token", token);
+        sessionStorage.setItem("frontend_user", JSON.stringify(user));
         toast.success("Login successful!");
         if (user.role === "Admin") {
           window.location.href = "/admin-portal/";

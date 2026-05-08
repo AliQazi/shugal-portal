@@ -109,7 +109,7 @@ export const printGDSBooking = (booking, showPrice = true) => {
     // Frontend user fallback (safe parse)
     const storedFrontendUser = (() => {
         try {
-            return JSON.parse(localStorage.getItem("frontend_user") || "{}");
+            return JSON.parse(sessionStorage.getItem("frontend_user") || "{}");
         } catch (e) {
             return {};
         }
@@ -412,7 +412,7 @@ const getAgencyName = (booking) => {
 
 const getStoredFrontendUser = () => {
     try {
-        return JSON.parse(localStorage.getItem("frontend_user") || "{}");
+        return JSON.parse(sessionStorage.getItem("frontend_user") || "{}");
     } catch {
         return {};
     }

@@ -52,7 +52,7 @@ const Payment = () => {
   // Fetch user's bookings
   const fetchBookings = async () => {
     try {
-      const user = JSON.parse(localStorage.getItem("frontend_user"));
+      const user = JSON.parse(sessionStorage.getItem("frontend_user"));
       const userId = user?._id || user?.id;
 
       if (!userId) {
@@ -81,7 +81,7 @@ const Payment = () => {
       setError(null);
 
       // Get user ID from localStorage
-      const user = JSON.parse(localStorage.getItem("frontend_user"));
+      const user = JSON.parse(sessionStorage.getItem("frontend_user"));
       const userId = user?._id || user?.id;
 
       if (!userId) {
@@ -171,7 +171,7 @@ const Payment = () => {
     }
 
     // Get user from localStorage
-    const storedUser = localStorage.getItem("frontend_user");
+    const storedUser = sessionStorage.getItem("frontend_user");
     if (!storedUser) {
       alert("User not logged in. Please login first.");
       return;

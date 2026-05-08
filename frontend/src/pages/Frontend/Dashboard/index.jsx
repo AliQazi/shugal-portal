@@ -36,7 +36,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchUserBookings = async () => {
       try {
-        const storedUser = localStorage.getItem("frontend_user");
+        const storedUser = sessionStorage.getItem("frontend_user");
         if (!storedUser) return;
         const user = JSON.parse(storedUser);
         const userId = user?._id || user?.id;

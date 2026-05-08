@@ -19,12 +19,12 @@ export default function Header({ user, handleLogout }) {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const [hasToken, setHasToken] = useState(() => {
-    return !!localStorage.getItem("frontend_token");
+    return !!sessionStorage.getItem("frontend_token");
   });
 
   useEffect(() => {
     const checkToken = () => {
-      const token = localStorage.getItem("frontend_token");
+      const token = sessionStorage.getItem("frontend_token");
       setHasToken(!!token);
     };
 

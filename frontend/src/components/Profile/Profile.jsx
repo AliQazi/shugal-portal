@@ -126,11 +126,11 @@ export default function Profile() {
         setSuccess("Profile updated successfully!");
 
         // Update localStorage with new data
-        const storedUser = localStorage.getItem("frontend_user");
+        const storedUser = sessionStorage.getItem("frontend_user");
         if (storedUser) {
           const parsedUser = JSON.parse(storedUser);
           const updatedUser = { ...parsedUser, ...response.data };
-          localStorage.setItem("frontend_user", JSON.stringify(updatedUser));
+          sessionStorage.setItem("frontend_user", JSON.stringify(updatedUser));
         }
 
         // Refresh profile data

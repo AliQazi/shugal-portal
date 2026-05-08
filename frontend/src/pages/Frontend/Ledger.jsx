@@ -45,7 +45,7 @@ const Ledger = () => {
       setFetching(true);
       setError(null);
 
-      const user = JSON.parse(localStorage.getItem("frontend_user"));
+      const user = JSON.parse(sessionStorage.getItem("frontend_user"));
       const userId = user?._id || user?.id;
 
       if (!userId) {
@@ -96,7 +96,7 @@ const Ledger = () => {
 
   const handleExport = async (type) => {
     try {
-      const user = JSON.parse(localStorage.getItem("frontend_user"));
+      const user = JSON.parse(sessionStorage.getItem("frontend_user"));
       const userId = user?._id || user?.id;
       const userName = user?.name || "User";
 
@@ -228,7 +228,7 @@ const Ledger = () => {
         <h2 className="print-title">
           LEDGER OF{" "}
           {JSON.parse(
-            localStorage.getItem("frontend_user") || "{}",
+            sessionStorage.getItem("frontend_user") || "{}",
           )?.name?.toUpperCase() || "USER"}
         </h2>
         <p className="print-date-range">

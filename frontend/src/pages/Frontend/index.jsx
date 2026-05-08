@@ -61,8 +61,8 @@ export default function Frontend() {
 
   const handleLogout = () => {
     console.log("Logging out...");
-    localStorage.removeItem("frontend_token");
-    localStorage.removeItem("frontend_user");
+    sessionStorage.removeItem("frontend_token");
+    sessionStorage.removeItem("frontend_user");
     window.location.href = "/";
     setUser(null);
   };
