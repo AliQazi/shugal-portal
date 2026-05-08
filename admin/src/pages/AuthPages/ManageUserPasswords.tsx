@@ -46,7 +46,7 @@ export default function ManageUserPasswords() {
   const fetchUsers = async () => {
     try {
       setLoadingUsers(true);
-      const token = localStorage.getItem("admin_token");
+      const token = sessionStorage.getItem("admin_token");
       const response = await axiosInstance.get("/auth/users", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -90,7 +90,7 @@ export default function ManageUserPasswords() {
     onSubmit: async (values) => {
       try {
         setIsLoading(true);
-        const token = localStorage.getItem("admin_token");
+        const token = sessionStorage.getItem("admin_token");
 
         const response = await axiosInstance.post(
           "/auth/admin/change-user-password",

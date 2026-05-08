@@ -1,7 +1,7 @@
 import axios from "axios";
 
-// const url = "http://localhost:8007/api";
-const url = "https://shaheenwingstravels.com/api";
+const url = "http://localhost:8016/api";
+// const url = "https://shaheenwingstravels.com/api";
 
 const axiosInstance = axios.create({
   baseURL: url,
@@ -13,7 +13,7 @@ const axiosInstance = axios.create({
 // Add request interceptor to include auth token
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("admin_token");
+    const token = sessionStorage.getItem("admin_token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

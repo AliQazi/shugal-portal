@@ -37,7 +37,7 @@ const Ledger = () => {
   const fetchLedger = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("admin_token");
+      const token = sessionStorage.getItem("admin_token");
       
       // This is a placeholder API call - adjust the endpoint as per your backend
       const response = await axiosInstance.get(`/payment/ledger/${id}`, {
@@ -84,7 +84,7 @@ const Ledger = () => {
 
   const handleExport = async (type: string) => {
     try {
-      const token = localStorage.getItem("admin_token");
+      const token = sessionStorage.getItem("admin_token");
       
       if (type === 'copy') {
         // Copy table data to clipboard

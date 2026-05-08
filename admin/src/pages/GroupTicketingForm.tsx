@@ -146,7 +146,7 @@ const GroupTicketingForm = () => {
   const fetchBookingDetails = async (bookingId: string) => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("admin_token");
+      const token = sessionStorage.getItem("admin_token");
       const response = await axiosInstance.get(`/group-ticketing/${bookingId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -262,7 +262,7 @@ const GroupTicketingForm = () => {
     e.preventDefault();
     try {
       setLoading(true);
-      const token = localStorage.getItem("admin_token");
+      const token = sessionStorage.getItem("admin_token");
 
       if (editMode && id) {
         const response = await axiosInstance.put(`/group-ticketing/${id}`, formData, {

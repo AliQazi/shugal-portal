@@ -38,7 +38,7 @@ const ViewAccounts = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("admin_token");
+      const token = sessionStorage.getItem("admin_token");
       const response = await axiosInstance.get("/auth/users", {
         headers: {
           Authorization: `Bearer ${token}`,

@@ -46,7 +46,7 @@ export default function ChangePassword() {
     onSubmit: async (values) => {
       try {
         setIsLoading(true);
-        const token = localStorage.getItem("admin_token");
+        const token = sessionStorage.getItem("admin_token");
 
         const response = await axiosInstance.post(
           "/auth/change-password",

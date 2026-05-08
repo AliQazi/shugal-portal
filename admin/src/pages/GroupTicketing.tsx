@@ -104,7 +104,7 @@ const GroupTicketing = () => {
   const fetchBookings = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("admin_token");
+      const token = sessionStorage.getItem("admin_token");
       const response = await axiosInstance.get("/group-ticketing", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -132,7 +132,7 @@ const GroupTicketing = () => {
     }
 
     try {
-      const token = localStorage.getItem("admin_token");
+      const token = sessionStorage.getItem("admin_token");
       const response = await axiosInstance.delete(`/group-ticketing/${bookingId}`, {
         headers: {
           Authorization: `Bearer ${token}`,

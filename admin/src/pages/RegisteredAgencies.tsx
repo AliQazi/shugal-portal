@@ -70,7 +70,7 @@ const RegisteredAgencies = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("admin_token");
+      const token = sessionStorage.getItem("admin_token");
       const response = await axiosInstance.get("/auth/users", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -127,7 +127,7 @@ const RegisteredAgencies = () => {
   const updateUserStatus = async (userId: string, newStatus: "Active" | "Inactive" | "Pending") => {
     try {
       setApprovalLoading(userId);
-      const token = localStorage.getItem("admin_token");
+      const token = sessionStorage.getItem("admin_token");
       const response = await axiosInstance.patch(
         `/auth/users/${userId}/status`,
         { status: newStatus },
@@ -182,7 +182,7 @@ const RegisteredAgencies = () => {
   const handleSendCredentials = async (userId: string) => {
     try {
       setSendingCredentials(userId);
-      const token = localStorage.getItem("admin_token");
+      const token = sessionStorage.getItem("admin_token");
 
       const response = await axiosInstance.post(
         `/auth/users/${userId}/send-credentials`,
@@ -221,7 +221,7 @@ const RegisteredAgencies = () => {
   const handleDownloadPDF = async () => {
     try {
       setDownloadingPDF(true);
-      const token = localStorage.getItem("admin_token");
+      const token = sessionStorage.getItem("admin_token");
 
       const params = new URLSearchParams({
         searchTerm: searchTerm,
@@ -257,7 +257,7 @@ const RegisteredAgencies = () => {
   const handleDownloadExcel = async () => {
     try {
       setDownloadingExcel(true);
-      const token = localStorage.getItem("admin_token");
+      const token = sessionStorage.getItem("admin_token");
 
       const params = new URLSearchParams({
         searchTerm: searchTerm,
@@ -324,7 +324,7 @@ const RegisteredAgencies = () => {
   const togglePriceOnCall = async (userId: string, currentValue?: boolean) => {
     try {
       setPriceLoading(userId);
-      const token = localStorage.getItem("admin_token");
+      const token = sessionStorage.getItem("admin_token");
 
       const response = await axiosInstance.patch(
         `/auth/users/${userId}/price-on-call`,
@@ -361,7 +361,7 @@ const RegisteredAgencies = () => {
 
     try {
       setShowLoading(userId)
-      const token = localStorage.getItem("admin_token");
+      const token = sessionStorage.getItem("admin_token");
 
       await axiosInstance.patch(
         `/auth/users/${userId}/show-booking-now`,
@@ -382,7 +382,7 @@ const RegisteredAgencies = () => {
   const handleBulkBookingNowToggle = async () => {
     try {
       setBulkLoading(true);
-      const token = localStorage.getItem("admin_token");
+      const token = sessionStorage.getItem("admin_token");
 
       const newValue = !allBookingOn;
 
@@ -418,7 +418,7 @@ const RegisteredAgencies = () => {
   const handleBulkPriceOnCallToggle = async () => {
     try {
       setBulkLoading(true);
-      const token = localStorage.getItem("admin_token");
+      const token = sessionStorage.getItem("admin_token");
 
       const newValue = !allPriceOnCallOn;
 

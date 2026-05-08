@@ -1,4 +1,4 @@
-export const printGDSBooking = (booking) => {
+export const printGDSBooking = (booking, showPrice = true) => {
     // --- 1. Helper Functions ---
     const formatFullDate = (dateStr) => {
         if (!dateStr) return "";
@@ -137,6 +137,15 @@ export const printGDSBooking = (booking) => {
     // --- 3. Construct the HTML String (PDF Design -> Black & White) ---
     // Only show PNR if booking status does not contain 'HOLD' (case-insensitive)
     const showPNR = !/hold/i.test(bookingStatusRaw);
+
+    const priceAmount = booking.pricing?.grandTotal || booking.price || booking.amount || 0;
+    const priceHTML = showPrice
+        ? `<div class="sum-card">
+        <div class="sum-label">PRICE (PKR)</div>
+        <div class="sum-val">PKR ${Number(priceAmount).toLocaleString()}</div>
+    </div>`
+        : "";
+
     // Only render PNR box if not HOLD
     const pnrHTML = showPNR ? `<div class="sum-card">
         <div class="sum-label">PNR</div>
@@ -177,7 +186,7 @@ export const printGDSBooking = (booking) => {
         .ref-value { font-size: 17px; font-weight: bold; color: #505050; margin-top: -2px; }
 
         /* 2. Top Summary Boxes */
-        .summary-row { display: grid; grid-template-columns: repeat(${showPNR ? 4 : 3}, 1fr); gap: 15px; margin-bottom: 30px; }
+        .summary-row { display: grid; grid-template-columns: repeat(${3 + (showPNR ? 1 : 0) + (showPrice ? 1 : 0)}, 1fr); gap: 15px; margin-bottom: 30px; }
         .sum-card { 
             border: 1px solid #f0f0f0; 
             border-radius: 12px; 
@@ -270,6 +279,7 @@ export const printGDSBooking = (booking) => {
                 <div class="sum-label">STATUS</div>
                 <div class="sum-val">${bookingStatus}</div>
             </div>
+            ${priceHTML}
         </div>
 
         <!-- Flight Segments -->

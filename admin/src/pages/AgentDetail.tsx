@@ -52,7 +52,7 @@ const AgentDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const token = useMemo(() => localStorage.getItem("admin_token"), []);
+  const token = useMemo(() => sessionStorage.getItem("admin_token"), []);
 
   useEffect(() => {
     const fetchAgent = async () => {

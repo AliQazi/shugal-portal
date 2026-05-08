@@ -4,6 +4,8 @@ import {
   useState,
   ReactNode,
   useEffect,
+  useRef,
+  useCallback,
 } from "react";
 import axiosInstance from "../Api/axios";
 
@@ -25,14 +27,36 @@ interface AuthContextType {
   loading: boolean;
 }
 
+const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const logout = useCallback(() => {
+    setUser(null);
+    sessionStorage.removeItem("admin_token");
+    if (inactivityTimer.current) {
+      clearTimeout(inactivityTimer.current);
+      inactivityTimer.current = null;
+    }
+  }, []);
+
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimer.current) {
+      clearTimeout(inactivityTimer.current);
+    }
+    inactivityTimer.current = setTimeout(() => {
+      logout();
+    }, INACTIVITY_TIMEOUT);
+  }, [logout]);
+
+  // Restore session only within the same browser tab (sessionStorage)
   useEffect(() => {
-    const storedToken = localStorage.getItem("admin_token");
+    const storedToken = sessionStorage.getItem("admin_token");
     if (storedToken) {
       axiosInstance
         .get("/auth/profile", {
@@ -41,7 +65,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           },
         })
         .then((res) => {
-          // Backend returns { success: true, data: user }
           setUser(res.data.data);
         })
         .catch(() => {
@@ -53,14 +76,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  // Start/reset inactivity timer while user is logged in
+  useEffect(() => {
+    if (!user) return;
+
+    const events = ["mousemove", "keydown", "mousedown", "scroll", "touchstart"];
+    events.forEach((e) => window.addEventListener(e, resetInactivityTimer));
+    resetInactivityTimer();
+
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, resetInactivityTimer));
+      if (inactivityTimer.current) {
+        clearTimeout(inactivityTimer.current);
+        inactivityTimer.current = null;
+      }
+    };
+  }, [user, resetInactivityTimer]);
+
   const login = (user: User, token: string) => {
     setUser(user);
-    localStorage.setItem("admin_token", token); // ✅ Only storing token
-  };
-
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("admin_token");
+    sessionStorage.setItem("admin_token", token);
   };
 
   const value: AuthContextType = {
