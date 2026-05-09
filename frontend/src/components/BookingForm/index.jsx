@@ -29,21 +29,23 @@ export default function BookingForm({ user }) {
       .then((res) => {
         if (res.data?.success) setDbMargin(res.data.data);
       })
-      .catch(() => { });
+      .catch(() => {});
   }, []);
 
-  // 3-tier margin priority:
+  // 3-tier margin priority :
   // 1. Agent-specific margin (highest)
   // 2. Individual group margin (Sabaoon API only, when no agent margin set)
   // 3. Global/overall margin (fallback)
   const calculateB2BPrice = (groupPrice, group = {}) => {
-    if (!user) return groupPrice; // B2C case (handled separately)
+    if (!user) return groupPrice;
     if (user?.priceOnCall) return null;
 
     let finalPrice = groupPrice;
 
-    // Priority 1: Agent-specific margin
-    const marginType = user.marginType; // "Percentage" or "Amount"
+    // =========================
+    // 1. AGENT MARGIN
+    // =========================
+    const marginType = user.marginType;
     const marginPercent = user.flightMarginPercent;
     const marginAmount = user.flightMarginAmount;
 
@@ -53,15 +55,20 @@ export default function BookingForm({ user }) {
       finalPrice = groupPrice + marginAmount;
     }
 
-    // Priority 2: Individual group margin (only when no agent margin applied)
+    // =========================
+    // 2. GROUP MARGIN (fallback)
+    // =========================
     if (finalPrice === groupPrice) {
       const indMargin = group?.individualMargin;
+
       if (indMargin !== null && indMargin !== undefined) {
         finalPrice = groupPrice + indMargin;
       }
     }
 
-    // Priority 3: Global/overall margin (fallback)
+    // =========================
+    // 3. GLOBAL MARGIN (fallback)
+    // =========================
     if (finalPrice === groupPrice && dbMargin) {
       if (dbMargin.type === "percent" && dbMargin.value > 0) {
         finalPrice = groupPrice + (groupPrice * dbMargin.value) / 100;
@@ -69,6 +76,25 @@ export default function BookingForm({ user }) {
         finalPrice = groupPrice + dbMargin.value;
       }
     }
+
+    // =========================
+    // 4. DISCOUNT (LAST STEP)
+    // =========================
+    const discountType = user.discountType;
+    const discountPercent = user.discountPercent;
+    const discountAmount = user.discountAmount;
+
+    let discountValue = 0;
+
+    if (discountType === "Percentage" && discountPercent > 0) {
+      discountValue = (finalPrice * discountPercent) / 100;
+    } else if (discountType === "Amount" && discountAmount > 0) {
+      discountValue = discountAmount;
+    }
+
+    finalPrice = finalPrice - discountValue;
+
+    if (finalPrice < 0) finalPrice = 0;
 
     return Math.round(finalPrice);
   };
@@ -80,7 +106,6 @@ export default function BookingForm({ user }) {
     infants: 0,
     passengers: [],
   });
-
 
   const [bookingList, setBookingList] = useState([]);
   const [bookedSeatsMap, setBookedSeatsMap] = useState({});
@@ -100,9 +125,8 @@ export default function BookingForm({ user }) {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [isReviewed, setIsReviewed] = useState(false);
 
-
   useEffect(() => {
-    fetchBookingVoucher(); // always fetch seat map  
+    fetchBookingVoucher(); // always fetch seat map
   }, []);
 
   // Load existing booking if in edit mode
@@ -114,7 +138,6 @@ export default function BookingForm({ user }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookingId, isEditMode]);
 
-
   const fetchBookingVoucher = async () => {
     try {
       const res = await axiosInstance.get("/bookings/");
@@ -125,8 +148,13 @@ export default function BookingForm({ user }) {
         if (booking.status !== "cancelled") {
           booking.flights?.forEach((flight) => {
             // Normalize the key: Clean flight number and YYYY-MM-DD date
-            const flightNo = flight.flightNo?.toUpperCase().replace("-", "").trim();
-            const depDate = new Date(flight.depDate).toISOString().split("T")[0];
+            const flightNo = flight.flightNo
+              ?.toUpperCase()
+              .replace("-", "")
+              .trim();
+            const depDate = new Date(flight.depDate)
+              .toISOString()
+              .split("T")[0];
             const key = `${flightNo}_${depDate}`;
 
             map[key] = (map[key] || 0) + passengersLength;
@@ -138,7 +166,6 @@ export default function BookingForm({ user }) {
       console.error("Error fetching seat map:", err);
     }
   };
-
 
   const fetchBookingForEdit = async () => {
     try {
@@ -161,7 +188,9 @@ export default function BookingForm({ user }) {
         const isLocalGroup = /^[0-9a-fA-F]{24}$/.test(booking.groupId);
         if (isLocalGroup) {
           try {
-            const groupRes = await axiosInstance.get(`/group-ticketing/${booking.groupId}`);
+            const groupRes = await axiosInstance.get(
+              `/group-ticketing/${booking.groupId}`,
+            );
             if (groupRes.data.success) {
               availableSeats = groupRes.data.data.totalSeats ?? 0;
             }
@@ -417,7 +446,12 @@ export default function BookingForm({ user }) {
   // Store a file locally for a passenger — actual upload happens at booking submit
   const handleDocSelect = (index, file) => {
     if (!file) return;
-    const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+    const allowed = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "application/pdf",
+    ];
     if (!allowed.includes(file.type)) {
       toast.error("Only JPG, PNG, WEBP, or PDF files are allowed");
       return;
@@ -450,9 +484,13 @@ export default function BookingForm({ user }) {
         const fd = new FormData();
         fd.append("document", file);
         try {
-          const res = await axiosInstance.post("/bookings/upload-document", fd, {
-            headers: { "Content-Type": "multipart/form-data" },
-          });
+          const res = await axiosInstance.post(
+            "/bookings/upload-document",
+            fd,
+            {
+              headers: { "Content-Type": "multipart/form-data" },
+            },
+          );
           if (res.data.success) {
             updated[idx].documentUrl = res.data.url;
           }
@@ -476,9 +514,15 @@ export default function BookingForm({ user }) {
     const rawBlocks = mrzInput.trim().split(/\n[ \t]*\n/);
     let results = [];
     if (rawBlocks.length > 1) {
-      results = rawBlocks.map((block) => parseMRZ(block.trim())).filter(Boolean);
+      results = rawBlocks
+        .map((block) => parseMRZ(block.trim()))
+        .filter(Boolean);
     } else {
-      const lines = mrzInput.trim().split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+      const lines = mrzInput
+        .trim()
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
       for (let i = 0; i + 1 < lines.length; i += 2) {
         const result = parseMRZ(lines[i] + "\n" + lines[i + 1]);
         if (result) results.push(result);
@@ -507,15 +551,21 @@ export default function BookingForm({ user }) {
             normalizeNationalityValue(result.nationality) ||
             newPassengers[idx].nationality,
           dateOfBirth: result.dateOfBirth || newPassengers[idx].dateOfBirth,
-          passportExpiry: result.passportExpiry || newPassengers[idx].passportExpiry,
+          passportExpiry:
+            result.passportExpiry || newPassengers[idx].passportExpiry,
           title: result.title || newPassengers[idx].title,
         };
       });
       return { ...prev, passengers: newPassengers };
     });
 
-    const filled = Math.min(results.length, formData.passengers.length - startIdx);
-    toast.success(`${filled} passport${filled > 1 ? "s" : ""} scanned successfully!`);
+    const filled = Math.min(
+      results.length,
+      formData.passengers.length - startIdx,
+    );
+    toast.success(
+      `${filled} passport${filled > 1 ? "s" : ""} scanned successfully!`,
+    );
     setMrzModal({ open: false, index: null });
     setMrzInput("");
   };
@@ -543,8 +593,7 @@ export default function BookingForm({ user }) {
       return handleUpdate();
     }
 
-    const normalizeFlightNo = (fn) =>
-      fn?.toUpperCase().replace("-", "").trim();
+    const normalizeFlightNo = (fn) => fn?.toUpperCase().replace("-", "").trim();
 
     // 🔑 get flight from groupData (same as table)
     const flight = groupData?.details?.[0];
@@ -552,11 +601,11 @@ export default function BookingForm({ user }) {
     let booked = 0;
     let key = "";
     if (flight) {
-      key = `${normalizeFlightNo(flight.flight_no)}_${new Date(
-        flight.dep_date || flight.flight_date
-      )
-        .toISOString()
-        .split("T")[0]}`;
+      key = `${normalizeFlightNo(flight.flight_no)}_${
+        new Date(flight.dep_date || flight.flight_date)
+          .toISOString()
+          .split("T")[0]
+      }`;
       booked = bookedSeatsMap[key] || 0;
     }
 
@@ -566,12 +615,11 @@ export default function BookingForm({ user }) {
       (parseInt(formData.infants) || 0);
 
     // ✅ final available seats AFTER deduction
-    const remainingSeats =
-      (groupData?.available_no_of_pax || 0) - booked;
+    const remainingSeats = (groupData?.available_no_of_pax || 0) - booked;
     // ❌ validation
     if (payingPassengers > remainingSeats) {
       toast.error(
-        `Total passengers (${payingPassengers}) cannot exceed available seats (${remainingSeats})`
+        `Total passengers (${payingPassengers}) cannot exceed available seats (${remainingSeats})`,
       );
       return;
     }
@@ -690,7 +738,8 @@ export default function BookingForm({ user }) {
           // Final prices including margin
           adultPrice: calculateB2BPrice(groupData?.price, groupData) || 0,
           childPrice: calculateB2BPrice(groupData?.childPrice, groupData) || 0,
-          infantPrice: calculateB2BPrice(groupData?.infantPrice, groupData) || 0,
+          infantPrice:
+            calculateB2BPrice(groupData?.infantPrice, groupData) || 0,
           // Original base prices
           adultBasePrice: groupData?.price || 0,
           childBasePrice: groupData?.childPrice || 0,
@@ -823,26 +872,36 @@ export default function BookingForm({ user }) {
                   </p>
                   <p className="text-sm font-extrabold text-[#3d6a8f] bg-blue-50 px-2 py-1 rounded-2xl">
                     {(() => {
-                      if (!groupData || !groupData.details || !groupData.details[0]) return 0;
+                      if (
+                        !groupData ||
+                        !groupData.details ||
+                        !groupData.details[0]
+                      )
+                        return 0;
 
                       const flight = groupData.details[0];
 
                       // Normalize EXACTLY like fetchBookingVoucher builds the map key
-                      const flightNo = flight.flight_no?.toUpperCase().replace("-", "").trim();
+                      const flightNo = flight.flight_no
+                        ?.toUpperCase()
+                        .replace("-", "")
+                        .trim();
                       const rawDate = flight.dep_date || flight.flight_date;
-                      const depDate = new Date(rawDate).toISOString().split("T")[0];
+                      const depDate = new Date(rawDate)
+                        .toISOString()
+                        .split("T")[0];
                       const key = `${flightNo}_${depDate}`;
 
                       const booked = bookedSeatsMap[key] || 0;
                       const total = groupData.available_no_of_pax || 0;
 
                       const currentBookingPassengers = isEditMode
-  ? (parseInt(formData.adults) || 0) +
-    (parseInt(formData.children) || 0) +
-    (parseInt(formData.infants) || 0)
-  : 0;
+                        ? (parseInt(formData.adults) || 0) +
+                          (parseInt(formData.children) || 0) +
+                          (parseInt(formData.infants) || 0)
+                        : 0;
 
-return total - booked + currentBookingPassengers;
+                      return total - booked + currentBookingPassengers;
                     })()}
                   </p>
                 </div>
@@ -865,7 +924,10 @@ return total - booked + currentBookingPassengers;
                     Child
                   </p>
                   <p className="text-sm font-extrabold text-[#3d6a8f] bg-blue-50 px-2 py-1 rounded-2xl">
-                    {calculateB2BPrice(groupData?.childPrice, groupData)?.toLocaleString() || "N/A"}
+                    {calculateB2BPrice(
+                      groupData?.childPrice,
+                      groupData,
+                    )?.toLocaleString() || "N/A"}
                   </p>
                 </div>
 
@@ -1275,24 +1337,33 @@ return total - booked + currentBookingPassengers;
                       <td className="px-3 py-2">
                         <div className="flex flex-col gap-1 min-w-28">
                           {/* Show preview: pending local file takes priority over stored URL */}
-                          {(pendingDocs[index] || passenger.documentUrl) ? (
+                          {pendingDocs[index] || passenger.documentUrl ? (
                             <div className="flex items-center gap-1.5">
                               {pendingDocs[index] ? (
                                 // Local file preview (not yet uploaded)
-                                pendingDocs[index].type === "application/pdf" ? (
+                                pendingDocs[index].type ===
+                                "application/pdf" ? (
                                   <span className="text-[10px] text-amber-600 font-semibold border border-amber-300 bg-amber-50 px-1.5 py-0.5 rounded">
                                     PDF ready
                                   </span>
                                 ) : (
                                   <img
-                                    src={URL.createObjectURL(pendingDocs[index])}
+                                    src={URL.createObjectURL(
+                                      pendingDocs[index],
+                                    )}
                                     alt="doc preview"
                                     className="h-8 w-12 object-cover rounded border border-amber-300"
                                     title="Pending — will upload on submit"
                                   />
                                 )
-                              ) : passenger.documentUrl.match(/\.(jpg|jpeg|png|webp)/i) ? (
-                                <a href={passenger.documentUrl} target="_blank" rel="noreferrer">
+                              ) : passenger.documentUrl.match(
+                                  /\.(jpg|jpeg|png|webp)/i,
+                                ) ? (
+                                <a
+                                  href={passenger.documentUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
                                   <img
                                     src={passenger.documentUrl}
                                     alt="doc"
@@ -1320,17 +1391,31 @@ return total - booked + currentBookingPassengers;
                             </div>
                           ) : null}
                           <label className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer border transition-all duration-200 bg-[#3d6a8f]/10 hover:bg-[#3d6a8f] text-[#3d6a8f] hover:text-white border-[#3d6a8f]/30">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="11"
+                              height="11"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
                               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                               <polyline points="17 8 12 3 7 8" />
                               <line x1="12" y1="3" x2="12" y2="15" />
                             </svg>
-                            {(pendingDocs[index] || passenger.documentUrl) ? "Replace" : "Upload"}
+                            {pendingDocs[index] || passenger.documentUrl
+                              ? "Replace"
+                              : "Upload"}
                             <input
                               type="file"
                               accept="image/jpeg,image/png,image/webp,application/pdf"
                               className="hidden"
-                              onChange={(e) => handleDocSelect(index, e.target.files?.[0])}
+                              onChange={(e) =>
+                                handleDocSelect(index, e.target.files?.[0])
+                              }
                             />
                           </label>
                         </div>
@@ -1458,7 +1543,10 @@ return total - booked + currentBookingPassengers;
                   </svg>
                 </div>
                 <div className="text-xs text-blue-700 leading-relaxed">
-                  💡 The MRZ is the two lines of machine-readable text at the bottom of the main passport page. To fill multiple passengers at once, paste each passport's MRZ one after the other (separated by a blank line or just consecutively).
+                  💡 The MRZ is the two lines of machine-readable text at the
+                  bottom of the main passport page. To fill multiple passengers
+                  at once, paste each passport's MRZ one after the other
+                  (separated by a blank line or just consecutively).
                 </div>
               </div>
 
@@ -1529,10 +1617,11 @@ return total - booked + currentBookingPassengers;
                 type="button"
                 onClick={handleMrzParse}
                 disabled={!mrzInput.trim()}
-                className={`px-6 py-2 text-sm font-bold rounded-lg transition-all ${mrzInput.trim()
-                  ? "bg-[#3d6a8f] text-white hover:bg-[#2d5a8f] shadow-sm hover:shadow-md"
-                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                  }`}
+                className={`px-6 py-2 text-sm font-bold rounded-lg transition-all ${
+                  mrzInput.trim()
+                    ? "bg-[#3d6a8f] text-white hover:bg-[#2d5a8f] shadow-sm hover:shadow-md"
+                    : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                }`}
               >
                 Scan
               </button>
@@ -1629,7 +1718,9 @@ return total - booked + currentBookingPassengers;
                           <td className="px-4 py-3 border-r border-gray-100">
                             {formatDateForDisplay(p.passportExpiry)}
                           </td>
-                          <td className="px-4 py-3 border-r border-gray-100">{p.nationality}</td>
+                          <td className="px-4 py-3 border-r border-gray-100">
+                            {p.nationality}
+                          </td>
                           <td className="px-4 py-3">
                             {pendingDocs[i] ? (
                               pendingDocs[i].type === "application/pdf" ? (
@@ -1646,7 +1737,11 @@ return total - booked + currentBookingPassengers;
                               )
                             ) : p.documentUrl ? (
                               p.documentUrl.match(/\.(jpg|jpeg|png|webp)/i) ? (
-                                <a href={p.documentUrl} target="_blank" rel="noreferrer">
+                                <a
+                                  href={p.documentUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
                                   <img
                                     src={p.documentUrl}
                                     alt="doc"
@@ -1713,10 +1808,11 @@ return total - booked + currentBookingPassengers;
                   onClick={handleFinalSubmit}
                   disabled={!isReviewed || isSubmitting}
                   className={`flex-1 sm:flex-none px-8 py-2.5 rounded-lg text-sm font-bold shadow-md flex items-center justify-center gap-2 transition-all transform active:scale-95
-                                        ${isReviewed && !isSubmitting
-                      ? "bg-[#3d6a8f] text-white hover:bg-[#2d5a8f] hover:shadow-lg"
-                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    }`}
+                                        ${
+                                          isReviewed && !isSubmitting
+                                            ? "bg-[#3d6a8f] text-white hover:bg-[#2d5a8f] hover:shadow-lg"
+                                            : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                        }`}
                 >
                   {isSubmitting ? <>Loading...</> : <>Submit</>}
                 </button>

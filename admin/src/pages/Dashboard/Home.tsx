@@ -327,14 +327,14 @@ export default function Home() {
       </div>
 
       {/* Categories Section */}
-      <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+      <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-white/3 sm:p-6">
         <div className="mb-5 flex flex-col gap-3 border-b border-gray-100 pb-5 dark:border-gray-800 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white/90">
               Group Categories
             </h2>
           </div>
-{/* 
+          {/* 
           <div className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
             {DASHBOARD_CATEGORIES.length} live API categories
           </div> */}
@@ -359,7 +359,7 @@ export default function Home() {
                 <div className="absolute inset-0 z-0 bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl" />
                 <div className="relative z-10 p-7 flex flex-col h-full">
                   <div className="flex items-center gap-3 mb-6">
-                    <div className={`flex h-14 w-14 items-center justify-center rounded-2xl border-2 shadow-lg bg-gradient-to-br ${category.accentClass} ${category.badgeClass} ring-2 ring-white/60 dark:ring-gray-900/60`}> 
+                    <div className={`flex h-14 w-14 items-center justify-center rounded-2xl border-2 shadow-lg bg-linear-to-br ${category.accentClass} ${category.badgeClass} ring-2 ring-white/60 dark:ring-gray-900/60`}>
                       <Squares2X2Icon className="h-7 w-7 drop-shadow-lg text-white" />
                     </div>
                     <span className="ml-auto px-4 py-1 rounded-full text-xs font-extrabold bg-white/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 shadow-md tracking-wide">

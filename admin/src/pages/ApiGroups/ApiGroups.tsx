@@ -30,12 +30,6 @@ const RefreshSVG = ({ className = "" }: { className?: string }) => (
     </svg>
 );
 
-// const AlertIcon = ({ className = "" }: { className?: string }) => (
-//     <svg className={className} viewBox="0 0 24 24" fill="currentColor" width="1em" height="1em">
-//         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
-//     </svg>
-// );
-
 interface FlightDetail {
     flight_no: string;
     flight_date: string;
@@ -77,24 +71,32 @@ interface GroupedEntry {
     groups: ApiGroup[];
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
-
 export default function ApiGroups() {
     const [searchParams] = useSearchParams();
     const [groups, setGroups] = useState<ApiGroup[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // ── Margin State ─────────────────────────────
+    const [currentMargin, setCurrentMargin] = useState<{
+        value: number;
+        type: "percent" | "amount";
+    } | null>(null);
+
     const activeCategory = searchParams.get("category") || "all";
+
     const activeCategoryLabel =
         API_GROUP_CATEGORIES.find((item) => item.key === activeCategory)?.label || "All Groups";
 
-    // ── Fetch ─────────────────────────────────────────────────────────────────
+    // ── Fetch Groups ─────────────────────────────
 
     const fetchGroups = async () => {
         try {
             setLoading(true);
+
             const res = await axiosInstance.get("/al-haider/available-bookings-by-group", {
                 params: activeCategory === "all" ? {} : { category: activeCategory },
             });
+
             if (res.data?.success) {
                 const data: ApiGroup[] = res.data.data || [];
                 setGroups(data);
@@ -107,16 +109,51 @@ export default function ApiGroups() {
         }
     };
 
+    // ── Fetch Margin ─────────────────────────────
+
+    const fetchMargin = async () => {
+        try {
+            const response = await axiosInstance.get("/sector/getMargin");
+
+            if (response.data.success) {
+                setCurrentMargin({
+                    value: response.data.data.value,
+                    type: response.data.data.type,
+                });
+            }
+        } catch (error) {
+            console.error("Error fetching margin:", error);
+        }
+    };
+
     useEffect(() => {
         fetchGroups();
+        fetchMargin();
     }, [activeCategory]);
 
-    // ── Group by airline × sector ─────────────────────────────────────────────
+    // ── Calculate Margin ─────────────────────────
+
+    const calculateMarginAmount = (basePrice: number) => {
+        if (!currentMargin || !currentMargin.value) return 0;
+
+        if (currentMargin.type === "percent") {
+            return Math.round((basePrice * currentMargin.value) / 100);
+        }
+
+        return currentMargin.value;
+    };
+
+    const calculateFinalPrice = (basePrice: number) => {
+        return basePrice + calculateMarginAmount(basePrice);
+    };
+
+    // ── Group by airline × sector ─────────────────────────────
 
     const groupedData = groups.reduce<Record<string, GroupedEntry>>((acc, group) => {
         const airlineName = group.airline?.airline_name || "Unknown";
         const sector = (group.sector || "Unknown").toUpperCase().trim();
         const key = `${airlineName}||${sector}`;
+
         if (!acc[key]) {
             acc[key] = {
                 airline: airlineName,
@@ -125,11 +162,11 @@ export default function ApiGroups() {
                 groups: [],
             };
         }
+
         acc[key].groups.push(group);
+
         return acc;
     }, {});
-
-    // ── Render helpers ────────────────────────────────────────────────────────
 
     const LoadingSkeleton = () => (
         <div className="space-y-6 p-4">
@@ -152,7 +189,8 @@ export default function ApiGroups() {
             />
 
             <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/3 min-h-screen">
-                {/* ─── Page header ─────────────────────────────────────────────── */}
+
+                {/* Header */}
                 <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
                     <div>
                         <h1 className="text-xl font-bold text-gray-800 dark:text-white">
@@ -170,6 +208,7 @@ export default function ApiGroups() {
                     </button>
                 </div>
 
+                {/* Categories */}
                 <div className="mb-6 flex flex-wrap gap-3">
                     {API_GROUP_CATEGORIES.map((category) => {
                         const target = category.key === "all"
@@ -191,17 +230,20 @@ export default function ApiGroups() {
                     })}
                 </div>
 
-                {/* ─── Info banner ─────────────────────────────────────────────── */}
-                {/* <div className="flex items-start gap-3 mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
-                    <AlertIcon className="mt-0.5 shrink-0 text-amber-500 w-4 h-4" />
-                    <div>
-                        <strong>How margins work:</strong> If an individual margin (PKR fixed amount) is set for a group,{" "}
-                        only that margin is applied on the frontend — agent and global margins are ignored for that group.
-                        Clear the margin field and save to revert to global/agent margins.
+                {/* Margin Banner */}
+                {currentMargin && currentMargin.value > 0 && (
+                    <div className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+                        <p className="text-sm font-medium text-green-700">
+                            Active Margin:
+                            <span className="ml-2 font-bold">
+                                {currentMargin.value}
+                                {currentMargin.type === "percent" ? "%" : " PKR"}
+                            </span>
+                        </p>
                     </div>
-                </div> */}
+                )}
 
-                {/* ─── Content ─────────────────────────────────────────────────── */}
+                {/* Content */}
                 {loading ? (
                     <LoadingSkeleton />
                 ) : groups.length === 0 ? (
@@ -220,7 +262,7 @@ export default function ApiGroups() {
                                     key={key}
                                     className="rounded-2xl overflow-hidden border border-neutral-200"
                                 >
-                                    {/* ── Airline / Sector header ─────────────────────── */}
+                                    {/* Header */}
                                     <div className="flex items-center justify-center gap-6 py-2.5 bg-linear-to-r from-blue-50 via-white to-blue-50 border-b border-neutral-200">
                                         <div className="flex items-center justify-center min-w-16">
                                             {data.airlineLogo ? (
@@ -249,21 +291,38 @@ export default function ApiGroups() {
                                         </span>
                                     </div>
 
-                                    {/* ── Flight Table ─────────────────────────────── */}
+                                    {/* Table */}
                                     <div className="overflow-x-auto">
                                         <table className="w-full border-collapse">
                                             <thead>
-                                                <tr className="text-white text-xs font-bold" style={{ background: "linear-gradient(90deg, #21397C 0%, #2CA3B4 100%)" }}>
+                                                <tr
+                                                    className="text-white text-xs font-bold"
+                                                    style={{
+                                                        background: "linear-gradient(90deg, #21397C 0%, #2CA3B4 100%)"
+                                                    }}
+                                                >
                                                     <th className="px-4 py-2.5 text-left whitespace-nowrap">Date</th>
                                                     <th className="px-4 py-2.5 text-left whitespace-nowrap">Flight</th>
                                                     <th className="px-4 py-2.5 text-center whitespace-nowrap">Sector</th>
                                                     <th className="px-4 py-2.5 text-center whitespace-nowrap">Bag</th>
                                                     <th className="px-4 py-2.5 text-center whitespace-nowrap">Meal</th>
-                                                    {/* <th className="px-4 py-2.5 text-center whitespace-nowrap">Seats</th> */}
                                                     <th className="px-4 py-2.5 text-center whitespace-nowrap">Seats</th>
-                                                    <th className="px-4 py-2.5 text-center whitespace-nowrap">Base Price</th>
+
+                                                    {/* NEW */}
+                                                    <th className="px-4 py-2.5 text-center whitespace-nowrap">
+                                                        Base Price
+                                                    </th>
+
+                                                    <th className="px-4 py-2.5 text-center whitespace-nowrap">
+                                                        Margin
+                                                    </th>
+
+                                                    <th className="px-4 py-2.5 text-center whitespace-nowrap">
+                                                        Final Price
+                                                    </th>
                                                 </tr>
                                             </thead>
+
                                             <tbody>
                                                 {data.groups
                                                     .sort((a, b) => {
@@ -272,19 +331,34 @@ export default function ApiGroups() {
                                                         return da.localeCompare(db);
                                                     })
                                                     .map((group) => {
+
                                                         const id = String(group.id);
                                                         const flight = group.details?.[0];
 
+                                                        const basePrice = group.price || 0;
+
+                                                        const marginAmount =
+                                                            calculateMarginAmount(basePrice);
+
+                                                        const finalPrice =
+                                                            calculateFinalPrice(basePrice);
+
                                                         return (
-                                                            <tr key={id} className="border-b border-gray-100 bg-white hover:bg-blue-50/40 transition-colors">
+                                                            <tr
+                                                                key={id}
+                                                                className="border-b border-gray-100 bg-white hover:bg-blue-50/40 transition-colors"
+                                                            >
                                                                 {/* Date */}
                                                                 <td className="px-4 py-3 text-xs font-medium text-gray-600 whitespace-nowrap">
                                                                     {flight
-                                                                        ? new Date(flight.flight_date).toLocaleDateString("en-GB", {
-                                                                            day: "2-digit",
-                                                                            month: "short",
-                                                                            year: "numeric",
-                                                                        })
+                                                                        ? new Date(flight.flight_date).toLocaleDateString(
+                                                                            "en-GB",
+                                                                            {
+                                                                                day: "2-digit",
+                                                                                month: "short",
+                                                                                year: "numeric",
+                                                                            }
+                                                                        )
                                                                         : "—"}
                                                                 </td>
 
@@ -298,7 +372,7 @@ export default function ApiGroups() {
                                                                     </div>
                                                                 </td>
 
-                                                                {/* Sector with route + time */}
+                                                                {/* Sector */}
                                                                 <td className="px-4 py-3">
                                                                     <div className="flex items-center justify-center gap-3">
                                                                         <div className="text-center">
@@ -307,12 +381,14 @@ export default function ApiGroups() {
                                                                                 {flight?.dept_time?.substring(0, 5) || "—"}
                                                                             </div>
                                                                         </div>
+
                                                                         <div className="flex items-center relative min-w-10 w-16">
                                                                             <div className="h-0.5 w-full bg-linear-to-r from-blue-400 to-blue-600" />
                                                                             <div className="absolute left-1/2 -translate-x-1/2 bg-white px-0.5">
                                                                                 <PlaneSVG className="text-xs text-blue-500" />
                                                                             </div>
                                                                         </div>
+
                                                                         <div className="text-center">
                                                                             <div className="text-sm font-bold">{destination}</div>
                                                                             <div className="text-xs text-gray-500 font-medium">
@@ -336,21 +412,57 @@ export default function ApiGroups() {
 
                                                                 {/* Meal */}
                                                                 <td className="px-4 py-3 text-center">
-                                                                    <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${flight?.meal && flight.meal !== "No" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                                                                        {flight?.meal && flight.meal !== "No" ? "Yes" : "No"}
+                                                                    <span
+                                                                        className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${flight?.meal && flight.meal !== "No"
+                                                                            ? "bg-green-100 text-green-700"
+                                                                            : "bg-gray-100 text-gray-500"
+                                                                            }`}
+                                                                    >
+                                                                        {flight?.meal && flight.meal !== "No"
+                                                                            ? "Yes"
+                                                                            : "No"}
                                                                     </span>
                                                                 </td>
 
+                                                                {/* Seats */}
                                                                 <td className="px-4 py-3 text-center whitespace-nowrap">
                                                                     <span className="text-sm font-bold text-gray-800">
                                                                         {group.available_no_of_pax}
                                                                     </span>
                                                                 </td>
 
+                                                                {/* Price Details */}
                                                                 {/* Base Price */}
                                                                 <td className="px-4 py-3 text-center whitespace-nowrap">
-                                                                    <div className="text-sm font-bold text-blue-600">
-                                                                        PKR {group.price.toLocaleString()}
+                                                                    <div className="text-sm font-semibold text-blue-600">
+                                                                        PKR {basePrice.toLocaleString()}
+                                                                    </div>
+                                                                </td>
+
+                                                                {/* Margin */}
+                                                                <td className="px-4 py-3 text-center whitespace-nowrap">
+
+                                                                    <div className="flex flex-col items-center">
+
+                                                                        <span className="text-sm font-bold text-orange-600">
+                                                                            + PKR {marginAmount.toLocaleString()}
+                                                                        </span>
+
+                                                                        {/* {currentMargin && (
+                                                                            <span className="text-[10px] text-gray-500 mt-0.5">
+                                                                                ({currentMargin.value}
+                                                                                {currentMargin.type === "percent" ? "%" : " Rs"})
+                                                                            </span>
+                                                                        )} */}
+
+                                                                    </div>
+
+                                                                </td>
+
+                                                                {/* Final Price */}
+                                                                <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                                    <div className="text-sm font-bold text-green-600">
+                                                                        PKR {finalPrice.toLocaleString()}
                                                                     </div>
                                                                 </td>
                                                             </tr>

@@ -16,13 +16,21 @@ interface Agent {
   city?: string;
   address?: string;
   country?: string;
+
   marginType?: "Percentage" | "Amount";
   flightMarginPercent?: number;
   flightMarginAmount?: number;
+
+  // ADD THESE
+  discountType?: "Percentage" | "Amount";
+  discountPercent?: number;
+  discountAmount?: number;
+
   registeredFrom?: {
     ipAddress?: string;
     userAgent?: string;
   };
+
   createdAt?: string;
 }
 
@@ -34,9 +42,16 @@ interface FormState {
   address: string;
   city: string;
   country: string;
+
   marginType: "Percentage" | "Amount";
   flightMarginPercent: number;
   flightMarginAmount: number;
+
+  // ADD THESE
+  discountType: "Percentage" | "Amount";
+  discountPercent: number;
+  discountAmount: number;
+
   status: "Active" | "Inactive" | "Pending" | "Suspended";
   password: string;
 }
@@ -77,10 +92,18 @@ const AgentDetail = () => {
             address: data.address || "",
             city: data.city || "",
             country: data.country || "",
+
             marginType: data.marginType || "Percentage",
             flightMarginPercent: data.flightMarginPercent ?? 0,
             flightMarginAmount: data.flightMarginAmount ?? 0,
+
+            // ADD THESE
+            discountType: data.discountType || "Percentage",
+            discountPercent: data.discountPercent ?? 0,
+            discountAmount: data.discountAmount ?? 0,
+
             status: (data.status as FormState["status"]) || "Inactive",
+
             password: "",
           });
         }
@@ -97,17 +120,38 @@ const AgentDetail = () => {
   const handleChange = (field: keyof FormState, value: string | number) => {
     if (!formState) return;
 
+    // MARGIN TYPE
     if (field === "marginType") {
       setFormState({
         ...formState,
         marginType: value as FormState["marginType"],
-        flightMarginPercent: value === "Percentage" ? formState.flightMarginPercent : 0,
-        flightMarginAmount: value === "Amount" ? formState.flightMarginAmount : 0,
+        flightMarginPercent:
+          value === "Percentage" ? formState.flightMarginPercent : 0,
+        flightMarginAmount:
+          value === "Amount" ? formState.flightMarginAmount : 0,
       });
+
       return;
     }
 
-    setFormState({ ...formState, [field]: value });
+    // DISCOUNT TYPE
+    if (field === "discountType") {
+      setFormState({
+        ...formState,
+        discountType: value as FormState["discountType"],
+        discountPercent:
+          value === "Percentage" ? formState.discountPercent : 0,
+        discountAmount:
+          value === "Amount" ? formState.discountAmount : 0,
+      });
+
+      return;
+    }
+
+    setFormState({
+      ...formState,
+      [field]: value,
+    });
   };
 
   const handleUpdate = async () => {
@@ -119,8 +163,13 @@ const AgentDetail = () => {
 
       const payload = {
         ...formState,
+
         flightMarginPercent: Number(formState.flightMarginPercent) || 0,
         flightMarginAmount: Number(formState.flightMarginAmount) || 0,
+
+        // ADD THESE
+        discountPercent: Number(formState.discountPercent) || 0,
+        discountAmount: Number(formState.discountAmount) || 0,
       };
 
       // Remove empty password so we do not overwrite unintentionally
@@ -155,6 +204,16 @@ const AgentDetail = () => {
       return `${agent.flightMarginAmount ?? 0} PKR`;
     }
     return `${agent.flightMarginPercent ?? 0}%`;
+  }, [agent]);
+
+  const discountDisplay = useMemo(() => {
+    if (!agent) return "0";
+
+    if (agent.discountType === "Amount") {
+      return `${agent.discountAmount ?? 0} PKR`;
+    }
+
+    return `${agent.discountPercent ?? 0}%`;
   }, [agent]);
 
   if (loading) {
@@ -221,6 +280,10 @@ const AgentDetail = () => {
             <DetailRow label="Agency Name" value={agent.companyName || "N/A"} />
             <DetailRow label="Status" value={agent.status} />
             <DetailRow label="Flight Ticket Margin" value={`${agent.marginType || "Percentage"} (${marginDisplay})`} />
+            <DetailRow
+              label="Discount"
+              value={`${agent.discountType || "Percentage"} (${discountDisplay})`}
+            />
             <DetailRow label="Address" value={agent.address || "N/A"} />
             <DetailRow label="City" value={agent.city || "N/A"} />
             <DetailRow label="Country" value={agent.country || "N/A"} />
@@ -305,6 +368,56 @@ const AgentDetail = () => {
                   onChange={(e) => handleChange("flightMarginAmount", Number(e.target.value))}
                   disabled={formState.marginType !== "Amount"}
                   className={`w-full rounded border px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${formState.marginType !== "Amount"
+                    ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "border-gray-300"
+                    }`}
+                />
+              </FormRow>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <FormRow label="Discount Type">
+                <select
+                  value={formState.discountType}
+                  onChange={(e) =>
+                    handleChange(
+                      "discountType",
+                      e.target.value as FormState["discountType"]
+                    )
+                  }
+                  className="w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="Percentage">Percentage</option>
+                  <option value="Amount">Amount</option>
+                </select>
+              </FormRow>
+
+              <FormRow label="Discount %">
+                <input
+                  type="number"
+                  value={formState.discountPercent > 0 ? formState.discountPercent : ""}
+                  placeholder="0"
+                  onChange={(e) =>
+                    handleChange("discountPercent", Number(e.target.value))
+                  }
+                  disabled={formState.discountType !== "Percentage"}
+                  className={`w-full rounded border px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${formState.discountType !== "Percentage"
+                    ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "border-gray-300"
+                    }`}
+                />
+              </FormRow>
+
+              <FormRow label="Discount Amount PKR">
+                <input
+                  type="number"
+                  value={formState.discountAmount > 0 ? formState.discountAmount : ""}
+                  placeholder="0"
+                  onChange={(e) =>
+                    handleChange("discountAmount", Number(e.target.value))
+                  }
+                  disabled={formState.discountType !== "Amount"}
+                  className={`w-full rounded border px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${formState.discountType !== "Amount"
                     ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
                     : "border-gray-300"
                     }`}

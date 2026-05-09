@@ -7,6 +7,7 @@ import PageBreadCrumb from "../components/common/PageBreadCrumb";
 interface LedgerEntry {
   voucherId: string;
   date: string;
+  ticketNumber?: string;
   description: string;
   debit: number;
   credit: number;
@@ -38,7 +39,7 @@ const Ledger = () => {
     try {
       setLoading(true);
       const token = sessionStorage.getItem("admin_token");
-      
+
       // This is a placeholder API call - adjust the endpoint as per your backend
       const response = await axiosInstance.get(`/payment/ledger/${id}`, {
         headers: {
@@ -72,7 +73,7 @@ const Ledger = () => {
     const totalDebit = ledgerData.reduce((sum, entry) => sum + entry.debit, 0);
     const totalCredit = ledgerData.reduce((sum, entry) => sum + entry.credit, 0);
     const closingBalance = totalDebit - totalCredit;
-    
+
     return { totalDebit, totalCredit, closingBalance };
   };
 
@@ -85,17 +86,17 @@ const Ledger = () => {
   const handleExport = async (type: string) => {
     try {
       const token = sessionStorage.getItem("admin_token");
-      
+
       if (type === 'copy') {
         // Copy table data to clipboard
-        const tableData = ledgerData.map(entry => 
-          `${entry.voucherId}\t${new Date(entry.date).toLocaleDateString()}\t${entry.description}\t${entry.debit > 0 ? entry.debit.toFixed(2) : ''}\t${entry.credit > 0 ? entry.credit.toFixed(2) : ''}`
+        const tableData = ledgerData.map(entry =>
+          `${entry.voucherId}\t${new Date(entry.date).toLocaleDateString()}\t${entry.ticketNumber || '-'}\t${entry.description}\t${entry.debit > 0 ? entry.debit.toFixed(2) : ''}\t${entry.credit > 0 ? entry.credit.toFixed(2) : ''}`
         ).join('\n');
-        
-        const header = 'Voucher Id\tDate\tDescription\tDebit\tCredit\n';
+
+        const header = 'Voucher Id\tDate\tTicket #\tDescription\tDebit\tCredit\n';
         const totals = `\nTotal\t\t\t${totalDebit.toFixed(2)}\t${totalCredit.toFixed(2)}`;
         const fullText = `Ledger of ${userName.toUpperCase()}\nFrom ${dateFrom} To ${dateTo}\n\n${header}${tableData}${totals}`;
-        
+
         await navigator.clipboard.writeText(fullText);
         alert('Table data copied to clipboard!');
         return;
@@ -105,7 +106,7 @@ const Ledger = () => {
       const exportUrl = `/payment/ledger/${id}/export/${type}`;
       console.log('Exporting from URL:', exportUrl);
       console.log('With params:', { dateFrom, dateTo, userName });
-      
+
       const response = await axiosInstance.get(exportUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -143,7 +144,7 @@ const Ledger = () => {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      
+
       const extension = type === 'csv' ? 'csv' : type === 'excel' ? 'xlsx' : 'pdf';
       link.setAttribute('download', `ledger-${userName}-${Date.now()}.${extension}`);
       document.body.appendChild(link);
@@ -154,9 +155,9 @@ const Ledger = () => {
       console.error(`Error exporting as ${type}:`, error);
       console.error('Error response:', error.response);
       console.error('Error data:', error.response?.data);
-      
+
       let errorMessage = `Failed to export as ${type.toUpperCase()}.`;
-      
+
       // Handle different error scenarios
       if (error.response) {
         // Server responded with an error status
@@ -186,7 +187,7 @@ const Ledger = () => {
         // Something else happened
         errorMessage += ` ${error.message}`;
       }
-      
+
       alert(errorMessage);
     }
   };
@@ -195,7 +196,7 @@ const Ledger = () => {
     <>
       <PageMeta title={`Ledger - ${userName}`} description="View agent ledger" />
       <PageBreadCrumb pageTitle="Ledger" />
-      
+
       {/* Print Styles */}
       <style>{`
         @media print {
@@ -324,7 +325,7 @@ const Ledger = () => {
         }
       `}</style>
 
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-white/3">
         <div className="px-4 py-6 md:px-6 xl:px-7.5">
           {/* Header with Date Range Filter */}
           <div className="bg-blue-600 dark:bg-blue-700 rounded-lg p-6 mb-6 no-print">
@@ -365,7 +366,7 @@ const Ledger = () => {
           {/* Ledger Title */}
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-red-600 dark:text-red-500 mb-2">
-              Leager of {userName.toUpperCase()}
+              Ledger of {userName.toUpperCase()}
             </h2>
             <p className="text-green-600 dark:text-green-500 font-semibold">
               From {new Date(dateFrom).toLocaleDateString('en-US', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })} To {new Date(dateTo).toLocaleDateString('en-US', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
@@ -434,6 +435,7 @@ const Ledger = () => {
                     <tr>
                       <th className="px-4 py-4 text-left text-sm font-medium text-white">Voucher Id</th>
                       <th className="px-4 py-4 text-left text-sm font-medium text-white">Date</th>
+                      <th className="px-4 py-4 text-left text-sm font-medium text-white">Ticket #</th>
                       <th className="px-4 py-4 text-left text-sm font-medium text-white">Description</th>
                       <th className="px-4 py-4 text-right text-sm font-medium text-white">Debit</th>
                       <th className="px-4 py-4 text-right text-sm font-medium text-white">Credit</th>
@@ -442,7 +444,7 @@ const Ledger = () => {
                   <tbody className="bg-white dark:bg-gray-800/50">
                     {ledgerData.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                        <td colSpan={6} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                           No data available in table
                         </td>
                       </tr>
@@ -459,6 +461,9 @@ const Ledger = () => {
                             {new Date(entry.date).toLocaleDateString()}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-800 dark:text-white/90">
+                            {entry.ticketNumber || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-800 dark:text-white/90">
                             {entry.description}
                           </td>
                           <td className="px-4 py-3 text-sm text-right text-gray-800 dark:text-white/90">
@@ -473,7 +478,7 @@ const Ledger = () => {
                   </tbody>
                   <tfoot className="bg-gray-100 dark:bg-gray-800 font-semibold">
                     <tr className="border-t-2 border-gray-300 dark:border-gray-600">
-                      <td colSpan={3} className="px-4 py-3 text-sm text-right text-gray-800 dark:text-white">
+                      <td colSpan={4} className="px-4 py-3 text-sm text-right text-gray-800 dark:text-white">
                         Total:
                       </td>
                       <td className="px-4 py-3 text-sm text-right text-gray-800 dark:text-white">

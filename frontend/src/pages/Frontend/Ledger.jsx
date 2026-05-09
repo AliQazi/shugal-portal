@@ -294,9 +294,9 @@ const Ledger = () => {
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             /> */}
             <MaskedDatePicker
-              value={filters.dateFrom}
-              onChange={(date) => handleFilterChange("dateFrom", date)}
-              placeholderText="From Date"
+              value={filters.dateTo}
+              onChange={(date) => handleFilterChange("dateTo", date)}
+              placeholderText="To Date"
             />
           </div>
         </div>

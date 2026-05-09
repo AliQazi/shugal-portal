@@ -14,11 +14,56 @@ export const getTeamContacts = async (req, res) => {
 export const addTeamContact = async (req, res) => {
   try {
     const { name, email, phone, role } = req.body;
-    const contact = new TeamContact({ name, email, phone, role });
+
+    const contact = new TeamContact({
+      name,
+      email,
+      phone,
+      role,
+    });
+
     await contact.save();
+
     res.status(201).json(contact);
   } catch (err) {
     res.status(400).json({ message: err.message });
+  }
+};
+
+// Update team contact
+export const updateTeamContact = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, phone, role } = req.body;
+
+    const updatedContact = await TeamContact.findByIdAndUpdate(
+      id,
+      {
+        name,
+        email,
+        phone,
+        role,
+      },
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
+
+    if (!updatedContact) {
+      return res.status(404).json({
+        message: "Contact not found",
+      });
+    }
+
+    res.status(200).json({
+      message: "Contact updated successfully",
+      data: updatedContact,
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: err.message,
+    });
   }
 };
 
@@ -26,10 +71,21 @@ export const addTeamContact = async (req, res) => {
 export const deleteTeamContact = async (req, res) => {
   try {
     const { id } = req.params;
+
     const contact = await TeamContact.findByIdAndDelete(id);
-    if (!contact) return res.status(404).json({ message: "Contact not found" });
-    res.json({ message: "Contact deleted" });
+
+    if (!contact) {
+      return res.status(404).json({
+        message: "Contact not found",
+      });
+    }
+
+    res.json({
+      message: "Contact deleted",
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({
+      message: err.message,
+    });
   }
 };
