@@ -87,7 +87,7 @@ export default function App() {
             )}
             <a
                 href={WHATSAPP_URL}
-                className="whatsapp-float-button"
+                className="whatsapp-float-button no-print"
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Open WhatsApp chat"
