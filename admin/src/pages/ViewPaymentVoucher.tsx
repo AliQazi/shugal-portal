@@ -170,8 +170,9 @@ const ViewPaymentVoucher = () => {
                 className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select Status</option>
-                <option value="Posted">Posted</option>
-                <option value="Un Posted">Un Posted</option>
+                <option value="Applied">Applied</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
               </select>
             </div>
 
@@ -284,8 +285,10 @@ const ViewPaymentVoucher = () => {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
                               className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded ${
-                                payment.status === "Posted"
+                                payment.status === "Approved"
                                   ? "bg-green-500 text-white"
+                                  : payment.status === "Rejected"
+                                  ? "bg-red-500 text-white"
                                   : "bg-yellow-500 text-gray-900"
                               }`}
                             >

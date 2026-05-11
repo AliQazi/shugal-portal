@@ -191,7 +191,7 @@ const Payment = () => {
       submitData.append("description", formData.description);
       submitData.append("bankAccount", formData.bankAccount);
       submitData.append("amount", formData.amount);
-      submitData.append("status", "Un Posted");
+      submitData.append("status", "Applied");
       submitData.append("user", user.id || user._id);
 
       if (formData.booking) {
@@ -472,8 +472,9 @@ const Payment = () => {
               className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="All">All</option>
-              <option value="Posted">Posted</option>
-              <option value="Un Posted">Un Posted</option>
+              <option value="Applied">Applied</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
             </select>
           </div>
 
@@ -573,11 +574,11 @@ const Payment = () => {
                     <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap">
                       <span
                         className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          payment.status === "Posted"
+                          payment.status === "Approved"
                             ? "bg-green-100 text-green-800"
-                            : payment.status === "Pending"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-red-100 text-red-800"
+                            : payment.status === "Rejected"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-yellow-100 text-yellow-800"
                         }`}
                       >
                         {payment.status}

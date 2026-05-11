@@ -39,7 +39,7 @@ export const createPayment = async (req, res) => {
       bankAccount,
       user,
       amount,
-      status: status || "Un Posted",
+      status: status || "Applied",
       remarks: remarks || "",
     };
 
@@ -278,8 +278,8 @@ export const getLedgerByUser = async (req, res) => {
       date: payment.date,
       ticketNumber: payment.booking?.pnr || "-",
       description: payment.description,
-      debit: payment.status === "Posted" ? payment.amount : 0,
-      credit: payment.status === "Un Posted" ? payment.amount : 0,
+      debit: payment.status === "Approved" ? payment.amount : 0,
+      credit: payment.status === "Applied" ? payment.amount : 0,
     }));
 
     res.status(200).json({
@@ -319,8 +319,8 @@ export const exportLedgerCSV = async (req, res) => {
       date: payment.date,
       ticketNumber: payment.booking?.pnr || "-",
       description: payment.description,
-      debit: payment.status === "Posted" ? payment.amount : 0,
-      credit: payment.status === "Un Posted" ? payment.amount : 0,
+      debit: payment.status === "Approved" ? payment.amount : 0,
+      credit: payment.status === "Applied" ? payment.amount : 0,
     }));
 
     // Calculate totals
@@ -397,8 +397,8 @@ export const exportLedgerExcel = async (req, res) => {
       date: payment.date,
       ticketNumber: payment.booking?.pnr || "-",
       description: payment.description,
-      debit: payment.status === "Posted" ? payment.amount : 0,
-      credit: payment.status === "Un Posted" ? payment.amount : 0,
+      debit: payment.status === "Approved" ? payment.amount : 0,
+      credit: payment.status === "Applied" ? payment.amount : 0,
     }));
 
     const totalDebit = ledgerEntries.reduce(
@@ -559,8 +559,8 @@ export const exportLedgerPDF = async (req, res) => {
       date: payment.date,
       ticketNumber: payment.booking?.pnr || "-",
       description: payment.description,
-      debit: payment.status === "Posted" ? payment.amount : 0,
-      credit: payment.status === "Un Posted" ? payment.amount : 0,
+      debit: payment.status === "Approved" ? payment.amount : 0,
+      credit: payment.status === "Applied" ? payment.amount : 0,
     }));
 
     const totalDebit = ledgerEntries.reduce(

@@ -45,8 +45,8 @@ const paymentSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["Un Posted", "Posted", "Cancelled"],
-      default: "Un Posted",
+      enum: ["Applied", "Approved", "Rejected"],
+      default: "Applied",
     },
     remarks: {
       type: String,
