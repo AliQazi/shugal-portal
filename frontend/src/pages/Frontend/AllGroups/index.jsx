@@ -517,22 +517,24 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     </div>
   );
 
-  // Track the first time each sector is encountered (preserves backend sector-order)
+  // Group by sector only — same sector from Al-Haider + Travel Network merges into one card
   const sectorFirstSeen = {};
   const groupedData = groups.reduce((acc, group) => {
-    const airlineName = group.airline?.airline_name || "Unknown";
     const sector = (group.sector || "Unknown").toUpperCase().trim();
-    const key = `${airlineName}-${sector}`;
+    const key = sector;
     if (!(sector in sectorFirstSeen)) {
       sectorFirstSeen[sector] = Object.keys(sectorFirstSeen).length;
     }
     if (!acc[key]) {
       acc[key] = {
-        airline: airlineName,
+        airline: group.airline?.airline_name || "",
         airlineLogo: group.airline?.logo_url || null,
         sector,
         groups: [],
       };
+    } else if (!acc[key].airlineLogo && group.airline?.logo_url) {
+      acc[key].airlineLogo = group.airline.logo_url;
+      acc[key].airline = group.airline.airline_name || acc[key].airline;
     }
     acc[key].groups.push(group);
     return acc;
@@ -901,7 +903,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                       : "—"}
                                   </td>
 
-                                  {/* Flight */}
+                                  {/* Flight + Airline */}
                                   <td className="px-4 py-3">
                                     <div className="flex items-center gap-1.5">
                                       <FaPlane
@@ -910,10 +912,16 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                           color: theme.colors.ublGradientStart,
                                         }}
                                       />
-                                      <span className="font-semibold text-sm whitespace-nowrap">
-                                        {flight?.flight_no?.toUpperCase() ||
-                                          "—"}
-                                      </span>
+                                      <div className="flex flex-col">
+                                        <span className="font-semibold text-sm whitespace-nowrap">
+                                          {flight?.flight_no?.toUpperCase() || "—"}
+                                        </span>
+                                        {group.airline?.airline_name && (
+                                          <span className="text-[10px] text-gray-400 whitespace-nowrap leading-tight">
+                                            {group.airline.airline_name}
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                   </td>
 

@@ -61,6 +61,13 @@ const DASHBOARD_CATEGORIES = [
     accentClass: "from-rose-500 to-red-600",
     badgeClass: "bg-rose-50 text-rose-700 border-rose-100",
   },
+  {
+    title: "UK",
+    description: "Fetch UK group bookings.",
+    category: "uk",
+    accentClass: "from-amber-500 to-orange-600",
+    badgeClass: "bg-amber-50 text-amber-700 border-amber-100",
+  },
 ];
 
 function trimTime(t: string): string {

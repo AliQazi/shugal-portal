@@ -10,6 +10,7 @@ const API_GROUP_CATEGORIES = [
     { key: "ksa", label: "KSA" },
     { key: "muscat", label: "Muscat" },
     { key: "umrah", label: "Umrah" },
+    { key: "uk", label: "UK" },
 ];
 
 const PlaneSVG = ({ className = "" }: { className?: string }) => (
@@ -46,11 +47,13 @@ interface FlightDetail {
 interface ApiAirline {
     airline_name: string;
     logo_url: string | null;
+    short_name: string;
 }
 
 interface ApiGroup {
     id: string | number;
     groupName?: string;
+    source?: string;
     airline: ApiAirline | null;
     sector: string;
     price: number;
@@ -147,26 +150,30 @@ export default function ApiGroups() {
         return basePrice + calculateMarginAmount(basePrice);
     };
 
-    // ── Group by airline × sector ─────────────────────────────
+    // ── Group by sector only (so same sector from different APIs merges into one card) ──
 
     const groupedData = groups.reduce<Record<string, GroupedEntry>>((acc, group) => {
-        const airlineName = group.airline?.airline_name || "Unknown";
         const sector = (group.sector || "Unknown").toUpperCase().trim();
-        const key = `${airlineName}||${sector}`;
+        const key = sector;
 
         if (!acc[key]) {
+            // Use the first group's airline for the card header logo
             acc[key] = {
-                airline: airlineName,
+                airline: group.airline?.airline_name || "",
                 airlineLogo: group.airline?.logo_url || null,
                 sector,
                 groups: [],
             };
+        } else if (!acc[key].airlineLogo && group.airline?.logo_url) {
+            // Upgrade header logo if we find one later
+            acc[key].airlineLogo = group.airline.logo_url;
+            acc[key].airline = group.airline.airline_name || acc[key].airline;
         }
 
         acc[key].groups.push(group);
 
         return acc;
-    }, {});
+    }, {}); 
 
     const LoadingSkeleton = () => (
         <div className="space-y-6 p-4">
@@ -185,7 +192,7 @@ export default function ApiGroups() {
         <>
             <PageMeta
                 title={`${activeCategoryLabel} API Groups | Admin`}
-                description="View Al-Haider API group flights"
+                description="View API group flights (Al-Haider & Travel Network)"
             />
 
             <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/3 min-h-screen">
@@ -248,7 +255,7 @@ export default function ApiGroups() {
                     <LoadingSkeleton />
                 ) : groups.length === 0 ? (
                     <div className="text-center py-16 text-gray-400">
-                        No {activeCategoryLabel.toLowerCase()} groups returned from Al-Haider API
+                        No {activeCategoryLabel.toLowerCase()} groups returned from API
                     </div>
                 ) : (
                     <div className="space-y-4">
@@ -286,9 +293,23 @@ export default function ApiGroups() {
                                             </span>
                                         </div>
 
-                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 tracking-wide">
-                                            AL-HAIDER API
-                                        </span>
+{(() => {
+                                            const sources = [...new Set(data.groups.map((g) => g.source))];
+                                            return (
+                                                <div className="flex items-center gap-1.5">
+                                                    {sources.includes("al-haider") && (
+                                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full tracking-wide border bg-emerald-100 text-emerald-700 border-emerald-200">
+                                                            AL-HAIDER
+                                                        </span>
+                                                    )}
+                                                    {sources.includes("travel-network") && (
+                                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full tracking-wide border bg-amber-100 text-amber-700 border-amber-200">
+                                                            TRAVEL NETWORK
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
 
                                     {/* Table */}
@@ -303,6 +324,8 @@ export default function ApiGroups() {
                                                 >
                                                     <th className="px-4 py-2.5 text-left whitespace-nowrap">Date</th>
                                                     <th className="px-4 py-2.5 text-left whitespace-nowrap">Flight</th>
+                                                    <th className="px-4 py-2.5 text-left whitespace-nowrap">Airline</th>
+                                                    <th className="px-4 py-2.5 text-left whitespace-nowrap">Source</th>
                                                     <th className="px-4 py-2.5 text-center whitespace-nowrap">Sector</th>
                                                     <th className="px-4 py-2.5 text-center whitespace-nowrap">Bag</th>
                                                     <th className="px-4 py-2.5 text-center whitespace-nowrap">Meal</th>
@@ -325,9 +348,11 @@ export default function ApiGroups() {
 
                                             <tbody>
                                                 {data.groups
+                                                    .slice()
                                                     .sort((a, b) => {
                                                         const da = a.dept_date || a.details?.[0]?.dep_date || "";
                                                         const db = b.dept_date || b.details?.[0]?.dep_date || "";
+                                                        if (da && db) return new Date(da).getTime() - new Date(db).getTime();
                                                         return da.localeCompare(db);
                                                     })
                                                     .map((group) => {
@@ -370,6 +395,33 @@ export default function ApiGroups() {
                                                                             {flight?.flight_no || "—"}
                                                                         </span>
                                                                     </div>
+                                                                </td>
+
+                                                                {/* Airline */}
+                                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                                    {group.airline?.logo_url ? (
+                                                                        <img
+                                                                            src={group.airline.logo_url}
+                                                                            alt={group.airline.airline_name || ""}
+                                                                            style={{ height: "28px" }}
+                                                                            className="object-contain"
+                                                                        />
+                                                                    ) : (
+                                                                        <span className="text-xs font-medium text-gray-700">
+                                                                            {group.airline?.airline_name || group.airline?.short_name || "—"}
+                                                                        </span>
+                                                                    )}
+                                                                </td>
+
+                                                                {/* Source */}
+                                                                <td className="px-4 py-3">
+                                                                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                                                                        group.source === "travel-network"
+                                                                            ? "bg-amber-100 text-amber-700 border-amber-200"
+                                                                            : "bg-emerald-100 text-emerald-700 border-emerald-200"
+                                                                    }`}>
+                                                                        {group.source === "travel-network" ? "Travel Network" : "Al-Haider"}
+                                                                    </span>
                                                                 </td>
 
                                                                 {/* Sector */}

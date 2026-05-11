@@ -29,4 +29,10 @@ export const groupTypes = [
         path: 'all-groups?group_type=UMRAH GROUP',
         ownGroupType: 'Umrah Groups'
     },
+    {
+        label: 'UK (United Kingdom)',
+        value: 'UK ONE WAY GROUP',
+        path: 'all-groups?group_type=UK ONE WAY GROUP',
+        ownGroupType: 'UK Groups'
+    },
 ]

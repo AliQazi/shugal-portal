@@ -522,6 +522,7 @@ import mongoose from "mongoose";
 import Register from "../models/Register.js";
 import { deductSeatsFromCache } from "../utils/cacheHelpers.js";
 import { createSabaoonBooking } from "./sabaoon.controller.js";
+import { createTravelNetworkBooking } from "./travel-network.controller.js";
 
 const HOLD_DURATION = 2 * 60 * 60 * 1000;
 // -------------------------
@@ -529,6 +530,39 @@ const HOLD_DURATION = 2 * 60 * 60 * 1000;
 // -------------------------
 const isLocalGroup = (groupId) => mongoose.Types.ObjectId.isValid(groupId);
 const normalizeGroupId = (groupId) => groupId?.toString();
+const toIsoDate = (value) => {
+  if (!value) return "";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString().split("T")[0];
+};
+const normalizeExternalSource = ({ source, groupId, groupPriceDetailId }) => {
+  const normalizedRaw = String(source || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[\s_]+/g, "-");
+
+  if (["travel-network", "travelnetwork", "tn", "travel-net"].includes(normalizedRaw)) {
+    return "travel-network";
+  }
+
+  if (["al-haider", "alhaider", "al-haidar", "alhaidar"].includes(normalizedRaw)) {
+    return "al-haider";
+  }
+
+  if (["sabaoon", "saboon"].includes(normalizedRaw)) {
+    return "sabaoon";
+  }
+
+  if (!normalizedRaw) {
+    if (!isLocalGroup(groupId) && groupPriceDetailId !== undefined && groupPriceDetailId !== null) {
+      return "travel-network";
+    }
+
+    return isLocalGroup(groupId) ? "admin" : "sabaoon";
+  }
+
+  return normalizedRaw;
+};
 
 /**
  * Adjust seats for local groups (admin groups)
@@ -615,6 +649,8 @@ export const createBooking = async (req, res) => {
       flights,
       departureDate,
       arrivalDate,
+      group_price_detail_id,
+      groupPriceDetailId,
     } = req.body;
 
     if (passengers.length !== totalPassengers)
@@ -629,9 +665,17 @@ export const createBooking = async (req, res) => {
     seatCount = adultsCount + childrenCount;
     const expiresAt = new Date(Date.now() + HOLD_DURATION);
     const groupId = normalizeGroupId(incomingGroupId);
-    const bookingSource = source || (isLocalGroup(groupId) ? "admin" : "sabaoon");
+    const resolvedGroupPriceDetailId =
+      group_price_detail_id ?? groupPriceDetailId ?? null;
+    const bookingSource = normalizeExternalSource({
+      source,
+      groupId,
+      groupPriceDetailId: resolvedGroupPriceDetailId,
+    });
 
     const isSabaoonGroup = bookingSource === "sabaoon" && !isLocalGroup(groupId);
+    const isTravelNetworkGroup =
+      bookingSource === "travel-network" && !isLocalGroup(groupId);
 
     // 1️⃣ Deduct from local DB (existing logic)
     // This will throw an error if not enough seats available
@@ -729,6 +773,59 @@ export const createBooking = async (req, res) => {
         booking.alHaiderBookingStatus = "failed";
         booking.alHaiderBookingResponse = { error: alHaiderErr.message };
         await booking.save();
+      }
+    }
+
+    // ─── Call Travel Network booking API for external (Travel Network) groups ───
+    if (isTravelNetworkGroup) {
+      try {
+        const agencyGroupId = Number(process.env.id_travelnetwork?.trim());
+        const tnPayload = {
+          group_id: Number.isNaN(Number(groupId)) ? groupId : Number(groupId),
+          agency_info: {
+            group_id: Number.isNaN(agencyGroupId) ? process.env.id_travelnetwork?.trim() || "" : agencyGroupId,
+            agent_name: process.env.name_travelnetwork?.trim() || "",
+            agency_name: process.env.name_travelnetwork?.trim() || "",
+            email: process.env.email_travelnetwork?.trim() || "",
+            mobile: process.env.mobile_travelnetwork?.trim() || "",
+            adults: Number(adultsCount) || 0,
+            child: Number(childrenCount) || 0,
+            infant: Number(infantsCount) || 0,
+            agent_notes: null,
+          },
+          booking_details: (passengers || []).map((p) => {
+            const type = String(p.type || "Adult");
+            const normalizedType =
+              type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+            const defaultTitleMap = {
+              Adult: "MR",
+              Child: "CHD",
+              Infant: "INF",
+            };
+
+            return {
+              type: normalizedType,
+              surname: p.surname || p.surName || "",
+              given_name: p.given_name || p.givenName || "",
+              title: String(p.title || defaultTitleMap[normalizedType] || "MR").toUpperCase(),
+              passport_no: p.passport_no || p.passportNo || p.passport || "",
+              dob: toIsoDate(p.dob || p.dateOfBirth),
+              doe: toIsoDate(p.doe || p.passportExpiry),
+            };
+          }),
+          group_price_detail_id: resolvedGroupPriceDetailId,
+        };
+
+        console.log("Travel Network booking trigger:", {
+          bookingReference: booking.bookingReference,
+          source: bookingSource,
+          groupId,
+          group_price_detail_id: resolvedGroupPriceDetailId,
+        });
+        const tnResp = await createTravelNetworkBooking(tnPayload);
+        console.log("Travel Network booking created", tnResp);
+      } catch (tnErr) {
+        console.error("Travel Network booking API failed:", tnErr.message);
       }
     }
 

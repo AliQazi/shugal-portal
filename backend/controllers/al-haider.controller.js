@@ -1,3 +1,6 @@
+import axios from "axios";
+import { fetchNormalisedTravelNetworkGroups, getTravelNetworkTypeFilters } from "./travel-network.controller.js";
+
 /**
  * Create a booking on Al-Haider API
  * @param {object} bookingData - Booking data as per Al-Haider API
@@ -14,7 +17,6 @@ export const createAlHaiderBooking = async (bookingData) => {
     });
     return response.data;
 };
-import axios from "axios";
 
 const getAlHaiderToken = () => {
     const token = process.env.ALI_HAIDER_API_TOKEN?.trim();
@@ -69,6 +71,7 @@ const getAlHaiderTypeFilters = (category) => {
         ksa: ["ONE WAY GROUP"],
         muscat: ["OMAN ONE WAY GROUP"],
         umrah: ["UMRAH GROUP"],
+        uk: ["UK ONE WAY GROUP"],
     };
 
     return filters[key] ?? null;
@@ -183,22 +186,46 @@ export const fetchNormalisedAlHaiderGroups = async () => {
 
 export const getAvailableBookingsByGroup = async (req, res) => {
     try {
-        const groups = await fetchNormalisedAlHaiderGroups();
-        const allowedTypes = getAlHaiderTypeFilters(req.query.category);
-        const filteredGroups = allowedTypes
-            ? groups.filter((group) => allowedTypes.includes(group.type))
-            : groups;
+        const category = req.query.category;
+        const allowedAlHaiderTypes = getAlHaiderTypeFilters(category);
+        const allowedTNTypes = getTravelNetworkTypeFilters(category);
+
+        // Fetch from both APIs concurrently
+        const [alHaiderGroups, tnGroups] = await Promise.allSettled([
+            fetchNormalisedAlHaiderGroups(),
+            fetchNormalisedTravelNetworkGroups(),
+        ]);
+
+        const ahData = alHaiderGroups.status === "fulfilled" ? alHaiderGroups.value : [];
+        const tnData = tnGroups.status === "fulfilled" ? tnGroups.value : [];
+
+        if (alHaiderGroups.status === "rejected") {
+            console.error("AL-HAIDER fetch failed:", alHaiderGroups.reason?.message);
+        }
+        if (tnGroups.status === "rejected") {
+            console.error("TRAVEL NETWORK fetch failed:", tnGroups.reason?.message);
+        }
+
+        const filteredAH = allowedAlHaiderTypes
+            ? ahData.filter((g) => allowedAlHaiderTypes.includes(g.type))
+            : ahData;
+
+        const filteredTN = allowedTNTypes
+            ? tnData.filter((g) => allowedTNTypes.includes(g.type))
+            : tnData;
+
+        const combined = [...filteredAH, ...filteredTN];
 
         res.status(200).json({
             success: true,
-            data: filteredGroups
+            data: combined,
         });
     } catch (error) {
-        console.error("AL-HAIDER API ERROR:", error.message || error);
+        console.error("API GROUPS ERROR:", error.message || error);
 
         res.status(400).json({
             success: false,
-            message: error.message
+            message: error.message,
         });
     }
 }

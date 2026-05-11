@@ -5,6 +5,7 @@ import UnifiedGroupCache from "../models/UnifiedGroupCache.js";
 import Booking from "../models/Booking.js";
 import Margin from "../models/Margin.js";
 import { fetchNormalisedAlHaiderGroups } from "./al-haider.controller.js";
+import { fetchNormalisedTravelNetworkGroups } from "./travel-network.controller.js";
 
 const normalizeSector = (sector) => {
   if (!sector) return null;
@@ -552,19 +553,23 @@ export const getUnifiedGroups = async (req, res) => {
     }
 
     /* ===============================
-       1️⃣1️⃣ Fetch Al-Haider Groups (live, not cached)
+       1️⃣1️⃣ Fetch External API Groups (Al-Haider + Travel Network, live)
     =============================== */
     let alHaiderGroups = [];
-    try {
-      const rawAlHaider = await fetchNormalisedAlHaiderGroups();
+    let travelNetworkGroups = [];
 
+    const [ahResult, tnResult] = await Promise.allSettled([
+      fetchNormalisedAlHaiderGroups(),
+      fetchNormalisedTravelNetworkGroups(),
+    ]);
+
+    if (ahResult.status === "fulfilled") {
       const airlineShortMap = {};
       for (const a of airlines) {
         if (a.airlineName) airlineShortMap[a.airlineName.trim()] = a.shortCode || null;
       }
 
-      alHaiderGroups = rawAlHaider
-        .map((g) => {
+      alHaiderGroups = ahResult.value.map((g) => {
           const airlineName = g.airline?.airline_name || "";
           return {
             ...g,
@@ -581,27 +586,37 @@ export const getUnifiedGroups = async (req, res) => {
               : g.airline,
           };
         });
-      // Sabaoon and other API feeds are intentionally disabled here.
-      // All Groups should now use local admin groups plus Al-Haider groups only.
-    } catch (alHaiderErr) {
-      // Non-fatal — admin groups are still returned
-      console.error(
-        "Al-Haider fetch for unified groups failed:",
-        alHaiderErr.message,
-      );
+    } else {
+      console.error("Al-Haider fetch for unified groups failed:", ahResult.reason?.message);
     }
+
+    if (tnResult.status === "fulfilled") {
+      travelNetworkGroups = tnResult.value.map((g) => ({
+        ...g,
+        source: "travel-network",
+        isOwnGroup: false,
+      }));
+    } else {
+      console.error("Travel Network fetch for unified groups failed:", tnResult.reason?.message);
+    }
+      // Sabaoon and other API feeds are intentionally disabled here.
 
     /* ===============================
        1️⃣2️⃣ Response
     =============================== */
     const adminGroupsData = cacheDoc.data.map((g) => ({ ...g, isOwnGroup: true }));
-     const combinedData = [...adminGroupsData, ...alHaiderGroups];
+     const combinedData = [...adminGroupsData, ...alHaiderGroups, ...travelNetworkGroups];
 
-    // Apply sector order to the full combined dataset (admin + sabaoon)
+    // Apply sector order to the full combined dataset (admin + al-haider + travel-network)
+    // Primary: sector order from admin config; Secondary: departure date ascending
     combinedData.sort((a, b) => {
       const orderA = sectorOrderMap[normalizeSector(a.sector)] ?? 999;
       const orderB = sectorOrderMap[normalizeSector(b.sector)] ?? 999;
-      return orderA - orderB;
+      if (orderA !== orderB) return orderA - orderB;
+      // Same sector → earlier departure first
+      const da = a.dept_date || "";
+      const db = b.dept_date || "";
+      return da.localeCompare(db);
     });
 
     res.status(200).json({

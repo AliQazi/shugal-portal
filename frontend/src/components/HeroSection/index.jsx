@@ -6,6 +6,7 @@ import mascatImg from "../../assets/images/muscatbg.jpg";
 import uaeImg from "../../assets/images/uaebg.jpg";
 // import bahrainImg from "../../assets/images/bahrainbg.webp";
 import jeddahImg from "../../assets/images/jeddah.webp";
+import ukImg from "../../assets/images/ukgroup.jpg";
 import madinaImg from "../../assets/images/allgroupsbgg.jpg";
 import { groupTypes } from "../../data/groupTypes";
 
@@ -16,6 +17,7 @@ const groupImages = {
   // "Bahrain Groups": bahrainImg,
   "Muscat (Oman)": mascatImg,
   "Umrah (Makkah & Madina)": makkahImg,
+  "UK (United Kingdom)": ukImg,
 };
 
 export default function HeroSection() {
@@ -27,7 +29,7 @@ export default function HeroSection() {
       {/* 1. CINEMATIC BACKGROUND */}
       <video
         autoPlay
-        muted
+        muted 
         loop
         playsInline
         className="absolute inset-0 w-full h-full object-cover opacity-60"
@@ -64,7 +66,7 @@ export default function HeroSection() {
             <Link
               key={group.value}
               to={`/${group.path}`}
-              className={`group relative flex flex-col ${group.label === "All Groups" ? 'col-span-2' : ''}`}
+              className={`group relative flex flex-col ${group.label === "All Groups" ? 'col-span-1' : ''}`}
             >
               {/* Image Container with Floating Effect */}
               <div className="relative w-full h-60 overflow-hidden rounded-t-[2rem] rounded-b-2xl shadow-2xl transition-transform duration-500 group-hover:-translate-y-4">
