@@ -5,17 +5,21 @@ import { groupTypes } from "../../../data/groupTypes";
 import TopBar from "../../../components/TopBar/TopBar";
 
 import madinaImg from "../../../assets/images/allgroupsbgg.jpg";
-import uaeImg from "../../../assets/images/uaebg.jpg";
 import jeddahImg from "../../../assets/images/jeddah.webp";
 import mascatImg from "../../../assets/images/muscatbg.jpg";
 import makkahImg from "../../../assets/images/ummrahbg.png";
-
+import uaeImg from "../../../assets/images/uaebg.jpg";
+import bahrainImg from "../../../assets/images/bahrainbg.webp";
+import ukImg from "../../../assets/images/ukgroup.jpg";
 const groupImages = {
   "All Groups": madinaImg,
-  "UAE (United Arab Emirates)": uaeImg,
-  "KSA (Saudia Arabia)": jeddahImg,
-  "Muscat (Oman)": mascatImg,
-  "Umrah (Makkah & Madina)": makkahImg,
+  "UAE": uaeImg,
+  "KSA": jeddahImg,
+  "Muscat": mascatImg,
+  "Umrah Makkah & Madina": makkahImg,
+  "Umrah Tickets": makkahImg,
+  "Behrain": bahrainImg,
+  "UK": ukImg,
 };
 
 const Dashboard = () => {
