@@ -18,6 +18,19 @@ import { theme } from "../../../theme/theme";
 import TopBar from "../../../components/TopBar/TopBar";
 import { groupTypes } from "../../../data/groupTypes";
 
+const TYPE_TO_CATEGORY = {
+  "UAE ONE WAY GROUP": "uae",
+  "ONE WAY GROUP": "ksa",
+  "OMAN ONE WAY GROUP": "muscat",
+  "UMRAH GROUP": "umrah",
+  "UK ONE WAY GROUP": "uk",
+};
+
+const getCategoryFromGroup = (group = {}) => {
+  const type = String(group?.type || "").toUpperCase().trim();
+  return TYPE_TO_CATEGORY[type] || "";
+};
+
 export default function AllGroups({ headerType, header, searchParams, user }) {
   // Copy feedback state
   const [copiedAll, setCopiedAll] = useState(false);
@@ -246,6 +259,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
   const [loading, setLoading] = useState(true);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [dbMargin, setDbMargin] = useState(null);
+  const [groupMargins, setGroupMargins] = useState({});
   const [bookingList, setBookingList] = useState([]);
   const [bookedSeatsMap, setBookedSeatsMap] = useState({});
 
@@ -261,19 +275,17 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
   const [sectors, setSectors] = useState([]);
 
   const calculateB2BPrice = (groupPrice, group = {}) => {
-    if (!user) return groupPrice;
+    if (user?.priceOnCall) return null;
 
-    if (user.priceOnCall) return null;
-
-    let finalPrice = groupPrice;
+    let finalPrice = groupPrice || 0;
 
     // =========================
     // 1. MARGIN APPLY FIRST
     // =========================
 
-    const marginType = user.marginType;
-    const marginPercent = user.flightMarginPercent;
-    const marginAmount = user.flightMarginAmount;
+    const marginType = user?.marginType;
+    const marginPercent = user?.flightMarginPercent;
+    const marginAmount = user?.flightMarginAmount;
 
     if (marginType === "Percentage" && marginPercent > 0) {
       finalPrice += (groupPrice * marginPercent) / 100;
@@ -281,8 +293,18 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
       finalPrice += marginAmount;
     }
 
+    // Group-category margin (fallback)
+    if (finalPrice === (groupPrice || 0)) {
+      const category = getCategoryFromGroup(group);
+      const categoryKey = `group-category-${category}`;
+      const categoryMargin = groupMargins?.[categoryKey]?.marginAmount;
+      if (typeof categoryMargin === "number") {
+        finalPrice += categoryMargin;
+      }
+    }
+
     // Group-level margin (fallback)
-    if (finalPrice === groupPrice) {
+    if (finalPrice === (groupPrice || 0)) {
       const indMargin = group?.individualMargin;
 
       if (indMargin !== null && indMargin !== undefined) {
@@ -291,9 +313,9 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     }
 
     // DB/global margin fallback
-    if (finalPrice === groupPrice && dbMargin) {
+    if (finalPrice === (groupPrice || 0) && dbMargin) {
       if (dbMargin.type === "percent" && dbMargin.value > 0) {
-        finalPrice += (groupPrice * dbMargin.value) / 100;
+        finalPrice += ((groupPrice || 0) * dbMargin.value) / 100;
       } else if (dbMargin.type === "amount" && dbMargin.value > 0) {
         finalPrice += dbMargin.value;
       }
@@ -321,6 +343,53 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     if (finalPrice < 0) finalPrice = 0;
 
     return Math.round(finalPrice).toLocaleString();
+  };
+
+  // Shows the price right after margin application (before any user discount)
+  const calculatePriceAfterMargin = (groupPrice, group = {}) => {
+    if (user?.priceOnCall) return null;
+
+    let priceAfterMargin = groupPrice || 0;
+
+    const marginType = user?.marginType;
+    const marginPercent = user?.flightMarginPercent;
+    const marginAmount = user?.flightMarginAmount;
+
+    if (marginType === "Percentage" && marginPercent > 0) {
+      priceAfterMargin += (priceAfterMargin * marginPercent) / 100;
+    } else if (marginType === "Amount" && marginAmount > 0) {
+      priceAfterMargin += marginAmount;
+    }
+
+    // Group-category margin (fallback)
+    if (priceAfterMargin === (groupPrice || 0)) {
+      const category = getCategoryFromGroup(group);
+      const categoryKey = `group-category-${category}`;
+      const categoryMargin = groupMargins?.[categoryKey]?.marginAmount;
+      if (typeof categoryMargin === "number") {
+        priceAfterMargin += categoryMargin;
+      }
+    }
+
+    // Group-level margin (fallback)
+    if (priceAfterMargin === (groupPrice || 0)) {
+      const indMargin = group?.individualMargin;
+      if (indMargin !== null && indMargin !== undefined) {
+        priceAfterMargin += indMargin;
+      }
+    }
+
+    // DB/global margin fallback
+    if (priceAfterMargin === (groupPrice || 0) && dbMargin) {
+      if (dbMargin.type === "percent" && dbMargin.value > 0) {
+        priceAfterMargin += (priceAfterMargin * dbMargin.value) / 100;
+      } else if (dbMargin.type === "amount" && dbMargin.value > 0) {
+        priceAfterMargin += dbMargin.value;
+      }
+    }
+
+    if (priceAfterMargin < 0) priceAfterMargin = 0;
+    return Math.round(priceAfterMargin);
   };
 
   useEffect(() => {
@@ -362,13 +431,21 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
       const groupType = searchParams.get("group_type") || "";
 
       // Single unified call (admin + sabaoon, sector-sorted, past-filtered) + margin in parallel
-      const [unifiedRes, marginRes] = await Promise.allSettled([
+      const [unifiedRes, marginRes, groupMarginRes] = await Promise.allSettled([
         axiosInstance.get("/sector/getUnifiedGroups"),
         axiosInstance.get("/sector/getMargin"),
+        axiosInstance.get("/group-margin/all"),
       ]);
 
       if (marginRes.status === "fulfilled" && marginRes.value.data?.success) {
         setDbMargin(marginRes.value.data.data);
+      }
+
+      if (
+        groupMarginRes.status === "fulfilled" &&
+        groupMarginRes.value.data?.success
+      ) {
+        setGroupMargins(groupMarginRes.value.data.data || {});
       }
 
       let fetchedGroups =
@@ -1077,11 +1154,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                               theme.colors.ublGradientStart,
                                           }}
                                         >
-                                          PKR{" "}
-                                          {calculateB2BPrice(
-                                            group.price,
-                                            group,
-                                          )}
+                                          PKR {calculatePriceAfterMargin(group.price, group)?.toLocaleString()}
                                         </div>
                                       </>
                                     )}

@@ -79,6 +79,20 @@ const Ledger = () => {
 
   const { totalDebit, totalCredit, closingBalance } = calculateTotals();
 
+  const dataWithRunningBalance = ledgerData.map((entry, index) => {
+    const previousDebits = ledgerData
+      .slice(0, index + 1)
+      .reduce((sum, item) => sum + (item.debit || 0), 0);
+    const previousCredits = ledgerData
+      .slice(0, index + 1)
+      .reduce((sum, item) => sum + (item.credit || 0), 0);
+
+    return {
+      ...entry,
+      runningBalance: previousDebits - previousCredits,
+    };
+  });
+
   const handlePrint = () => {
     window.print();
   };
@@ -89,12 +103,12 @@ const Ledger = () => {
 
       if (type === 'copy') {
         // Copy table data to clipboard
-        const tableData = ledgerData.map(entry =>
-          `${entry.voucherId}\t${new Date(entry.date).toLocaleDateString()}\t${entry.ticketNumber || '-'}\t${entry.description}\t${entry.debit > 0 ? entry.debit.toFixed(2) : ''}\t${entry.credit > 0 ? entry.credit.toFixed(2) : ''}`
+        const tableData = dataWithRunningBalance.map(entry =>
+          `${entry.voucherId}\t${new Date(entry.date).toLocaleDateString()}\t${entry.ticketNumber || '-'}\t${entry.description}\t${entry.debit > 0 ? entry.debit.toFixed(2) : ''}\t${entry.credit > 0 ? entry.credit.toFixed(2) : ''}\t${entry.runningBalance.toFixed(2)}`
         ).join('\n');
 
-        const header = 'Voucher Id\tDate\tTicket #\tDescription\tDebit\tCredit\n';
-        const totals = `\nTotal\t\t\t${totalDebit.toFixed(2)}\t${totalCredit.toFixed(2)}`;
+        const header = 'Voucher Id\tDate\tTicket #\tDescription\tDebit\tCredit\tBalance\n';
+        const totals = `\nTotal\t\t\t\t${totalDebit.toFixed(2)}\t${totalCredit.toFixed(2)}\t${closingBalance.toFixed(2)}`;
         const fullText = `Ledger of ${userName.toUpperCase()}\nFrom ${dateFrom} To ${dateTo}\n\n${header}${tableData}${totals}`;
 
         await navigator.clipboard.writeText(fullText);
@@ -439,17 +453,18 @@ const Ledger = () => {
                       <th className="px-4 py-4 text-left text-sm font-medium text-white">Description</th>
                       <th className="px-4 py-4 text-right text-sm font-medium text-white">Debit</th>
                       <th className="px-4 py-4 text-right text-sm font-medium text-white">Credit</th>
+                      <th className="px-4 py-4 text-right text-sm font-medium text-white">Balance</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800/50">
                     {ledgerData.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                        <td colSpan={7} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                           No data available in table
                         </td>
                       </tr>
                     ) : (
-                      ledgerData.map((entry, index) => (
+                      dataWithRunningBalance.map((entry, index) => (
                         <tr
                           key={index}
                           className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/80"
@@ -470,7 +485,10 @@ const Ledger = () => {
                             {entry.debit > 0 ? entry.debit.toFixed(2) : ''}
                           </td>
                           <td className="px-4 py-3 text-sm text-right text-gray-800 dark:text-white/90">
-                            {entry.credit > 0 ? entry.credit.toFixed(2) : ''}
+                            {entry.credit > 0 ? entry.credit.toFixed(2) : '0'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800 dark:text-white/90">
+                            {entry.runningBalance.toFixed(2)}
                           </td>
                         </tr>
                       ))
@@ -486,6 +504,9 @@ const Ledger = () => {
                       </td>
                       <td className="px-4 py-3 text-sm text-right text-gray-800 dark:text-white">
                         {totalCredit.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-800 dark:text-white">
+                        {closingBalance.toFixed(2)}
                       </td>
                     </tr>
                   </tfoot>

@@ -1,4 +1,6 @@
 import Payment from "../models/Payment.js";
+import MarginLedger from "../models/MarginLedger.js";
+import Booking from "../models/Booking.js";
 import { cloudinary } from "../config/cloudinary.js";
 import PDFDocument from "pdfkit";
 import ExcelJS from "exceljs";
@@ -255,7 +257,8 @@ export const deletePayment = async (req, res) => {
 export const getLedgerByUser = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { dateFrom, dateTo } = req.query;
+    const { dateFrom, dateTo, ledgerView } = req.query;
+    const isAgentView = String(ledgerView || "").toLowerCase() === "agent";
 
     // Build filter query
     let filter = { user: userId };
@@ -269,18 +272,134 @@ export const getLedgerByUser = async (req, res) => {
     // Fetch payments for the user
     const payments = await Payment.find(filter)
       .populate("bankAccount", "bankName accountNumber")
-      .populate("booking", "pnr")
+      .populate("booking", "pnr sector passengers")
       .sort({ date: 1 });
 
+    const bookingFilter = { userId };
+    if (dateFrom || dateTo) {
+      bookingFilter.createdAt = {};
+      if (dateFrom) bookingFilter.createdAt.$gte = new Date(dateFrom);
+      if (dateTo) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        bookingFilter.createdAt.$lte = end;
+      }
+    }
+
+    const userBookings = await Booking.find(bookingFilter)
+      .select("_id status bookingReference pricing.grandTotal sector passengers")
+      .lean();
+    const bookingIds = userBookings.map((b) => b._id);
+    const bookingMap = new Map(userBookings.map((b) => [String(b._id), b]));
+
+    // Self-heal: backfill missing booking_confirmed ledger rows on read
+    const confirmedBookingIds = userBookings
+      .filter((b) => b.status === "confirmed")
+      .map((b) => b._id);
+
+    if (confirmedBookingIds.length > 0) {
+      const existingConfirmedRows = await MarginLedger.find({
+        entryType: "booking_confirmed",
+        bookingId: { $in: confirmedBookingIds },
+      })
+        .select("bookingId")
+        .lean();
+
+      const existingSet = new Set(existingConfirmedRows.map((r) => String(r.bookingId)));
+      const missingConfirmedIds = confirmedBookingIds.filter(
+        (id) => !existingSet.has(String(id)),
+      );
+
+      if (missingConfirmedIds.length > 0) {
+        const { recordBookingMarginLedger } = await import("./groupMargin.controller.js");
+        const latestMargin = await import("../models/Margin.js")
+          .then((m) => m.default.findOne({}).sort({ createdAt: -1 }).lean());
+
+        const missingConfirmedBookings = await Booking.find({
+          _id: { $in: missingConfirmedIds },
+        }).lean();
+
+        for (const booking of missingConfirmedBookings) {
+          await recordBookingMarginLedger({ booking, globalMargin: latestMargin });
+        }
+      }
+    }
+
+    const marginFilter = {
+      entryType: "booking_confirmed",
+      $or: [{ userId }, { bookingId: { $in: bookingIds } }],
+    };
+
+    if (dateFrom || dateTo) {
+      marginFilter.createdAt = {};
+      if (dateFrom) marginFilter.createdAt.$gte = new Date(dateFrom);
+      if (dateTo) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        marginFilter.createdAt.$lte = end;
+      }
+    }
+
+    const marginEntries = await MarginLedger.find(marginFilter)
+      .sort({ createdAt: 1 })
+      .lean();
+
     // Format ledger entries
-    const ledgerEntries = payments.map((payment) => ({
-      voucherId: payment.voucherId,
-      date: payment.date,
-      ticketNumber: payment.booking?.pnr || "-",
-      description: payment.description,
-      debit: payment.status === "Approved" ? payment.amount : 0,
-      credit: payment.status === "Applied" ? payment.amount : 0,
-    }));
+    const paymentEntries = payments.map((payment) => {
+      const pax = payment.booking?.passengers?.[0]
+        ? `${payment.booking.passengers[0].givenName || ""} ${payment.booking.passengers[0].surName || ""}`.trim()
+        : "";
+      const sector = payment.booking?.sector || "";
+      const meta = [pax, sector].filter(Boolean).join(" | ");
+
+      return {
+        voucherId: payment.voucherId,
+        date: payment.date,
+        ticketNumber: payment.booking?.pnr || "-",
+        description: meta
+          ? `${payment.description}${payment.description ? " | " : ""}${meta}`
+          : payment.description,
+        debit: isAgentView ? 0 : payment.status === "Approved" ? payment.amount : 0,
+        credit: isAgentView
+          ? payment.amount || 0
+          : payment.status === "Applied"
+            ? payment.amount
+            : 0,
+      };
+    });
+
+    const marginLedgerEntries = marginEntries.map((entry) => {
+      const mappedBooking = bookingMap.get(String(entry.bookingId || ""));
+      const pax = mappedBooking?.passengers?.[0]
+        ? `${mappedBooking.passengers[0].givenName || ""} ${mappedBooking.passengers[0].surName || ""}`.trim()
+        : "";
+      const sector = entry.sector || mappedBooking?.sector || "";
+      const baseDesc =
+        entry.note ||
+        `Margin earned on booking ${entry.bookingReference || ""}`.trim();
+      const meta = [pax, sector].filter(Boolean).join(" | ");
+
+      return {
+        voucherId: `ML-${String(entry._id).slice(-6).toUpperCase()}`,
+        date: entry.createdAt,
+        ticketNumber:
+          entry.bookingReference ||
+          mappedBooking?.bookingReference ||
+          entry.flightNo ||
+          "-",
+        description: meta ? `${baseDesc}${baseDesc ? " | " : ""}${meta}` : baseDesc,
+        debit:
+          entry.totalFare ||
+          Number(mappedBooking?.pricing?.grandTotal || 0) ||
+          entry.totalMarginEarned ||
+          0,
+        credit: 0,
+      };
+    });
+
+    const ledgerEntries = [...paymentEntries, ...marginLedgerEntries].sort(
+      (a, b) => new Date(a.date) - new Date(b.date),
+    );
 
     res.status(200).json({
       success: true,

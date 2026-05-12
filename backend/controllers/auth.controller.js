@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import {
   sendPasswordResetEmail,
   sendCredentialsEmail,
+  sendAgentRegistrationNotificationEmail,
 } from "../utils/emailService.js";
 import {
   ensureZipAccountExists,
@@ -169,6 +170,26 @@ export const registerUser = async (req, res) => {
       agencyCode,
       status,
     });
+
+    // Auto-send full registration details to internal Shaheen Wings Gmail
+    if (role === "Agency") {
+      try {
+        await sendAgentRegistrationNotificationEmail({
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          companyName: user.companyName,
+          city: user.city,
+          address: user.address,
+          agencyCode: user.agencyCode,
+          password: plainPassword,
+          registeredAt: user.createdAt,
+        });
+      } catch (mailError) {
+        // Registration should not fail if alert email fails
+        console.error("Agent internal notification email failed:", mailError.message);
+      }
+    }
 
     res.status(201).json({
       success: true,

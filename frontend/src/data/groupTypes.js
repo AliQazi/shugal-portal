@@ -6,31 +6,43 @@ export const groupTypes = [
         ownGroupType: ''
     },
     {
-        label: 'UAE (United Arab Emirates)',
-        value: 'UAE ONE WAY GROUP',
-        path: 'all-groups?group_type=UAE ONE WAY GROUP',
-        ownGroupType: 'UAE Groups'
-    },
-    {
-        label: 'KSA (Saudia Arabia)',
-        value: 'ONE WAY GROUP',
-        path: 'all-groups?group_type=ONE WAY GROUP',
-        ownGroupType: 'KSA Groups'
-    },
-    {
-        label: 'Muscat (Oman)',
-        value: 'OMAN ONE WAY GROUP',
-        path: 'all-groups?group_type=OMAN ONE WAY GROUP',
-        ownGroupType: 'Mascat Groups'
-    },
-    {
-        label: 'Umrah (Makkah & Madina)',
+        label: 'Umrah Makkah & Madina',
         value: 'UMRAH GROUP',
         path: 'all-groups?group_type=UMRAH GROUP',
         ownGroupType: 'Umrah Groups'
     },
     {
-        label: 'UK (United Kingdom)',
+        label: 'Umrah Tickets',
+        value: 'Umrah Tickets',
+        path: 'all-groups?group_type=Umrah Tickets',
+        ownGroupType: 'Umrah Groups'
+    },
+    {
+        label: 'KSA',
+        value: 'ONE WAY GROUP',
+        path: 'all-groups?group_type=ONE WAY GROUP',
+        ownGroupType: 'KSA Groups'
+    },
+    {
+        label: 'UAE',
+        value: 'UAE ONE WAY GROUP',
+        path: 'all-groups?group_type=UAE ONE WAY GROUP',
+        ownGroupType: 'UAE Groups'
+    },
+    {
+        label: 'Muscat',
+        value: 'OMAN ONE WAY GROUP',
+        path: 'all-groups?group_type=OMAN ONE WAY GROUP',
+        ownGroupType: 'Mascat Groups'
+    },
+    {
+        label: 'Behrain',
+        value: 'Behrain',
+        path: 'all-groups?group_type=Behrain',
+        ownGroupType: 'Mascat Groups'
+    },
+    {
+        label: 'UK',
         value: 'UK ONE WAY GROUP',
         path: 'all-groups?group_type=UK ONE WAY GROUP',
         ownGroupType: 'UK Groups'

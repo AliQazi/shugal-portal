@@ -17,6 +17,7 @@ import exportRoutes from "./routes/export.routes.js";
 import specialOffer from "./routes/specialOffer.route.js";
 
 import teamContactRoutes from "./routes/teamContact.routes.js";
+import groupMarginRoutes from "./routes/groupMargin.routes.js";
 
 import { getValidSabaoonToken, initializeSabaoonToken } from "./utils/sabaoonToken.js";
 import testEmail from "./utils/testEmail.js";
@@ -68,6 +69,7 @@ app.use("/api/export", exportRoutes);
 app.use("/api/specialOffer", specialOffer);
 
 app.use("/api/team-contacts", teamContactRoutes);
+app.use("/api/group-margin", groupMarginRoutes);
 
 // Sabaoon integration removed. Only Al-Haider API is used for group data.
 

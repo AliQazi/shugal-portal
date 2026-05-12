@@ -708,6 +708,26 @@ export const createBooking = async (req, res) => {
       sabaoonBookingStatus: isSabaoonGroup ? "pending" : "not_applicable",
     });
 
+    // Agent-side "Confirm Booking" creates booking as on-hold.
+    // Write margin ledger here as well so ledger is available immediately.
+    try {
+      const { default: MarginLedger } = await import("../models/MarginLedger.js");
+      const existingLedger = await MarginLedger.findOne({
+        entryType: "booking_confirmed",
+        bookingId: booking._id,
+      }).lean();
+
+      if (!existingLedger) {
+        const { recordBookingMarginLedger } = await import("./groupMargin.controller.js");
+        const { default: Margin } = await import("../models/Margin.js");
+        const latestMargin = await Margin.findOne({}).sort({ createdAt: -1 }).lean();
+        await recordBookingMarginLedger({ booking, globalMargin: latestMargin });
+      }
+    } catch (ledgerErr) {
+      // Non-fatal: booking should still be created even if ledger logging fails.
+      console.error("createBooking ledger write failed:", ledgerErr?.message || ledgerErr);
+    }
+
 
     // ─── Call Sabaoon booking API for external (Sabaoon) groups ───
     if (isSabaoonGroup) {
@@ -977,6 +997,22 @@ export const updateBookingStatus = async (req, res) => {
 
     const oldStatus = booking.status;
     const seats = booking.adultsCount + booking.childrenCount;
+
+    // Ensure margin ledger entry exists when booking is confirmed (idempotent)
+    if (status === "confirmed") {
+      const { default: MarginLedger } = await import("../models/MarginLedger.js");
+      const existingLedger = await MarginLedger.findOne({
+        entryType: "booking_confirmed",
+        bookingId: booking._id,
+      }).lean();
+
+      if (!existingLedger) {
+      const { recordBookingMarginLedger } = await import("./groupMargin.controller.js");
+      const { default: Margin } = await import("../models/Margin.js");
+      const latestMargin = await Margin.findOne({}).sort({ createdAt: -1 }).lean();
+      await recordBookingMarginLedger({ booking, globalMargin: latestMargin });
+      }
+    }
 
     if (oldStatus !== "cancelled" && status === "cancelled") {
       await adjustSeatsIfLocalGroup(normalizeGroupId(booking.groupId), seats);

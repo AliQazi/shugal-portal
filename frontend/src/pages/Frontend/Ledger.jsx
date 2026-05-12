@@ -65,6 +65,7 @@ const Ledger = () => {
         params: {
           dateFrom: filters.dateFrom,
           dateTo: filters.dateTo,
+          ledgerView: "agent",
         },
       });
 
@@ -135,16 +136,16 @@ const Ledger = () => {
       const userName = user?.name || "User";
 
       if (type === "copy") {
-        const tableData = filteredData
+        const tableData = dataWithRunningBalance
           .map(
             (entry) =>
-              `${entry.voucherId || "-"}\t${entry.date ? new Date(entry.date).toLocaleDateString() : "-"}\t${entry.ticketNumber || "-"}\t${entry.description || "-"}\t${entry.debit > 0 ? formatCurrency(entry.debit) : ""}\t${entry.credit > 0 ? formatCurrency(entry.credit) : ""}`,
+              `${entry.voucherId || "-"}\t${entry.date ? new Date(entry.date).toLocaleDateString() : "-"}\t${entry.ticketNumber || "-"}\t${entry.description || "-"}\t${entry.debit > 0 ? formatCurrency(entry.debit) : ""}\t${entry.credit > 0 ? formatCurrency(entry.credit) : ""}\t${formatCurrency(entry.runningBalance)}`,
           )
           .join("\n");
 
         const header =
-          "Voucher Id\tDate\tTicket #\tDescription\tDebit\tCredit\n";
-        const totals = `\nTotal\t\t\t\t${formatCurrency(calculateTotals().debit)}\t${formatCurrency(calculateTotals().credit)}`;
+          "Voucher Id\tDate\tTicket #\tDescription\tDebit\tCredit\tBalance\n";
+        const totals = `\nTotal\t\t\t\t${formatCurrency(calculateTotals().debit)}\t${formatCurrency(calculateTotals().credit)}\t${formatCurrency(calculateTotals().closingBalance)}`;
         const fullText = `Ledger of ${userName.toUpperCase()}\nFrom ${filters.dateFrom} To ${filters.dateTo}\n\n${header}${tableData}${totals}`;
 
         await navigator.clipboard.writeText(fullText);
@@ -521,7 +522,9 @@ const Ledger = () => {
       {/* Header */}
       {/* WRAP THE TOPBAR HERE */}
       <div className="no-print">
-        <TopBar title={"Ledger"} />
+        <TopBar
+          title={`${userProfile?.name || userProfile?.companyName || "Agent"} Ledger`}
+        />
       </div>
 
       {/* Filters Section */}
@@ -642,20 +645,23 @@ const Ledger = () => {
                   <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-white uppercase tracking-wider whitespace-nowrap">
                     Credit
                   </th>
+                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-white uppercase tracking-wider whitespace-nowrap">
+                    Balance
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredData.length === 0 ? (
                   <tr>
                     <td
-                      colSpan="6"
+                      colSpan="7"
                       className="px-2 sm:px-4 py-6 sm:py-8 text-center text-sm text-gray-500"
                     >
                       No ledger entries found
                     </td>
                   </tr>
                 ) : (
-                  filteredData.map((item, index) => (
+                  dataWithRunningBalance.map((item, index) => (
                     <tr
                       key={index}
                       className="hover:bg-gray-50 transition-colors"
@@ -683,7 +689,10 @@ const Ledger = () => {
                         {item.debit ? formatCurrency(item.debit) : ""}
                       </td>
                       <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-right font-semibold text-gray-900">
-                        {item.credit ? formatCurrency(item.credit) : ""}
+                        {item.credit ? formatCurrency(item.credit) : "0"}
+                      </td>
+                      <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-right font-bold text-gray-900">
+                        {formatCurrency(item.runningBalance)}
                       </td>
                     </tr>
                   ))
@@ -702,6 +711,9 @@ const Ledger = () => {
                   </td>
                   <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-bold text-right text-gray-900 whitespace-nowrap">
                     {formatCurrency(totals.credit)}
+                  </td>
+                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-bold text-right text-gray-900 whitespace-nowrap">
+                    {formatCurrency(totals.closingBalance)}
                   </td>
                 </tr>
               </tfoot>
@@ -739,9 +751,9 @@ const Ledger = () => {
       </div>
 
       {/* Info */}
-      <div className="no-print mt-4 text-center text-sm text-gray-600">
+      {/* <div className="no-print mt-4 text-center text-sm text-gray-600">
         Showing {filteredData.length} of {ledgerData.length} entries
-      </div>
+      </div> */}
     </div>
   );
 };

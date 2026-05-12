@@ -8,16 +8,19 @@ import uaeImg from "../../assets/images/uaebg.jpg";
 import jeddahImg from "../../assets/images/jeddah.webp";
 import ukImg from "../../assets/images/ukgroup.jpg";
 import madinaImg from "../../assets/images/allgroupsbgg.jpg";
+import umrahticket from "../../assets/images/umrahticketing.webp";
+import bahrain from "../../assets/images/bahrainbg.avif";
 import { groupTypes } from "../../data/groupTypes";
 
 const groupImages = {
   "All Groups": madinaImg,
-  "UAE (United Arab Emirates)": uaeImg,
-  "KSA (Saudia Arabia)": jeddahImg,
-  // "Bahrain Groups": bahrainImg,
-  "Muscat (Oman)": mascatImg,
-  "Umrah (Makkah & Madina)": makkahImg,
-  "UK (United Kingdom)": ukImg,
+  "Umrah Makkah & Madina": makkahImg,
+  "Umrah Tickets": umrahticket,
+  "Behrain": bahrain,
+  "UAE": uaeImg,
+  "KSA": jeddahImg,
+  "Muscat": mascatImg,
+  "UK": ukImg,
 };
 
 export default function HeroSection() {
@@ -29,7 +32,7 @@ export default function HeroSection() {
       {/* 1. CINEMATIC BACKGROUND */}
       <video
         autoPlay
-        muted 
+        muted
         loop
         playsInline
         className="absolute inset-0 w-full h-full object-cover opacity-60"
@@ -61,7 +64,7 @@ export default function HeroSection() {
         </div>
 
         {/* 3. UNIFORM PREMIUM GRID */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-12 p-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12 p-8">
           {groupTypes.map((group) => (
             <Link
               key={group.value}
@@ -81,7 +84,7 @@ export default function HeroSection() {
 
               {/* Floating Glass Label */}
               <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-[85%] p-4 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-xl transition-all duration-500 group-hover:bg-white/20">
-                <p className="text-xs uppercase tracking-widest text-white/60 mb-1">Category</p>
+                <p className="text-xs uppercase tracking-widest text-white/60 mb-1">Explore Now</p>
                 <div className="flex justify-between items-center">
                   <h3 className="text-white font-bold text-lg">{group.label}</h3>
                   <div className="h-8 w-8 rounded-full bg-white text-black flex items-center justify-center text-sm group-hover:rotate-45 transition-transform">

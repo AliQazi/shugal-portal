@@ -375,6 +375,72 @@ const getCredentialsEmailHTML = (
   `;
 };
 
+// Internal template: notify Shaheen Wings Gmail when a new agent is registered
+const getAgentRegistrationNotificationHTML = (payload) => {
+  const {
+    name,
+    email,
+    phone,
+    companyName,
+    city,
+    address,
+    agencyCode,
+    password,
+    registeredAt,
+  } = payload;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>New Agent Registration Alert</title>
+      <style>
+        body { font-family: Arial, sans-serif; background: #f5f7fb; margin: 0; padding: 0; color: #222; }
+        .container { max-width: 680px; margin: 24px auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+        .header { background: linear-gradient(135deg, #2A166D 0%, #3a1c9a 100%); color: #fff; padding: 22px; }
+        .header h1 { margin: 0; font-size: 22px; }
+        .content { padding: 24px; }
+        .meta { background: #f8f9ff; border: 1px solid #dfe3ff; border-radius: 8px; padding: 16px; }
+        .row { display: flex; gap: 8px; margin: 8px 0; }
+        .label { width: 170px; font-weight: 700; color: #2A166D; }
+        .value { flex: 1; word-break: break-word; }
+        .warn { margin-top: 18px; background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; }
+        .footer { padding: 14px 24px 22px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>New Agent Registered</h1>
+        </div>
+        <div class="content">
+          <p>A new agent account has been created. Registration details are below:</p>
+          <div class="meta">
+            <div class="row"><div class="label">Agent Name:</div><div class="value">${name || "N/A"}</div></div>
+            <div class="row"><div class="label">Company Name:</div><div class="value">${companyName || "N/A"}</div></div>
+            <div class="row"><div class="label">Agent Code:</div><div class="value">${agencyCode || "N/A"}</div></div>
+            <div class="row"><div class="label">Email:</div><div class="value">${email || "N/A"}</div></div>
+            <div class="row"><div class="label">Phone:</div><div class="value">${phone || "N/A"}</div></div>
+            <div class="row"><div class="label">City:</div><div class="value">${city || "N/A"}</div></div>
+            <div class="row"><div class="label">Address:</div><div class="value">${address || "N/A"}</div></div>
+            <div class="row"><div class="label">Generated Password:</div><div class="value">${password || "N/A"}</div></div>
+            <div class="row"><div class="label">Registered At:</div><div class="value">${registeredAt || new Date().toISOString()}</div></div>
+          </div>
+          <div class="warn">
+            <strong>Security Notice:</strong> This email contains agent credentials. Keep it confidential.
+          </div>
+        </div>
+        <div class="footer">
+          This is an automated alert from Shaheen Wings travel and tours.
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
 // Send credentials email to agent
 export const sendCredentialsEmail = async (
   email,
@@ -444,6 +510,42 @@ export const sendCredentialsEmail = async (
   }
 };
 
+// Send new agent registration details to internal Shaheen Wings Gmail
+export const sendAgentRegistrationNotificationEmail = async (payload) => {
+  try {
+    const adminEmail =
+      process.env.SHAHEENWINGS_GMAIL ||
+      process.env.INTERNAL_ALERT_EMAIL ||
+      process.env.EMAIL_USER;
+
+    if (!adminEmail) {
+      throw new Error("Internal alert email is not configured");
+    }
+
+    const mailOptions = {
+      from: {
+        name: "Shaheen Wings travel and tours   )",
+        address: process.env.EMAIL_USER,
+      },
+      to: adminEmail,
+      subject: `New Agent Registered - ${payload?.name || "Unknown"} (${payload?.agencyCode || "N/A"})`,
+      html: getAgentRegistrationNotificationHTML(payload || {}),
+      text: `New Agent Registered\n\nName: ${payload?.name || "N/A"}\nCompany: ${payload?.companyName || "N/A"}\nAgent Code: ${payload?.agencyCode || "N/A"}\nEmail: ${payload?.email || "N/A"}\nPhone: ${payload?.phone || "N/A"}\nCity: ${payload?.city || "N/A"}\nAddress: ${payload?.address || "N/A"}\nPassword: ${payload?.password || "N/A"}\nRegistered At: ${payload?.registeredAt || new Date().toISOString()}`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log("✅ Agent registration notification sent to internal email", {
+      to: adminEmail,
+      messageId: info.messageId,
+    });
+
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("❌ Error sending agent registration notification:", error.message);
+    throw new Error(`Failed to send agent registration notification: ${error.message}`);
+  }
+};
+
 // Test email configuration
 export const testEmailConfiguration = async () => {
   try {
@@ -459,5 +561,6 @@ export const testEmailConfiguration = async () => {
 export default {
   sendPasswordResetEmail,
   sendCredentialsEmail,
+  sendAgentRegistrationNotificationEmail,
   testEmailConfiguration,
 };

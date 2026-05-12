@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import axiosInstance from "../../Api/axios";
 import PageMeta from "../../components/common/PageMeta";
@@ -12,6 +12,18 @@ const API_GROUP_CATEGORIES = [
     { key: "umrah", label: "Umrah" },
     { key: "uk", label: "UK" },
 ];
+
+// Maps the normalized flight type back to a category key
+const TYPE_TO_CATEGORY: Record<string, string> = {
+    "UAE ONE WAY GROUP": "uae",
+    "ONE WAY GROUP": "ksa",
+    "OMAN ONE WAY GROUP": "muscat",
+    "UMRAH GROUP": "umrah",
+    "UK ONE WAY GROUP": "uk",
+};
+
+const getCategoryFromGroup = (group: { type?: string }): string =>
+    TYPE_TO_CATEGORY[group.type || ""] || "other";
 
 const PlaneSVG = ({ className = "" }: { className?: string }) => (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor" width="1em" height="1em">
@@ -85,6 +97,19 @@ export default function ApiGroups() {
         type: "percent" | "amount";
     } | null>(null);
 
+    // ── Per-group margin overrides: overrideKey → { marginAmount, note } ──
+    const [groupMargins, setGroupMargins] = useState<
+        Record<string, { marginAmount: number; note: string }>
+    >({});
+
+    // ── Group-margin modal state ──────────────────
+    const [marginModal, setMarginModal] = useState(false);
+    const [selectedGroup, setSelectedGroup] = useState(""); // category key: "uae", "ksa", etc.
+    const [modalAmount, setModalAmount] = useState("");
+    const [modalNote, setModalNote] = useState("");
+    const [modalSaving, setModalSaving] = useState(false);
+    const amountInputRef = useRef<HTMLInputElement>(null);
+
     const activeCategory = searchParams.get("category") || "all";
 
     const activeCategoryLabel =
@@ -132,22 +157,124 @@ export default function ApiGroups() {
     useEffect(() => {
         fetchGroups();
         fetchMargin();
+        fetchGroupMargins();
     }, [activeCategory]);
+
+    // ── Fetch per-group margin overrides ─────────
+    const fetchGroupMargins = async () => {
+        try {
+            const res = await axiosInstance.get("/group-margin/all");
+            if (res.data?.success) {
+                setGroupMargins(res.data.data || {});
+            }
+        } catch (err) {
+            console.error("Failed to load group margins:", err);
+        }
+    };
 
     // ── Calculate Margin ─────────────────────────
 
-    const calculateMarginAmount = (basePrice: number) => {
-        if (!currentMargin || !currentMargin.value) return 0;
+    /** Returns the margin PKR amount for a given group.
+     *  Priority: category-level → sector-level → per-flight → global margin */
+    const getEffectiveMarginAmount = (group: ApiGroup) => {
+        // 1. Category-level override (e.g. "group-category-uae")
+        const cat = getCategoryFromGroup(group);
+        const catKey = `group-category-${cat}`;
+        if (groupMargins[catKey]) return groupMargins[catKey].marginAmount;
 
+        // 2. Sector-level override (backwards compat)
+        const sectorKey = `sector-sector:${(group.sector || "").toUpperCase().trim()}`;
+        if (groupMargins[sectorKey]) return groupMargins[sectorKey].marginAmount;
+
+        // 3. Per-flight override
+        const flightKey = `${group.source}-${group.id}`;
+        if (groupMargins[flightKey]) return groupMargins[flightKey].marginAmount;
+
+        // 4. Global margin fallback
+        if (!currentMargin || !currentMargin.value) return 0;
+        const basePrice = group.price || 0;
         if (currentMargin.type === "percent") {
             return Math.round((basePrice * currentMargin.value) / 100);
         }
-
         return currentMargin.value;
     };
 
-    const calculateFinalPrice = (basePrice: number) => {
-        return basePrice + calculateMarginAmount(basePrice);
+    // ── Category margin helpers ───────────────────
+    const categoryHasOverride = (catKey: string) =>
+        !!groupMargins[`group-category-${catKey}`];
+
+    const categoryOverrideAmount = (catKey: string) =>
+        groupMargins[`group-category-${catKey}`]?.marginAmount ?? null;
+
+    // ── Open / close modal ────────────────────────
+    const openMarginModal = () => {
+        setSelectedGroup("");
+        setModalAmount("");
+        setModalNote("");
+        setMarginModal(true);
+    };
+
+    const closeMarginModal = () => {
+        setMarginModal(false);
+        setSelectedGroup("");
+        setModalAmount("");
+        setModalNote("");
+    };
+
+    // When a group category is chosen in the modal, pre-fill existing override amount
+    const handleGroupSelect = (catKey: string) => {
+        setSelectedGroup(catKey);
+        const existing = groupMargins[`group-category-${catKey}`];
+        setModalAmount(existing ? String(existing.marginAmount) : "");
+        setModalNote(existing?.note || "");
+        setTimeout(() => amountInputRef.current?.focus(), 80);
+    };
+
+    // ── Save category-level margin ────────────────
+    const handleSaveMargin = async () => {
+        if (!selectedGroup) {
+            toast.error("Please select a group first");
+            return;
+        }
+        const amount = parseFloat(modalAmount);
+        if (isNaN(amount) || amount < 0) {
+            toast.error("Please enter a valid margin amount (>= 0)");
+            return;
+        }
+
+        setModalSaving(true);
+        try {
+            // source="group-category", groupId="uae" → backend key "group-category-uae"
+            await axiosInstance.post("/group-margin/set", {
+                groupId: selectedGroup,
+                source: "group-category",
+                marginAmount: amount,
+                note: modalNote,
+            });
+
+            const label = API_GROUP_CATEGORIES.find((c) => c.key === selectedGroup)?.label || selectedGroup.toUpperCase();
+            toast.success(`Margin PKR ${amount.toLocaleString()} applied to all ${label} flights`);
+            closeMarginModal();
+            fetchGroupMargins();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || "Failed to save margin");
+        } finally {
+            setModalSaving(false);
+        }
+    };
+
+    // ── Clear category-level margin ───────────────
+    const handleClearGroupMargin = async (catKey: string) => {
+        const label = API_GROUP_CATEGORIES.find((c) => c.key === catKey)?.label || catKey.toUpperCase();
+        if (!confirm(`Clear custom margin for all ${label} flights?`)) return;
+        try {
+            // DELETE /:source/:groupId  →  source="group-category"  groupId="uae"
+            await axiosInstance.delete(`/group-margin/group-category/${encodeURIComponent(catKey)}`);
+            toast.success(`Margin cleared for all ${label} flights`);
+            fetchGroupMargins();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || "Failed to clear margin");
+        }
     };
 
     // ── Group by sector only (so same sector from different APIs merges into one card) ──
@@ -213,6 +340,17 @@ export default function ApiGroups() {
                         <RefreshSVG className={`text-base ${loading ? "animate-spin" : ""}`} />
                         Refresh
                     </button>
+
+                    <button
+                        onClick={openMarginModal}
+                        disabled={loading || groups.length === 0}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm font-semibold text-white transition disabled:opacity-50"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Set Group Margin
+                    </button>
                 </div>
 
                 {/* Categories */}
@@ -236,6 +374,29 @@ export default function ApiGroups() {
                         );
                     })}
                 </div>
+
+                {/* Active group-category margin banners */}
+                {API_GROUP_CATEGORIES.filter((c) => c.key !== "all" && categoryHasOverride(c.key)).length > 0 && (
+                    <div className="mb-4 flex flex-wrap gap-2">
+                        {API_GROUP_CATEGORIES.filter((c) => c.key !== "all" && categoryHasOverride(c.key)).map((cat) => (
+                            <div
+                                key={cat.key}
+                                className="flex items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-1.5"
+                            >
+                                <span className="text-xs font-bold text-orange-700">
+                                    {cat.label}: PKR {categoryOverrideAmount(cat.key)?.toLocaleString()}
+                                </span>
+                                <button
+                                    onClick={() => handleClearGroupMargin(cat.key)}
+                                    title={`Clear ${cat.label} margin`}
+                                    className="flex h-4 w-4 items-center justify-center rounded-full bg-red-100 text-red-500 hover:bg-red-200 text-[10px] font-bold transition-colors"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
 
                 {/* Margin Banner */}
                 {currentMargin && currentMargin.value > 0 && (
@@ -269,7 +430,7 @@ export default function ApiGroups() {
                                     key={key}
                                     className="rounded-2xl overflow-hidden border border-neutral-200"
                                 >
-                                    {/* Header */}
+                                    {/* Sector card header with margin badge + clear button */}
                                     <div className="flex items-center justify-center gap-6 py-2.5 bg-linear-to-r from-blue-50 via-white to-blue-50 border-b border-neutral-200">
                                         <div className="flex items-center justify-center min-w-16">
                                             {data.airlineLogo ? (
@@ -310,6 +471,7 @@ export default function ApiGroups() {
                                                 </div>
                                             );
                                         })()}
+
                                     </div>
 
                                     {/* Table */}
@@ -363,15 +525,22 @@ export default function ApiGroups() {
                                                         const basePrice = group.price || 0;
 
                                                         const marginAmount =
-                                                            calculateMarginAmount(basePrice);
+                                                            getEffectiveMarginAmount(group);
 
-                                                        const finalPrice =
-                                                            calculateFinalPrice(basePrice);
+                                                        const finalPrice = basePrice + marginAmount;
+
+                                                        const overrideKey = `${group.source}-${group.id}`;
+                                                        const groupCat = getCategoryFromGroup(group);
+                                                        const hasOverride = categoryHasOverride(groupCat) || !!groupMargins[overrideKey];
 
                                                         return (
                                                             <tr
                                                                 key={id}
-                                                                className="border-b border-gray-100 bg-white hover:bg-blue-50/40 transition-colors"
+                                                                className={`border-b border-gray-100 transition-colors ${
+                                                                    categoryHasOverride(groupCat)
+                                                                        ? "bg-orange-50/40 hover:bg-orange-50"
+                                                                        : "bg-white hover:bg-blue-50/40"
+                                                                }`}
                                                             >
                                                                 {/* Date */}
                                                                 <td className="px-4 py-3 text-xs font-medium text-gray-600 whitespace-nowrap">
@@ -493,22 +662,16 @@ export default function ApiGroups() {
 
                                                                 {/* Margin */}
                                                                 <td className="px-4 py-3 text-center whitespace-nowrap">
-
-                                                                    <div className="flex flex-col items-center">
-
+                                                                    <div className="flex flex-col items-center gap-0.5">
                                                                         <span className="text-sm font-bold text-orange-600">
                                                                             + PKR {marginAmount.toLocaleString()}
                                                                         </span>
-
-                                                                        {/* {currentMargin && (
-                                                                            <span className="text-[10px] text-gray-500 mt-0.5">
-                                                                                ({currentMargin.value}
-                                                                                {currentMargin.type === "percent" ? "%" : " Rs"})
+                                                                        {hasOverride && (
+                                                                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700">
+                                                                                Custom
                                                                             </span>
-                                                                        )} */}
-
+                                                                        )}
                                                                     </div>
-
                                                                 </td>
 
                                                                 {/* Final Price */}
@@ -529,6 +692,119 @@ export default function ApiGroups() {
                     </div>
                 )}
             </div>
+
+            {/* ── Set Group Margin Modal ─────────────────────────────────── */}
+            {marginModal && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+                    onClick={(e) => { if (e.target === e.currentTarget) closeMarginModal(); }}
+                >
+                    <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl p-6">
+                        <h2 className="text-lg font-bold text-gray-800 mb-1">Set Group Margin</h2>
+                        <p className="text-sm text-gray-500 mb-5">
+                            Select a group, enter the PKR margin — it applies to
+                            <strong> every flight in that group</strong> and is recorded in the ledger.
+                        </p>
+
+                        <div className="space-y-4">
+                            {/* Group category picker */}
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Select Group
+                                </label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {API_GROUP_CATEGORIES.filter((c) => c.key !== "all").map((cat) => {
+                                        const isSelected = selectedGroup === cat.key;
+                                        const hasMargin = categoryHasOverride(cat.key);
+                                        return (
+                                            <button
+                                                key={cat.key}
+                                                type="button"
+                                                onClick={() => handleGroupSelect(cat.key)}
+                                                className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-semibold transition-all ${
+                                                    isSelected
+                                                        ? "border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-200"
+                                                        : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50/40"
+                                                }`}
+                                            >
+                                                <span>{cat.label}</span>
+                                                {hasMargin && (
+                                                    <span className="ml-2 shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700">
+                                                        PKR {categoryOverrideAmount(cat.key)?.toLocaleString()}
+                                                    </span>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Amount input — only shows after group is selected */}
+                            {selectedGroup && (
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                            Margin Amount (PKR) —{" "}
+                                            <span className="font-normal text-blue-600">
+                                                applies to all flights in{" "}
+                                                <strong>
+                                                    {API_GROUP_CATEGORIES.find((c) => c.key === selectedGroup)?.label}
+                                                </strong>
+                                            </span>
+                                        </label>
+                                        <input
+                                            ref={amountInputRef}
+                                            type="number"
+                                            min="0"
+                                            value={modalAmount}
+                                            onChange={(e) => setModalAmount(e.target.value)}
+                                            onKeyDown={(e) => { if (e.key === "Enter") handleSaveMargin(); }}
+                                            placeholder="e.g. 500"
+                                            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                            Note{" "}
+                                            <span className="font-normal text-gray-400">(optional)</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={modalNote}
+                                            onChange={(e) => setModalNote(e.target.value)}
+                                            placeholder="e.g. Special arrangement"
+                                            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                                A <strong>MarginLedger</strong> entry is created when you save.
+                                The margin overrides the global margin for all flights in the selected group.
+                            </div>
+                        </div>
+
+                        <div className="mt-6 flex gap-3">
+                            <button
+                                onClick={closeMarginModal}
+                                disabled={modalSaving}
+                                className="flex-1 rounded-lg border border-gray-300 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSaveMargin}
+                                disabled={modalSaving || !selectedGroup || modalAmount === ""}
+                                className="flex-1 rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-gray-300 transition-colors"
+                            >
+                                {modalSaving ? "Saving…" : "Save & Record Ledger"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 }
