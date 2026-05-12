@@ -263,11 +263,11 @@ function buildCopyText(groups: UnifiedGroup[]): string {
   const footer =
     `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*
 =======================
-Fly Naveed Travel & TourTravels
+Shaheen Wings Travels
 Mobile: 0309-9802154
 Address: MA Plaza Ground Floor Shop # 3, Kahror Pacca.
 Ptcl: 0608340174
-Website: flynaveed.com`;
+Website: shaheenwings.com`;
 
   return [header, ...lines, "=======================", footer].join("\n");
 }
@@ -367,8 +367,8 @@ export default function Home() {
   return (
     <>
       <PageMeta
-        title="Dashboard | Fly Naveed Travel & TourTicket Travel"
-        description="Dashboard overview for Fly Naveed Travel & TourTicket Travel"
+        title="Dashboard | Shaheen Wings Ticket Travel"
+        description="Dashboard overview for Shaheen Wings Ticket Travel"
       />
 
       <div className="mb-6">

@@ -48,13 +48,13 @@ export default function ChooseUsSection() {
             <div className="flex items-center gap-3 mb-4">
               <span className="h-px w-12 bg-blue-600"></span>
               <p className="text-sm font-bold tracking-[0.2em] uppercase text-blue-600">
-                The Fly Naveed Travel & Tour Advantage
+                The Shaheen Advantage
               </p>
             </div>
             <h2 className="text-4xl md:text-5xl font-extrabold text-slate-900 leading-[1.15]">
               Experience Excellence with <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-700 to-indigo-500">
-                Fly Naveed Travel & TourTravel
+                Shaheen Wings Travel
               </span>
             </h2>
           </div>

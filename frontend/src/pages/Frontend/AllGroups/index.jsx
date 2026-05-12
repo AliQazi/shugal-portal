@@ -82,7 +82,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}..... *PKR ${price}*`;
       })
       .filter(Boolean);
-    const footer = `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*\n=======================\nFly Naveed Travel & TourTravels\nMobile: 0309-9802154\nAddress: MA Plaza Ground Floor Shop # 3, Kahror Pacca.\nPtcl: 0608340174\nWebsite: flynaveed.com`;
+    const footer = `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*\n=======================\nShaheen Wings Travels\nMobile: 0309-9802154\nAddress: MA Plaza Ground Floor Shop # 3, Kahror Pacca.\nPtcl: 0608340174\nWebsite: shaheenwings.com`;
     return [header, ...lines, "=======================", footer].join("\n");
   };
 
@@ -118,7 +118,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     const depPart = depTime ? ` (${depTime})` : "";
     const arvPart = arvTime ? ` (${arvTime})` : "";
     const price = group.price || 0;
-    const footer = `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*\n=======================\nFly Naveed Travel & TourTravels\nMobile: 0309-9802154\nAddress: MA Plaza Ground Floor Shop # 3, Kahror Pacca.\nPtcl: 0608340174\nWebsite: flynaveed.com`;
+    const footer = `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*\n=======================\nShaheen Wings Travels\nMobile: 0309-9802154\nAddress: MA Plaza Ground Floor Shop # 3, Kahror Pacca.\nPtcl: 0608340174\nWebsite: shaheenwings.com`;
     return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}..... *PKR ${price}*\n=======================\n${footer}`;
   };
 
@@ -169,7 +169,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}..... *PKR ${price}*`;
       })
       .filter(Boolean);
-    const footer = `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*\n=======================\nFly Naveed Travel & TourTravels\nMobile: 0309-9802154\nAddress: MA Plaza Ground Floor Shop # 3, Kahror Pacca.\nPtcl: 0608340174\nWebsite: flynaveed.com`;
+    const footer = `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*\n=======================\nShaheen Wings Travels\nMobile: 0309-9802154\nAddress: MA Plaza Ground Floor Shop # 3, Kahror Pacca.\nPtcl: 0608340174\nWebsite: shaheenwings.com`;
     return [header, ...lines, "=======================", footer].join("\n");
   };
 

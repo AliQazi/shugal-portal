@@ -1,8 +1,8 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: "http://localhost:8016/api", // backend ka port/
-  // baseURL: "https://shaheenwingstravels.com/api", // backe   nd ka port
+  // baseURL: "http://localhost:8016/api", // backend ka port
+  baseURL: "https://shaheenwingstravels.com/api", // backe   nd ka port
   withCredentials: true,
 });
 

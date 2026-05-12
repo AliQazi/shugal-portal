@@ -171,7 +171,7 @@ export const registerUser = async (req, res) => {
       status,
     });
 
-    // Auto-send full registration details to internal Fly Naveed Travel & TourGmail
+    // Auto-send full registration details to internal Shaheen Wings Gmail
     if (role === "Agency") {
       try {
         await sendAgentRegistrationNotificationEmail({

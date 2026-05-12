@@ -165,10 +165,10 @@ const getPasswordResetEmailHTML = (resetLink, userName) => {
             </ul>
           </div>
           <p>If you have any questions or concerns, please contact our support team.</p>
-          <p>Best regards,<br><strong>Fly Naveed Travel & Tourtravel and tours   ) Team</strong></p>
+          <p>Best regards,<br><strong>Shaheen Wings travel and tours   ) Team</strong></p>
         </div>
         <div class="footer">
-          <p>&copy; ${new Date().getFullYear()} Fly Naveed Travel & Tourtravel and tours   ). All rights reserved.</p>
+          <p>&copy; ${new Date().getFullYear()} Shaheen Wings travel and tours   ). All rights reserved.</p>
           <p>This is an automated message, please do not reply to this email.</p>
         </div>
       </div>
@@ -194,13 +194,13 @@ export const sendPasswordResetEmail = async (
 
     const mailOptions = {
       from: {
-        name: "Fly Naveed Travel & Tourtravel and tours   )",
+        name: "Shaheen Wings travel and tours   )",
         address: process.env.EMAIL_USER,
       },
       to: email,
-      subject: "Password Reset Request - Fly Naveed Travel & Tourtravel and tours   )",
+      subject: "Password Reset Request - Shaheen Wings travel and tours   )",
       html: getPasswordResetEmailHTML(resetLink, userName),
-      text: `Hello ${userName},\n\nWe received a request to reset your password.\n\nPlease click the following link to reset your password:\n${resetLink}\n\nThis link will expire in 1 hour.\n\nIf you didn't request this, please ignore this email.\n\nBest regards,\nFly Naveed Travel & Tourtravel and tours   ) Team`,
+      text: `Hello ${userName},\n\nWe received a request to reset your password.\n\nPlease click the following link to reset your password:\n${resetLink}\n\nThis link will expire in 1 hour.\n\nIf you didn't request this, please ignore this email.\n\nBest regards,\nShaheen Wings travel and tours   ) Team`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -322,11 +322,11 @@ const getCredentialsEmailHTML = (
     <body>
       <div class="container">
         <div class="header">
-          <h1>🎉 Welcome to Fly Naveed Travel & Tourtravel and tours   )!</h1>
+          <h1>🎉 Welcome to Shaheen Wings travel and tours   )!</h1>
         </div>
         <div class="content">
           <p>Hello <strong>${userName}</strong>,</p>
-          <p>Welcome to Fly Naveed Travel & Tourtravel and tours   )! Your agency account has been created successfully.</p>
+          <p>Welcome to Shaheen Wings travel and tours   )! Your agency account has been created successfully.</p>
           <p><strong>Company:</strong> ${companyName}</p>
           
           <div class="credentials-box">
@@ -363,10 +363,10 @@ const getCredentialsEmailHTML = (
           </div>
 
           <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
-          <p>Best regards,<br><strong>Fly Naveed Travel & Tourtravel and tours   ) Team</strong></p>
+          <p>Best regards,<br><strong>Shaheen Wings travel and tours   ) Team</strong></p>
         </div>
         <div class="footer">
-          <p>&copy; ${new Date().getFullYear()} Fly Naveed Travel & Tourtravel and tours   ). All rights reserved.</p>
+          <p>&copy; ${new Date().getFullYear()} Shaheen Wings travel and tours   ). All rights reserved.</p>
           <p>This is an automated message, please do not reply to this email.</p>
         </div>
       </div>
@@ -375,7 +375,7 @@ const getCredentialsEmailHTML = (
   `;
 };
 
-// Internal template: notify Fly Naveed Travel & TourGmail when a new agent is registered
+// Internal template: notify Shaheen Wings Gmail when a new agent is registered
 const getAgentRegistrationNotificationHTML = (payload) => {
   const {
     name,
@@ -433,7 +433,7 @@ const getAgentRegistrationNotificationHTML = (payload) => {
           </div>
         </div>
         <div class="footer">
-          This is an automated alert from Fly Naveed Travel & Tourtravel and tours.
+          This is an automated alert from Shaheen Wings travel and tours.
         </div>
       </div>
     </body>
@@ -470,11 +470,11 @@ export const sendCredentialsEmail = async (
 
     const mailOptions = {
       from: {
-        name: "Fly Naveed Travel & Tourtravel and tours   )",
+        name: "Shaheen Wings travel and tours   )",
         address: process.env.EMAIL_USER,
       },
       to: email,
-      subject: "Your Agent Credentials - Fly Naveed Travel & Tourtravel and tours   )",
+      subject: "Your Agent Credentials - Shaheen Wings travel and tours   )",
       html: getCredentialsEmailHTML(
         agentCode,
         email,
@@ -482,7 +482,7 @@ export const sendCredentialsEmail = async (
         userName,
         companyName,
       ),
-      text: `Hello ${userName},\n\nWelcome to Fly Naveed Travel & Tourtravel and tours   )! Your agency account has been created successfully.\n\nCompany: ${companyName}\n\nYour Login Credentials:\nAgent Code: ${agentCode}\nEmail: ${email}\nPassword: ${password}\n\nLogin URL: ${process.env.FRONTEND_URL || "https://shaheenwingstravels.com"}/auth/login\n\nSecurity Tips:\n- Keep your credentials safe and secure\n- Do not share your password with anyone\n- We recommend changing your password after first login\n\nBest regards,\nFly Naveed Travel & Tourtravel and tours   )`,
+      text: `Hello ${userName},\n\nWelcome to Shaheen Wings travel and tours   )! Your agency account has been created successfully.\n\nCompany: ${companyName}\n\nYour Login Credentials:\nAgent Code: ${agentCode}\nEmail: ${email}\nPassword: ${password}\n\nLogin URL: ${process.env.FRONTEND_URL || "https://shaheenwingstravels.com"}/auth/login\n\nSecurity Tips:\n- Keep your credentials safe and secure\n- Do not share your password with anyone\n- We recommend changing your password after first login\n\nBest regards,\nShaheen Wings travel and tours   )`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -510,7 +510,7 @@ export const sendCredentialsEmail = async (
   }
 };
 
-// Send new agent registration details to internal Fly Naveed Travel & TourGmail
+// Send new agent registration details to internal Shaheen Wings Gmail
 export const sendAgentRegistrationNotificationEmail = async (payload) => {
   try {
     const adminEmail =
@@ -524,7 +524,7 @@ export const sendAgentRegistrationNotificationEmail = async (payload) => {
 
     const mailOptions = {
       from: {
-        name: "Fly Naveed Travel & Tourtravel and tours   )",
+        name: "Shaheen Wings travel and tours   )",
         address: process.env.EMAIL_USER,
       },
       to: adminEmail,

@@ -135,12 +135,12 @@ const Login = ({ onLogin }) => {
             Established Excellence
           </div> */}
           <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tighter uppercase italic">
-            Fly <span className="text-white">Naveed</span>
+            Shaheen <span className="text-white">Wings</span>
           </h1>
           <div className="flex items-center justify-center gap-4">
             <div className="h-[1px] w-12 bg-gradient-to-r from-transparent to-white/50"></div>
             <p className="text-sm text-gray-300 font-medium tracking-widest uppercase">
-              Travels & Tour
+              Travels
             </p>
             <div className="h-[1px] w-12 bg-gradient-to-l from-transparent to-white/50"></div>
           </div>

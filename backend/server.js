@@ -114,7 +114,7 @@ app.use((req, res, next) => {
 });
 
 app.get("/", (req, res) => {
-  res.send("Fly Naveed Travel & Tourtravel and tours   ) API is running");
+  res.send("Shaheen Wings travel and tours   ) API is running");
 });
 
 const PORT = process.env.PORT || 8016;
