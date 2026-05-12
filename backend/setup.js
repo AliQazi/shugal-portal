@@ -34,7 +34,7 @@ const setupAdmin = async () => {
       console.log("Creating admin user...".yellow);
 
       await Register.create({
-        name: "Shaheen Wings Ticket Travel Admin",
+        name: "Fly Naveed Travel & TourTicket Travel Admin",
         email: adminEmail,
         phone: "03355891694",
         password: adminPassword,
@@ -45,7 +45,7 @@ const setupAdmin = async () => {
         address: "Faisalabad",
         country: "Pakistan",
         city: "Faisalabad",
-        companyName: "Shaheen Wings Ticket Travel",
+        companyName: "Fly Naveed Travel & TourTicket Travel",
         consultant: "",
       });
 

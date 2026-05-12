@@ -6,8 +6,8 @@ export default function SignIn() {
   return (
     <>
       <PageMeta
-        title="Shaheen Wings travel and tours   ) SignIn Dashboard"
-        description="This is Admin SignIn Dashboard page for Shaheen Wings travel and tours   )"
+        title="Fly Naveed Travel & Tourtravel and tours   ) SignIn Dashboard"
+        description="This is Admin SignIn Dashboard page for Fly Naveed Travel & Tourtravel and tours   )"
       />
       <AuthLayout>
         <SignInForm />

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
-import logo from "../../../frontend/src/assets/images/logo2.png";
+import logo from "../../../frontend/src/assets/images/flynaveed.png";
 
 // Assume these icons are imported from an icon library
 import {
@@ -294,6 +294,7 @@ const AppSidebar: React.FC = () => {
                 alt="Logo"
                 width={150}
                 height={40}
+                className="rounded-2xl"
               />
               {/* <img
                 className="hidden dark:block"
@@ -309,6 +310,7 @@ const AppSidebar: React.FC = () => {
               alt="Logo"
               width={32}
               height={32}
+              className="rounded-2xl"
             />
           )}
         </Link>
@@ -339,7 +341,7 @@ const AppSidebar: React.FC = () => {
       <div className={`py-4 border-t border-gray-200 dark:border-gray-800 ${!isExpanded && !isHovered ? "lg:text-center" : "text-center"}`}>
         {isExpanded || isHovered || isMobileOpen ? (
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            © {new Date().getFullYear()} <a href="https://shaheenwingstravels.com/" target="_blank">Shaheen Wings Travels</a><br />All rights reserved.
+            © {new Date().getFullYear()} <a href="https://flynaveed.com/" target="_blank">Fly Naveed Travel & Tour</a><br />All rights reserved.
           </p>
         ) : (
           <p className="text-xs text-gray-500 dark:text-gray-400">

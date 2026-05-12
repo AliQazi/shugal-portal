@@ -16,7 +16,7 @@ export default function AboutSection() {
             <div className="h-[1.5px] w-12 bg-[#1a417a]"></div>
           </div>
           <p className="max-w-4xl font-bold mx-auto text-gray-500 leading-relaxed text-sm md:text-base">
-            Shaheen Wings Travels is a leading online travel agency committed to delivering exceptional travel experiences. We specialize in a wide range of services, including:
+            Fly Naveed Travel & TourTravels is a leading online travel agency committed to delivering exceptional travel experiences. We specialize in a wide range of services, including:
              Flight Reservations & Airline Tickets
              Hotel Booking Services
              Visa Assistance
@@ -58,7 +58,7 @@ export default function AboutSection() {
 
               <div className="space-y-5 text-sm md:text-base leading-relaxed opacity-90">
                 <p>
-                  At Shaheen Wings Travels, we redefine the art of travel by curating exceptional journeys tailored to your expectations. Our commitment lies in offering exclusive deals and thoughtfully crafted travel solutions that combine luxury, comfort, and value.
+                  At Fly Naveed Travel & TourTravels, we redefine the art of travel by curating exceptional journeys tailored to your expectations. Our commitment lies in offering exclusive deals and thoughtfully crafted travel solutions that combine luxury, comfort, and value.
                 </p>
                 <p>
                   With access to highly competitive fares across global destinations, we ensure that every journey begins with sophistication and ease. What truly sets us apart is our dedication to impeccable after-sales service—because your experience matters long after your booking is complete.

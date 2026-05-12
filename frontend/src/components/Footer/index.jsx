@@ -1,4 +1,4 @@
-import logo from "../../assets/images/logo2.png";
+import logo from "../../assets/images/flynaveed.png";
 import footerbg from "../../assets/images/footerbg1.jpg";
 import { CiLogin } from "react-icons/ci";
 import { FaWhatsapp, FaPhoneAlt } from "react-icons/fa";
@@ -9,7 +9,7 @@ import { theme } from "../../theme/theme";
 import footerBg from "../../assets/images/uae.webp";
 import { Plane } from "lucide-react";
 
-const WHATSAPP_URL = "https://wa.me/923099802154";
+const WHATSAPP_URL = "https://wa.me/923334007437";
 
 export default function Footer({ user }) {
   return (
@@ -97,12 +97,12 @@ export default function Footer({ user }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Logo */}
             <div>
-              <img src={logo} alt="logo" className="w-34 mb-4 p-2 bg-white rounded-2xl" />
+              <img src={logo} alt="logo" className="w-34 mb-4 p-2 rounded-2xl" />
               <h2
                 className="text-lg font-semibold"
                 style={{ color: theme.colors.sidebarTextLight }}
               >
-                Shaheen Wings Travels   ).
+                Fly Naveed Travels & Tours
               </h2>
               <p
                 className="mt-3 text-sm leading-relaxed"
@@ -191,10 +191,10 @@ export default function Footer({ user }) {
                   className="flex items-center gap-3 hover:translate-x-1 transition"
                   style={{ color: theme.colors.sidebarText }}
                 >
-                  <FaWhatsapp className="text-2xl" /> 0309-9802154
+                  <FaWhatsapp className="text-2xl" /> 0333-4007437
                 </a>
 
-                <a
+                {/* <a
                   href="tel:+9230799655120"
                   className="flex items-center gap-3 hover:translate-x-1 transition"
                   style={{ color: theme.colors.sidebarText }}
@@ -208,27 +208,27 @@ export default function Footer({ user }) {
                   style={{ color: theme.colors.sidebarText }}
                 >
                   <FaPhoneAlt /> 0304-3121343
-                </a>
+                </a> */}
 
                 <a
-                  href="https://mail.google.com/mail/?view=cm&fs=1&to=shaheenwingsgrouptkt@gmail.com"
+                  href="https://mail.google.com/mail/?view=cm&fs=1&to=FLY-NAVEED@OUTLOOK.COM"
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center gap-3 break-all hover:translate-x-1 transition"
                   style={{ color: theme.colors.sidebarText }}
                 >
-                  <IoMail /> shaheenwingsgrouptkt@gmail.com
+                  <IoMail /> FLY-NAVEED@OUTLOOK.COM
                 </a>
 
                 <a
-                  href="https://maps.app.goo.gl/qqeU3vAAfZ6jqFBaA"
+                  href="https://maps.app.goo.gl/SiaSyL3u3ycFuzEW8"
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-start gap-3 hover:translate-x-1 transition"
                   style={{ color: theme.colors.sidebarText }}
                 >
                   <IoLocationSharp className="mt-1 text-3xl" />
-                  MA Plaza Ground Floor Shop # 3, Kahror Pacca
+                  Office No.1 Khan Plaza FSD Road, 32 Chowk Sheikhupura
                 </a>
               </div>
             </div>
@@ -241,12 +241,11 @@ export default function Footer({ user }) {
           style={{ borderColor: theme.colors.sidebarBorder }}
         >
           <a
-            href="https://shaheenwingstravels.com/"
+            href="https://Fly Naveed Travel & Tour.com/"
             style={{ color: theme.colors.sidebarText }}
           >
-            &copy; {dayjs().year()} Shaheen Wings Travels   ).
+            &copy; {dayjs().year()} Fly Naveed Travels & Tours
           </a>
-
           <a
             className="text-sm"
             style={{ color: theme.colors.sidebarText }}

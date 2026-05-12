@@ -117,7 +117,7 @@ const Dashboard = () => {
       <div className="w-full m-0!  bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 text-white py-2 overflow-hidden shadow-md mb-4 relative flex items-center">
 
         <div className="whitespace-nowrap font-semibold tracking-wide animate-marquee">
-          Welcome to Shaheen Wings Travels. We book comfort for you &nbsp; — &nbsp; Check out our latest Umrah and UAE Special Offers below!
+          Welcome to Fly Naveed Travel & TourTravels. We book comfort for you &nbsp; — &nbsp; Check out our latest Umrah and UAE Special Offers below!
         </div>
 
         <style dangerouslySetInnerHTML={{

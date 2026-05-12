@@ -135,7 +135,7 @@ function buildCopyText(groups: UnifiedGroup[]): string {
     const footer =
     `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*
 =======================
-Shaheen Wings Travels
+Fly Naveed Travel & TourTravels
 Mobile: 0309-9802154
 Address: MA Plaza Ground Floor Shop # 3, Kahror Pacca.
 Ptcl: 0608340174
@@ -269,7 +269,7 @@ export default function ManageSectors() {
 
     return (
         <>
-            <PageMeta title="All Sectors - Shaheen Wings travel and tours   )" description="View all sectors list" />
+            <PageMeta title="All Sectors - Fly Naveed Travel & Tourtravel and tours   )" description="View all sectors list" />
 
             <div className="mb-6">
                 <PageBreadCrumb pageTitle="All Sectors" />

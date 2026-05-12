@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import logo from "../../assets/images/logo2.png";
+import logo from "../../assets/images/flynaveed.png";
 import { CiMenuFries } from "react-icons/ci";
 import { AiOutlineClose } from "react-icons/ai";
 import { groupTypes } from "../../data/groupTypes";
@@ -54,7 +54,7 @@ export default function OldHeader({ user, handleLogout }) {
                 <img
                   style={{ height: "70px" }}
                   src={logo}
-                  className="w-full object-contain"
+                  className="w-full rounded-2xl object-contain"
                 />
               </Link>
             )}
