@@ -1,5 +1,19 @@
 import PageMeta from "../../components/common/PageMeta";
-import { ArrowRightIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
+import {
+  ArrowRightIcon,
+  BanknotesIcon,
+  BuildingLibraryIcon,
+  BuildingOffice2Icon,
+  CircleStackIcon,
+  Cog6ToothIcon,
+  MapPinIcon,
+  PaperAirplaneIcon,
+  PhoneIcon,
+  Squares2X2Icon,
+  TagIcon,
+  TicketIcon,
+  UserGroupIcon,
+} from "@heroicons/react/24/outline";
 import { Link } from "react-router";
 import AgentStatusChart from "../../components/charts/AgentStatusChart";
 import { useEffect, useState } from "react";
@@ -67,6 +81,81 @@ const DASHBOARD_CATEGORIES = [
     category: "uk",
     accentClass: "from-amber-500 to-orange-600",
     badgeClass: "bg-amber-50 text-amber-700 border-amber-100",
+  },
+];
+
+const DASHBOARD_SHORTCUTS = [
+  {
+    title: "Add Sector",
+    path: "/sector",
+    colorClass: "from-blue-500 to-blue-600",
+    icon: MapPinIcon,
+  },
+  {
+    title: "Add Airline",
+    path: "/airline",
+    colorClass: "from-sky-500 to-cyan-500",
+    icon: PaperAirplaneIcon,
+  },
+  {
+    title: "Add Group",
+    path: "/group-ticketing/create",
+    colorClass: "from-emerald-500 to-teal-500",
+    icon: UserGroupIcon,
+  },
+  {
+    title: "All Bookings",
+    path: "/all-bookings",
+    colorClass: "from-violet-500 to-purple-500",
+    icon: TicketIcon,
+  },
+  {
+    title: "Special Offers",
+    path: "/special-offers",
+    colorClass: "from-pink-500 to-rose-500",
+    icon: TagIcon,
+  },
+  {
+    title: "Manage Sectors",
+    path: "/manage-sectors",
+    colorClass: "from-amber-500 to-orange-500",
+    icon: Cog6ToothIcon,
+  },
+  {
+    title: "Agencies",
+    path: "/registered-agencies",
+    colorClass: "from-teal-500 to-cyan-500",
+    icon: BuildingOffice2Icon,
+  },
+  {
+    title: "Add Bank",
+    path: "/add-bank",
+    colorClass: "from-indigo-500 to-violet-500",
+    icon: BuildingLibraryIcon,
+  },
+  {
+    title: "Group Ticketing",
+    path: "/group-ticketing",
+    colorClass: "from-orange-500 to-amber-500",
+    icon: TicketIcon,
+  },
+  {
+    title: "Accounts",
+    path: "/view-accounts",
+    colorClass: "from-cyan-600 to-sky-600",
+    icon: BanknotesIcon,
+  },
+  {
+    title: "API Groups",
+    path: "/api-groups",
+    colorClass: "from-fuchsia-500 to-pink-500",
+    icon: CircleStackIcon,
+  },
+  {
+    title: "Team Contacts",
+    path: "/team-contacts",
+    colorClass: "from-lime-500 to-green-600",
+    icon: PhoneIcon,
   },
 ];
 
@@ -333,6 +422,21 @@ export default function Home() {
         </button>
       </div>
 
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        {DASHBOARD_SHORTCUTS.map((tab) => (
+          <Link
+            key={tab.title}
+            to={tab.path}
+            className={`group flex min-h-20 items-center justify-center gap-3 rounded-2xl bg-linear-to-r px-4 py-4 text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${tab.colorClass}`}
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/40 bg-white/20">
+              <tab.icon className="h-5 w-5" />
+            </div>
+            <span className="text-sm font-semibold tracking-wide">{tab.title}</span>
+          </Link>
+        ))}
+      </div>
+
       {/* Categories Section */}
       <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-white/3 sm:p-6">
         <div className="mb-5 flex flex-col gap-3 border-b border-gray-100 pb-5 dark:border-gray-800 lg:flex-row lg:items-center lg:justify-between">
@@ -341,71 +445,70 @@ export default function Home() {
               Group Categories
             </h2>
           </div>
-          {/* 
-          <div className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
-            {DASHBOARD_CATEGORIES.length} live API categories
-          </div> */}
         </div>
 
-        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
           {DASHBOARD_CATEGORIES.map((category) => {
             const target = category.category === "all"
               ? "/api-groups"
               : `/api-groups?category=${encodeURIComponent(category.category)}`;
 
             return (
-              <Link
+              <div
                 key={category.title}
-                to={target}
-                className="group relative overflow-hidden rounded-3xl border border-gray-100 dark:border-gray-800 bg-white/70 dark:bg-gray-900/60 shadow-xl backdrop-blur-lg p-0 transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl"
-                style={{ boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.18)' }}
+                className={`relative overflow-hidden rounded-2xl bg-linear-to-r p-4 text-white shadow-sm ${category.accentClass}`}
               >
-                {/* Animated Gradient Overlay */}
-                <div className={`absolute inset-0 z-0 pointer-events-none animate-gradient-x ${category.accentClass}`} style={{ opacity: 0.35 }} />
-                {/* Glassmorphism Blur Layer */}
-                <div className="absolute inset-0 z-0 bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl" />
-                <div className="relative z-10 p-7 flex flex-col h-full">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className={`flex h-14 w-14 items-center justify-center rounded-2xl border-2 shadow-lg bg-linear-to-br ${category.accentClass} ${category.badgeClass} ring-2 ring-white/60 dark:ring-gray-900/60`}>
-                      <Squares2X2Icon className="h-7 w-7 drop-shadow-lg text-white" />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.25),transparent_55%)]" />
+                <div className="relative z-10 flex h-full flex-col">
+                  <div className="mb-4 flex items-start justify-between">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/40 bg-white/15">
+                      <Squares2X2Icon className="h-5 w-5" />
                     </div>
-                    <span className="ml-auto px-4 py-1 rounded-full text-xs font-extrabold bg-white/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 shadow-md tracking-wide">
+                    <span className="text-xs font-bold uppercase tracking-wider text-white/80">
                       {category.title}
                     </span>
                   </div>
-                  <div className="flex-1 flex flex-col justify-between">
+                  <div className="flex flex-1 flex-col justify-between">
                     <div>
-                      <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-1 drop-shadow-lg tracking-tight">
+                      <h3 className="text-3xl font-extrabold tracking-tight">
                         {category.title}
                       </h3>
-                      <p className="text-base text-gray-700 dark:text-gray-300 mb-3 font-medium">
+                      <p className="mt-1 text-sm text-white/85">
                         {category.description}
                       </p>
                     </div>
-                    <div className="flex items-center justify-between mt-6">
-                      <span className={`inline-block px-4 py-1 rounded-full text-xs font-bold border ${category.badgeClass} shadow-md bg-white/70 dark:bg-gray-900/70`}>Category: {category.category.toUpperCase()}</span>
-                      <span className="inline-flex items-center gap-2 text-base font-bold text-blue-700 dark:text-blue-300 group-hover:text-blue-900 dark:group-hover:text-blue-200 transition-colors">
-                        See bookings
-                        <ArrowRightIcon className="h-5 w-5 transition-transform group-hover:translate-x-1.5" />
-                      </span>
+                    <div className="mt-5 grid grid-cols-2 gap-2">
+                      <Link
+                        to={target}
+                        className="inline-flex items-center justify-center gap-1 rounded-lg border border-white/40 bg-white/15 px-3 py-2 text-xs font-semibold transition-colors hover:bg-white/25"
+                      >
+                        View Groups
+                        <ArrowRightIcon className="h-4 w-4" />
+                      </Link>
+
+                      {category.category === "all" ? (
+                        <button
+                          type="button"
+                          className="rounded-lg bg-white/80 px-3 py-2 text-xs font-semibold text-slate-700"
+                          disabled
+                        >
+                          All
+                        </button>
+                      ) : (
+                        <Link
+                          to="/sector"
+                          className="inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100"
+                        >
+                          + Add Sector
+                        </Link>
+                      )}
                     </div>
                   </div>
                 </div>
-              </Link>
+              </div>
             );
           })}
         </div>
-        {/* Custom CSS for animated gradient */}
-        <style>{`
-          @keyframes gradient-x {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-          }
-          .animate-gradient-x {
-            background-size: 200% 200%;
-            animation: gradient-x 4s ease-in-out infinite;
-          }
-        `}</style>
       </div>
 
       {/* Agent Status Chart */}
