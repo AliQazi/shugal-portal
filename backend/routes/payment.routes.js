@@ -10,6 +10,7 @@ import {
   exportLedgerCSV,
   exportLedgerExcel,
   exportLedgerPDF,
+  getBankLedger,
 } from "../controllers/payment.controller.js";
 
 const router = express.Router();
@@ -36,5 +37,8 @@ router.get("/ledger/:userId", getLedgerByUser);
 router.get("/ledger/:userId/export/csv", exportLedgerCSV);
 router.get("/ledger/:userId/export/excel", exportLedgerExcel);
 router.get("/ledger/:userId/export/pdf", exportLedgerPDF);
+
+// Get bank ledger — all approved payments for a specific bank
+router.get("/bank-ledger/:bankId", getBankLedger);
 
 export default router;

@@ -485,7 +485,7 @@ const Ledger = () => {
                             {entry.debit > 0 ? entry.debit.toFixed(2) : ''}
                           </td>
                           <td className="px-4 py-3 text-sm text-right text-gray-800 dark:text-white/90">
-                            {entry.credit > 0 ? entry.credit.toFixed(2) : '0'}
+                            {entry.credit > 0 ? entry.credit.toFixed(2) : ''}
                           </td>
                           <td className="px-4 py-3 text-sm text-right font-semibold text-gray-800 dark:text-white/90">
                             {entry.runningBalance.toFixed(2)}

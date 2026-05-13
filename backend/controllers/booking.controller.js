@@ -1016,6 +1016,13 @@ export const updateBookingStatus = async (req, res) => {
 
     if (oldStatus !== "cancelled" && status === "cancelled") {
       await adjustSeatsIfLocalGroup(normalizeGroupId(booking.groupId), seats);
+      // Remove ledger entry when cancelled via status update
+      try {
+        const { default: MarginLedger } = await import("../models/MarginLedger.js");
+        await MarginLedger.deleteMany({ bookingId: booking._id });
+      } catch (ledgerErr) {
+        console.error("updateBookingStatus ledger cleanup failed:", ledgerErr?.message || ledgerErr);
+      }
     }
 
     if (oldStatus === "cancelled" && status !== "cancelled") {
@@ -1095,6 +1102,14 @@ export const cancelBooking = async (req, res) => {
     await booking.save();
 
     await adjustSeatsIfLocalGroup(booking.groupId, seats);
+
+    // Remove the ledger entry for this booking
+    try {
+      const { default: MarginLedger } = await import("../models/MarginLedger.js");
+      await MarginLedger.deleteMany({ bookingId: booking._id });
+    } catch (ledgerErr) {
+      console.error("cancelBooking ledger cleanup failed:", ledgerErr?.message || ledgerErr);
+    }
 
     res.json({ success: true, message: "Booking cancelled", data: booking });
   } catch (err) {

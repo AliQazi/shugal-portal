@@ -65,6 +65,8 @@ const RegisterSchema = new mongoose.Schema(
 
     companyName: {
       type: String,
+      required: true,
+      unique: true,
     },
 
     consultant: {
@@ -109,7 +111,7 @@ const RegisterSchema = new mongoose.Schema(
       default: 0,
     },
 
-    flightMarginAmount: {
+    flightMarginAmount: { 
       type: Number,
       default: 0,
     },

@@ -36,7 +36,7 @@ interface Booking {
     sabaoonTransactionId?: number | null
     sabaoonBookingStatus?: 'pending' | 'success' | 'failed' | 'not_applicable' | null
 }
-
+ 
 interface StatusOption {
     value: string
     label: string
@@ -699,6 +699,22 @@ export default function AllBookings() {
                             placeholder="Search by reference, PNR, or customer name..."
                             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
+                    </div>
+                     {/* Status Filter Dropdown */}
+                    <div className="w-full sm:w-auto min-w-37.5">
+                        <select
+                            value={activeStatus}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                navigate(val ? `/all-bookings?status=${encodeURIComponent(val)}` : '/all-bookings');
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">All Statuses</option>
+                            <option value="on hold">On Hold</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
                     </div>
 
                     {/* Sector Filter */}

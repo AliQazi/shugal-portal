@@ -126,19 +126,18 @@ const Dashboard = () => {
 
         <style dangerouslySetInnerHTML={{
           __html: `
-    @keyframes marquee {
-      0% {
-        transform: translateX(100%);
-      }
-      100% {
-        transform: translateX(-100%);
-      }
-    }
-
-    .animate-marquee {
-      display: inline-block;
-      animation: marquee 20s linear infinite;
-    }
+                @keyframes marquee {
+                      0% {
+                transform: translateX(100%);
+                                 }
+                       100% {
+                transform: translateX(-100%);
+                                 }
+                            }
+                .animate-marquee {
+                    display: inline-block;
+                animation: marquee 20s linear infinite;
+                                 }
   ` }} />
       </div>
 
@@ -226,12 +225,10 @@ const Dashboard = () => {
                     alt={indexCards[currentIndex].title}
                     className="w-full h-40 object-cover"
                   />
-
                   <div className="p-4 text-center">
                     <h3 className="font-bold text-gray-800 text-lg">
                       {indexCards[currentIndex].title}
                     </h3>
-
                     <p className="text-xs text-gray-400 mt-1">
                       {new Date(indexCards[currentIndex].createdAt).toLocaleDateString()}
                     </p>

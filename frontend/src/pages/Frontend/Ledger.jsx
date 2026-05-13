@@ -100,7 +100,7 @@ const Ledger = () => {
           JSON.stringify({ ...sessionUser, ...profileData }),
         );
       }
-    } catch (err) {
+    } catch (err) { 
       console.error("Error fetching user profile:", err);
     }
   };

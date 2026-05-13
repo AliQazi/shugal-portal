@@ -36,6 +36,7 @@ import ViewPaymentVoucher from "./pages/ViewPaymentVoucher";
 import EditPaymentVoucher from "./pages/EditPaymentVoucher";
 import ViewAccounts from "./pages/ViewAccounts";
 import Ledger from "./pages/Ledger";
+import BankLedger from "./pages/BankLedger";
 import AllBookings from "./pages/AllBookings";
 import BookingDetail from "./pages/BookingDetail";
 import SpecialOffers from "./pages/SpecialOffers/SpecialOffers";
@@ -77,6 +78,7 @@ export default function App() {
                 <Route path="/api-groups" element={<ApiGroups />} />
                 <Route path="/view-accounts" element={<ViewAccounts />} />
                 <Route path="/ledger/:id" element={<Ledger />} />
+                <Route path="/bank-ledger" element={<BankLedger />} />
 
                 {/* Password Management */}
                 <Route path="/change-password" element={<ChangePassword />} />

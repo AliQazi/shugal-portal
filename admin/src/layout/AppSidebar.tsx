@@ -85,6 +85,7 @@ const navItems: NavItem[] = [
     subItems: [
       { name: "View Accounts", path: "/view-accounts", pro: false },
       { name: "View Payment Voucher", path: "/view-payment-voucher", pro: false },
+      { name: "Bank Ledger", path: "/bank-ledger", pro: false },
     ],
   },
 ];

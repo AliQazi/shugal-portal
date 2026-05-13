@@ -260,8 +260,8 @@ export const getLedgerByUser = async (req, res) => {
     const { dateFrom, dateTo, ledgerView } = req.query;
     const isAgentView = String(ledgerView || "").toLowerCase() === "agent";
 
-    // Build filter query
-    let filter = { user: userId };
+    // Build filter query — only Approved payments hit the ledger
+    let filter = { user: userId, status: "Approved" };
 
     if (dateFrom || dateTo) {
       filter.date = {};
@@ -359,12 +359,8 @@ export const getLedgerByUser = async (req, res) => {
         description: meta
           ? `${payment.description}${payment.description ? " | " : ""}${meta}`
           : payment.description,
-        debit: isAgentView ? 0 : payment.status === "Approved" ? payment.amount : 0,
-        credit: isAgentView
-          ? payment.amount || 0
-          : payment.status === "Applied"
-            ? payment.amount
-            : 0,
+        debit: 0,
+        credit: payment.amount || 0,
       };
     });
 
@@ -905,5 +901,64 @@ export const exportLedgerPDF = async (req, res) => {
         stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
       });
     }
+  }
+};
+
+// Get bank ledger — all Approved payments for a specific bank
+export const getBankLedger = async (req, res) => {
+  try {
+    const { bankId } = req.params;
+    const { dateFrom, dateTo } = req.query;
+
+    // Build filter: only Approved payments for this bank
+    const filter = { bankAccount: bankId, status: "Approved" };
+
+    if (dateFrom || dateTo) {
+      filter.date = {};
+      if (dateFrom) filter.date.$gte = new Date(dateFrom);
+      if (dateTo) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        filter.date.$lte = end;
+      }
+    }
+
+    const payments = await Payment.find(filter)
+      .populate("user", "name companyName")
+      .populate("bankAccount", "bankName accountTitle accountNo")
+      .sort({ date: 1 });
+
+    // Each payment: bank is debited (money received by bank), admin party is credited
+    let runningBalance = 0;
+    const ledgerEntries = payments.map((payment) => {
+      const bankDebit = payment.amount || 0;
+      const adminCredit = 0;
+      runningBalance += bankDebit;
+      return {
+        voucherId: payment.voucherId,
+        date: payment.date,
+        agentName: payment.user?.companyName || payment.user?.name || "-",
+        description: payment.description || "-",
+        bankDebit,
+        adminCredit,
+        balance: runningBalance,
+      };
+    });
+
+    const totalBankDebit = ledgerEntries.reduce((s, e) => s + e.bankDebit, 0);
+    const totalAdminCredit = ledgerEntries.reduce((s, e) => s + e.adminCredit, 0);
+
+    res.status(200).json({
+      success: true,
+      data: ledgerEntries,
+      totals: { totalBankDebit, totalAdminCredit },
+    });
+  } catch (error) {
+    console.error("Error fetching bank ledger:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching bank ledger",
+      error: error.message,
+    });
   }
 };

@@ -211,7 +211,7 @@ const Sector = () => {
                                 value={formData.sectorTitle}
                                 onChange={(e) => {
                                     const input = e.target.value.replace(/-/g, '').toUpperCase();
-                                    const formatted = input.length > 3 ? `${input.slice(0, 3)}-${input.slice(3)}` : input;
+                                    const formatted = input.match(/.{1,3}/g)?.join('-') || '';
                                     setFormData({ ...formData, sectorTitle: formatted });
                                 }}
                                 className="w-full rounded border-[1.5px] border-stroke bg-transparent px-5 py-3 text-black outline-none transition focus:border-primary active:border-primary disabled:cursor-default disabled:bg-whiter dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
