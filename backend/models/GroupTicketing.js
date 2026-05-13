@@ -97,6 +97,7 @@ const GroupTicketingSchema = new mongoose.Schema(
   groupCategory: { type: String },
   groupName: { type: String },
   totalSeats: { type: Number, default: 0 },
+  days: { type: Number, default: 0 },
   showSeat: { type: Boolean, default: false },
 
   groupType: {

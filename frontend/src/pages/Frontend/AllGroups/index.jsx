@@ -458,9 +458,19 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         const gtEntry = groupTypes.find((g) => g.value === groupType);
         fetchedGroups = fetchedGroups.filter((g) => {
           if (g.isOwnGroup) {
-            return gtEntry?.ownGroupType
-              ? g.type === gtEntry.ownGroupType
-              : true;
+            if (!gtEntry?.ownGroupType) return true;
+            if (g.type !== gtEntry.ownGroupType) return false;
+
+            // Special case: split Umrah own groups by leg count
+            // "Umrah Tickets" (value='Umrah Tickets') → multi-leg (return trip)
+            // "Umrah Makkah & Madina" (value='UMRAH GROUP') → single-leg (one-way)
+            if (gtEntry.ownGroupType === "Umrah Groups") {
+              const isMultiLeg = (g.details?.length || 0) > 1;
+              if (groupType === "Umrah Tickets") return isMultiLeg;
+              if (groupType === "UMRAH GROUP") return !isMultiLeg;
+            }
+
+            return true;
           }
           return g.type === groupType;
         });
@@ -942,6 +952,9 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                               Meal
                             </th>
                             <th className="px-4 py-2.5 text-center whitespace-nowrap">
+                              Days
+                            </th>
+                            <th className="px-4 py-2.5 text-center whitespace-nowrap">
                               Seats
                             </th>
                             <th className="px-4 py-2.5 text-center whitespace-nowrap">
@@ -962,206 +975,222 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                               const flight = group.details?.[0];
                               const lastFlight =
                                 group.details?.[group.details.length - 1];
+                              const isMultiLeg = group.details && group.details.length > 1;
+                              const legLabels = ["Departure", "Arrival"];
+
                               return (
                                 <tr
                                   key={group.id}
-                                  className="border-b border-gray-100 bg-white hover:bg-blue-50/40 transition-colors"
+                                  className="border-b border-gray-100 bg-white hover:bg-blue-50/30 transition-colors"
                                 >
                                   {/* Date */}
-                                  <td className="px-4 py-3 text-xs font-medium text-gray-600 whitespace-nowrap">
-                                    {flight
-                                      ? new Date(
-                                          flight.dep_date || flight.flight_date,
-                                        ).toLocaleDateString("en-GB", {
-                                          day: "2-digit",
-                                          month: "short",
-                                          year: "numeric",
-                                        })
-                                      : "—"}
+                                  <td className="px-4 py-3 text-xs font-medium text-gray-600 whitespace-nowrap align-top">
+                                    {isMultiLeg ? (
+                                      <div className="flex flex-col divide-y divide-dashed divide-gray-200">
+                                        {group.details.map((d, i) => {
+                                          const rawDate = d.dep_date || d.flight_date;
+                                          return (
+                                            <div key={i} className={`flex flex-col ${i > 0 ? "pt-2" : "pb-2"}`}>
+                                              <span className={`text-[9px] font-bold uppercase tracking-wider mb-0.5 ${i === 0 ? "text-blue-500" : "text-orange-400"}`}>
+                                                {legLabels[i] || `Leg ${i + 1}`}
+                                              </span>
+                                              <span>
+                                                {rawDate ? new Date(rawDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                                              </span>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    ) : flight ? (
+                                      new Date(flight.dep_date || flight.flight_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                                    ) : "—"}
                                   </td>
 
                                   {/* Flight + Airline */}
-                                  <td className="px-4 py-3">
-                                    <div className="flex items-center gap-1.5">
-                                      <FaPlane
-                                        className="text-xs shrink-0"
-                                        style={{
-                                          color: theme.colors.ublGradientStart,
-                                        }}
-                                      />
-                                      <div className="flex flex-col">
-                                        <span className="font-semibold text-sm whitespace-nowrap">
-                                          {flight?.flight_no?.toUpperCase() || "—"}
-                                        </span>
-                                        {group.airline?.airline_name && (
-                                          <span className="text-[10px] text-gray-400 whitespace-nowrap leading-tight">
-                                            {group.airline.airline_name}
-                                          </span>
-                                        )}
+                                  <td className="px-4 py-3 align-top">
+                                    {isMultiLeg ? (
+                                      <div className="flex flex-col divide-y divide-dashed divide-gray-200">
+                                        {group.details.map((d, i) => (
+                                          <div key={i} className={`flex items-center gap-1.5 ${i > 0 ? "pt-2" : "pb-2"}`}>
+                                            <FaPlane
+                                              className="text-xs shrink-0"
+                                              style={{ color: i === 0 ? theme.colors.ublGradientStart : "#f97316" }}
+                                            />
+                                            <div className="flex flex-col">
+                                              <span className="font-bold text-sm whitespace-nowrap">
+                                                {d.flight_no?.toUpperCase() || "—"}
+                                              </span>
+                                              {i === 0 && group.airline?.airline_name && (
+                                                <span className="text-[10px] text-gray-400 whitespace-nowrap leading-tight">
+                                                  {group.airline.airline_name}
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
                                       </div>
-                                    </div>
+                                    ) : (
+                                      <div className="flex items-center gap-1.5">
+                                        <FaPlane className="text-xs shrink-0" style={{ color: theme.colors.ublGradientStart }} />
+                                        <div className="flex flex-col">
+                                          <span className="font-semibold text-sm whitespace-nowrap">
+                                            {flight?.flight_no?.toUpperCase() || "—"}
+                                          </span>
+                                          {group.airline?.airline_name && (
+                                            <span className="text-[10px] text-gray-400 whitespace-nowrap leading-tight">
+                                              {group.airline.airline_name}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
                                   </td>
 
-                                  {/* Sector with route + time UI */}
-                                  <td className="px-4 py-3">
-                                    <div className="flex items-center justify-center gap-3">
-                                      <div className="text-center">
-                                        <div className="text-sm sm:text-base font-bold">
-                                          {origin}
+                                  {/* Sector */}
+                                  <td className="px-4 py-3 align-top">
+                                    {isMultiLeg ? (
+                                      <div className="flex flex-col divide-y divide-dashed divide-gray-200">
+                                        {group.details.map((d, i) => (
+                                          <div key={i} className={`flex items-center justify-center gap-3 ${i > 0 ? "pt-2" : "pb-2"}`}>
+                                            <div className="text-center">
+                                              <div className="text-sm font-bold">{d.origin || "—"}</div>
+                                              <div className="text-xs text-gray-500">{d.dept_time?.substring(0, 5) || "—"}</div>
+                                            </div>
+                                            <div className="flex items-center relative min-w-12 w-26 md:w-40">
+                                              <div
+                                                className="h-0.5 w-full"
+                                                style={{ background: i === 0 ? theme.colors.ublGradient : "linear-gradient(90deg,#f97316,#fb923c)" }}
+                                              />
+                                              <div className="absolute left-1/2 -translate-x-1/2 bg-white px-0.5">
+                                                <FaPlane
+                                                  className="text-sm"
+                                                  style={{ color: i === 0 ? theme.colors.ublGradientStart : "#f97316" }}
+                                                />
+                                              </div>
+                                            </div>
+                                            <div className="text-center">
+                                              <div className="text-sm font-bold">{d.destination || "—"}</div>
+                                              <div className="text-xs text-gray-500">{d.arv_time?.substring(0, 5) || "—"}</div>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center justify-center gap-3">
+                                        <div className="text-center">
+                                          <div className="text-sm sm:text-base font-bold">{origin}</div>
+                                          <div className="text-xs text-gray-500 font-medium">{flight?.dept_time?.substring(0, 5) || "—"}</div>
                                         </div>
-                                        <div className="text-xs text-gray-500 font-medium">
-                                          {flight?.dept_time?.substring(0, 5) ||
-                                            "—"}
+                                        <div className="flex items-center relative min-w-12 w-26 md:w-48">
+                                          <div className="h-0.5 w-full" style={{ background: theme.colors.ublGradient }} />
+                                          <div className="absolute left-1/2 -translate-x-1/2 bg-white px-0.5">
+                                            <FaPlane className="text-sm" style={{ color: theme.colors.ublGradientStart }} />
+                                          </div>
+                                        </div>
+                                        <div className="text-center">
+                                          <div className="text-sm sm:text-base font-bold">{destination}</div>
+                                          <div className="text-xs text-gray-500 font-medium">{(lastFlight?.arv_time || flight?.arv_time)?.substring(0, 5) || "—"}</div>
                                         </div>
                                       </div>
-                                      <div className="flex items-center relative min-w-12 w-26 md:w-48">
-                                        <div
-                                          className="h-0.5 w-full"
-                                          style={{
-                                            background:
-                                              theme.colors.ublGradient,
-                                          }}
-                                        />
-                                        <div className="absolute left-1/2 -translate-x-1/2 bg-white px-0.5">
-                                          <FaPlane
-                                            className="text-sm"
-                                            style={{
-                                              color:
-                                                theme.colors.ublGradientStart,
-                                            }}
-                                          />
-                                        </div>
-                                      </div>
-                                      <div className="text-center">
-                                        <div className="text-sm sm:text-base font-bold">
-                                          {destination}
-                                        </div>
-                                        <div className="text-xs text-gray-500 font-medium">
-                                          {(
-                                            lastFlight?.arv_time ||
-                                            flight?.arv_time
-                                          )?.substring(0, 5) || "—"}
-                                        </div>
-                                      </div>
-                                    </div>
+                                    )}
                                   </td>
 
                                   {/* Bag */}
-                                  <td className="px-4 py-3 text-center">
-                                    {flight?.baggage ? (
-                                      <div className="inline-flex items-center gap-1 text-xs font-medium">
-                                        <FaSuitcase
-                                          className="shrink-0"
-                                          style={{
-                                            color:
-                                              theme.colors.ublGradientStart,
-                                          }}
-                                        />
-                                        <span>{flight.baggage}KG</span>
+                                  <td className="px-4 py-3 text-center align-top">
+                                    {isMultiLeg ? (
+                                      <div className="flex flex-col divide-y divide-dashed divide-gray-200 items-center mt-3">
+                                        {group.details.map((d, i) => (
+                                          <div key={i} className={`${i > 0 ? "pt-2" : "pb-2"}`}>
+                                            {d.baggage ? (
+                                              <div className="inline-flex items-center gap-1 text-xs font-medium">
+                                                <FaSuitcase className="shrink-0" style={{ color: i === 0 ? theme.colors.ublGradientStart : "#f97316" }} />
+                                                <span>{d.baggage}KG</span>
+                                              </div>
+                                            ) : (
+                                              <span className="text-gray-400 text-xs">—</span>
+                                            )}
+                                          </div>
+                                        ))}
                                       </div>
                                     ) : (
-                                      <span className="text-gray-400 text-xs">
-                                        —
-                                      </span>
+                                      flight?.baggage ? (
+                                        <div className="inline-flex items-center gap-1  text-xs font-medium">
+                                          <FaSuitcase className="shrink-0" style={{ color: theme.colors.ublGradientStart }} />
+                                          <span>{flight.baggage}KG</span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-gray-400 text-xs">—</span>
+                                      )
                                     )}
                                   </td>
 
                                   {/* Meal */}
-                                  <td className="px-4 py-3 text-center">
-                                    <span
-                                      className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${flight?.meal && flight.meal !== "No" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}
-                                    >
-                                      {flight?.meal && flight.meal !== "No"
-                                        ? "Yes"
-                                        : "No"}
-                                    </span>
+                                  <td className="px-4 py-3 text-center align-top">
+                                    {isMultiLeg ? (
+                                      <div className="flex flex-col divide-y divide-dashed divide-gray-200 items-center mt-3">
+                                        {group.details.map((d, i) => (
+                                          <div key={i} className={`${i > 0 ? "pt-2" : "pb-2"}`}>
+                                            <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${d.meal && d.meal !== "No" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                                              {d.meal && d.meal !== "No" ? "Yes" : "No"}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${flight?.meal && flight.meal !== "No" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                                        {flight?.meal && flight.meal !== "No" ? "Yes" : "No"}
+                                      </span>
+                                    )}
+                                  </td>
+
+                                  {/* Days */}
+                                  <td className="px-4 py-3 text-center align-middle">
+                                    {group.days > 0 ? (
+                                      <span className="inline-block text-xs font-bold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+                                        {group.days}
+                                      </span>
+                                    ) : (
+                                      <span className="text-gray-400 text-xs">—</span>
+                                    )}
                                   </td>
 
                                   {/* Seats */}
-                                  <td className="px-4 py-3 text-center">
+                                  <td className="px-4 py-3 text-center align-middle">
                                     {group.isOwnGroup ? (
                                       group.showSeat ? (
-                                        <div className="flex flex-col items-center">
-                                          <span
-                                            className="text-sm font-bold"
-                                            style={{
-                                              color:
-                                                theme.colors.ublGradientStart,
-                                            }}
-                                          >
-                                            {group.available_no_of_pax}
-                                          </span>
-                                        </div>
-                                      ) : (
-                                        <span className="text-gray-400 text-xs">
-                                          —
+                                        <span className="text-sm font-bold" style={{ color: theme.colors.ublGradientStart }}>
+                                          {group.available_no_of_pax}
                                         </span>
+                                      ) : (
+                                        <span className="text-gray-400 text-xs">—</span>
                                       )
                                     ) : (
-                                      <div className="flex flex-col items-center">
-                                        {(() => {
-                                          if (!flight)
-                                            return group.available_no_of_pax;
-
-                                          const key = `${flight.flight_no}_${
-                                            new Date(
-                                              flight.dep_date ||
-                                                flight.flight_date,
-                                            )
-                                              .toISOString()
-                                              .split("T")[0]
-                                          }`;
-
-                                          const booked =
-                                            bookedSeatsMap[key] || 0;
-
-                                          return (
-                                            <>
-                                              <span
-                                                className="text-sm font-bold"
-                                                style={{
-                                                  color:
-                                                    theme.colors
-                                                      .ublGradientStart,
-                                                }}
-                                              >
-                                                {group.available_no_of_pax -
-                                                  booked}
-                                              </span>
-
-                                              {booked > 0 && (
-                                                <span className="text-xs text-orange-500 font-medium"></span>
-                                              )}
-                                            </>
-                                          );
-                                        })()}
-                                      </div>
+                                      (() => {
+                                        if (!flight) return <span className="text-sm font-bold" style={{ color: theme.colors.ublGradientStart }}>{group.available_no_of_pax}</span>;
+                                        const key = `${flight.flight_no}_${new Date(flight.dep_date || flight.flight_date).toISOString().split("T")[0]}`;
+                                        const booked = bookedSeatsMap[key] || 0;
+                                        return (
+                                          <span className="text-sm font-bold" style={{ color: theme.colors.ublGradientStart }}>
+                                            {group.available_no_of_pax - booked}
+                                          </span>
+                                        );
+                                      })()
                                     )}
                                   </td>
 
                                   {/* Fare */}
-                                  <td className="px-4 py-3 text-center whitespace-nowrap">
+                                  <td className="px-4 py-3 text-center whitespace-nowrap align-middle">
                                     {user?.priceOnCall ? (
-                                      <span className="text-sm font-bold text-red-500">
-                                        On Call
-                                      </span>
+                                      <span className="text-sm font-bold text-red-500">On Call</span>
                                     ) : (
-                                      <>
-                                        <div
-                                          className="text-sm font-bold"
-                                          style={{
-                                            color:
-                                              theme.colors.ublGradientStart,
-                                          }}
-                                        >
-                                          PKR {calculatePriceAfterMargin(group.price, group)?.toLocaleString()}
-                                        </div>
-                                      </>
+                                      <div className="text-sm font-bold" style={{ color: theme.colors.ublGradientStart }}>
+                                        PKR {calculatePriceAfterMargin(group.price, group)?.toLocaleString()}
+                                      </div>
                                     )}
                                   </td>
 
                                   {/* Action */}
-                                  <td className="w-36 px-4 py-3 flex flex-col items-center gap-2">
+                                  <td className="w-36 px-4 py-3 mt-6 flex flex-col items-center gap-2 align-middle">
                                     <button
                                       onClick={() => handleBookNow(group)}
                                       disabled={!user?.showHideButton}

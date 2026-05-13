@@ -359,8 +359,8 @@ export const getUnifiedGroups = async (req, res) => {
           flight_no: flightNo,
           dep_date: depDate,
           dept_time: f.depTime,
-          origin: f.fromTerminal,
-          destination: f.toTerminal,
+          origin: f.sectorFrom,
+          destination: f.sectorTo,
           arv_date: f.arrDate,
           arv_time: f.arrTime,
           baggage: f.baggage,
@@ -393,6 +393,7 @@ export const getUnifiedGroups = async (req, res) => {
         available_no_of_pax: availableSeats,
         // Show seat field
         showSeat: g.showSeat,
+        days: g.days || 0,
         // Metadata for admin dashboard
         _totalOriginalSeats: originalSeats,
         _onHoldSeats: totalOnHoldSeats,

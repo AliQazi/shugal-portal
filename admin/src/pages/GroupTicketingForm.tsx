@@ -62,6 +62,7 @@ const GroupTicketingForm = () => {
     groupCategory: "",
     groupName: "",
     totalSeats: 0,
+    days: 0,
     showSeat: false,
     groupType: "" as string,
     flights: [{
@@ -162,6 +163,7 @@ const GroupTicketingForm = () => {
           totalSeats: booking.totalSeats || 0,
           showSeat: booking.showSeat || false,
           groupType: booking.groupType,
+          days: booking.days || 0,
           flights: booking.flights.map((f: Flight) => ({
             ...f,
             airline: f.airline || booking.airline,
@@ -418,7 +420,7 @@ const GroupTicketingForm = () => {
           </div>
 
           {/* Airline, Group Category, Group Name, Total Seats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                 Airline
@@ -480,6 +482,19 @@ const GroupTicketingForm = () => {
                 value={formData.totalSeats ? formData.totalSeats.toLocaleString() : ''}
                 onChange={(e) => setFormData({ ...formData, totalSeats: Number(e.target.value.replace(/,/g, '')) || 0 })}
                 placeholder="Enter total seats"
+                className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+              />
+            </div>
+            <div>
+              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Days
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.days || ''}
+                onChange={(e) => setFormData({ ...formData, days: Number(e.target.value) || 0 })}
+                placeholder="e.g., 7"
                 className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
               />
             </div>
