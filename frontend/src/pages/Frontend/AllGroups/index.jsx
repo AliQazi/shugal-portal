@@ -1000,15 +1000,15 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                 <tr
                                   key={group.id}
                                   className="border-b border-gray-500 bg-white hover:bg-blue-50/30 transition-colors"
-                                >
+                                >   
                                   {/* Date */}
                                   <td className="px-4 py-3 text-xs font-medium text-gray-600 whitespace-nowrap align-top">
                                     {isMultiLeg ? (
-                                      <div className="flex pt-4 flex-col divide-y divide-dashed divide-gray-700">
+                                      <div className="flex pt-3 flex-col divide-y divide-dashed divide-gray-700">
                                         {group.details.map((d, i) => {
                                           const rawDate = d.dep_date || d.flight_date;
                                           return (
-                                            <div key={i} style={{fontFamily:'sans-serif'}} className={`font-bold flex flex-col ${i > 0 ? "pt-2" : "pb-2"}`}>
+                                            <div key={i} style={{color: 'black', fontFamily:'sans-serif'}} className={`font-black text-sm flex flex-col ${i > 0 ? "pt-2" : "pb-2"}`}>
                                               {/* <span className={`text-[9px] font-bold uppercase tracking-wider mb-0.5 ${i === 0 ? "text-blue-500" : "text-orange-400"}`}>
                                                 {legLabels[i] || `Leg ${i + 1}`}
                                               </span> */}
@@ -1212,7 +1212,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                     {user?.priceOnCall ? (
                                       <span className="text-sm font-bold text-red-500">On Call</span>
                                     ) : (
-                                      <div className="text-lg font-bold" style={{ color: theme.colors.ublGradientStart , fontFamily: 'sans-serif' }}>
+                                      <div className="text-lg font-black" style={{ color: theme.colors.ublGradientStart , fontFamily: 'sans-serif' }}>
                                         PKR {calculatePriceAfterMargin(group.price, group)?.toLocaleString()}
                                       </div>
                                     )}
