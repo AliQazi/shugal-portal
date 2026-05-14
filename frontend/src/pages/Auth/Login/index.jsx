@@ -36,7 +36,7 @@ const Login = ({ onLogin }) => {
         if (user.role === "Admin") {
           window.location.href = "/admin-portal/";
         } else {
-          window.location.href = "/";
+          window.location.href = "/dashboard";
           if (onLogin) onLogin(user);
         }
       }

@@ -141,7 +141,7 @@ const Dashboard = () => {
   ` }} />
       </div>
 
-      <div className="w-full min-h-screen p-4 md:p-8">
+      <div className="w-full p-4 md:p-8">
         <TopBar title={"Manage your Agent Dashboard"} />
 
         {/* Summary */}
@@ -179,14 +179,14 @@ const Dashboard = () => {
 
         <div className="flex flex-col lg:flex-row gap-8">
           <div className="flex-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
               {groupTypes.map((group) => (
                 <div
                   key={group.value}
                   onClick={() => handleCategoryClick(group)}
                   className="group relative cursor-pointer"
                 >
-                  <div className="relative h-48 overflow-hidden rounded-2xl shadow-xl">
+                  <div className="relative h-31 overflow-hidden rounded-2xl shadow-xl">
                     <img
                       src={groupImages[group.label]}
                       alt={group.label}

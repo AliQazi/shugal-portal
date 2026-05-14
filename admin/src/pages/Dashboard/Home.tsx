@@ -62,6 +62,13 @@ const DASHBOARD_CATEGORIES = [
     badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-100",
   },
   {
+    title: "Bahrain",
+    description: "Fetch Bahrain group bookings.",
+    category: "bahrain",
+    accentClass: "from-indigo-500 to-blue-600",
+    badgeClass: "bg-indigo-50 text-indigo-700 border-indigo-100",
+  },
+  {
     title: "Muscat",
     description: "Fetch Muscat group bookings.",
     category: "muscat",
@@ -69,7 +76,7 @@ const DASHBOARD_CATEGORIES = [
     badgeClass: "bg-violet-50 text-violet-700 border-violet-100",
   },
   {
-    title: "Umrah",
+    title: "Umrah Ticket",
     description: "Fetch Umrah group bookings.",
     category: "umrah",
     accentClass: "from-rose-500 to-red-600",

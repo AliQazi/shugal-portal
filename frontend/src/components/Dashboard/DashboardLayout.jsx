@@ -16,6 +16,7 @@ import {
   Lock,
   LogOut,
   Bell,
+  Home,
 } from "lucide-react";
 import logo from "../../assets/images/logo2-.png";
 
@@ -147,6 +148,11 @@ const DashboardLayout = ({ user, handleLogout }) => {
   };
 
   const menuItems = [
+    {
+      path: "/",
+      label: "Home",
+      icon: <Home size={18} />,
+    },
     {
       path: "/dashboard",
       label: "Dashboard",
@@ -337,7 +343,7 @@ const DashboardLayout = ({ user, handleLogout }) => {
               }}
             >
               <div
-                onClick={() => navigate("/dashboard")}
+                onClick={() => navigate("/")}
                 style={{
                   cursor: "pointer",
                   display: "flex",

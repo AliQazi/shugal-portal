@@ -1053,7 +1053,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                           </div>
                                         ))}
                                       </div>
-                                    ) : (
+                                    ) : ( 
                                       <div className="flex items-center gap-1.5">
                                         <FaPlane className="text-xs shrink-0" style={{ color: theme.colors.ublGradientStart }} />
                                         <div className="flex flex-col">
