@@ -76,11 +76,11 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
           return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}`;
         }).filter(Boolean);
         if (!legs.length) return null;
-        const price = g.price || 0;
-        if (legs.length === 1) return `${legs[0]}..... *PKR ${price}*`;
+        const price = calculatePriceAfterMargin(g.price, g) ?? (g.price || 0);
+        if (legs.length === 1) return `${legs[0]}..... *PKR ${price.toLocaleString()}*`;
         const labeledLegs = legs.map((leg, i) => {
           if (i === 0) return `*Departure:* ${leg}`;
-          if (i === legs.length - 1) return `*Arrival:* ${leg}..... *PKR ${price}*`;
+          if (i === legs.length - 1) return `*Arrival:* ${leg}..... *PKR ${price.toLocaleString()}*`;
           return `*LEG ${i + 1}:* ${leg}`;
         });
         return labeledLegs.join("\n");
@@ -125,15 +125,15 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
       return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}`;
     }).filter(Boolean);
     if (!legs.length) return "";
-    const price = group.price || 0;
+    const price = calculatePriceAfterMargin(group.price, group) ?? (group.price || 0);
     const footer = `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*\n=======================\nShaheen Wings Travels\nMobile: 0309-9802154\nAddress: MA Plaza Ground Floor Shop # 3, Kahror Pacca.\nPtcl: 0608340174\nWebsite: shaheenwingstravels.com`;
     let flightLines;
     if (legs.length === 1) {
-      flightLines = `${legs[0]}..... *PKR ${price}*`;
+      flightLines = `${legs[0]}..... *PKR ${price.toLocaleString()}*`;
     } else {
       const labeledLegs = legs.map((leg, i) => {
-        if (i === 0) return `*GOING:* ${leg}`;
-        if (i === legs.length - 1) return `*RETURN:* ${leg}..... *PKR ${price}*`;
+        if (i === 0) return `*Departure:* ${leg}`;
+        if (i === legs.length - 1) return `*Arrival:* ${leg}..... *PKR ${price.toLocaleString()}*`;
         return `*LEG ${i + 1}:* ${leg}`;
       });
       flightLines = labeledLegs.join("\n");
@@ -182,11 +182,11 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
           return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}`;
         }).filter(Boolean);
         if (!legs.length) return null;
-        const price = g.price || 0;
-        if (legs.length === 1) return `${legs[0]}..... *PKR ${price}*`;
+        const price = calculatePriceAfterMargin(g.price, g) ?? (g.price || 0);
+        if (legs.length === 1) return `${legs[0]}..... *PKR ${price.toLocaleString()}*`;
         const labeledLegs = legs.map((leg, i) => {
           if (i === 0) return `*Departure:* ${leg}`;
-          if (i === legs.length - 1) return `*Arrival:* ${leg}..... *PKR ${price}*`;
+          if (i === legs.length - 1) return `*Arrival:* ${leg}..... *PKR ${price.toLocaleString()}*`;
           return `*LEG ${i + 1}:* ${leg}`;
         });
         return labeledLegs.join("\n");
