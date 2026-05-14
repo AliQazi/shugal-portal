@@ -67,7 +67,7 @@ const GroupTicketingForm = () => {
     groupType: "" as string,
     flights: [{
       airline: "",
-      flightNo: "",
+      flightNo: "", 
       depDate: "",
       depTime: "",
       arrDate: "",
@@ -140,7 +140,7 @@ const GroupTicketingForm = () => {
         setAirlines(response.data.data);
       }
     } catch (error) {
-      console.error("Error fetching airlines:", error);
+      console.error("Error fetching airlines:", error); 
     }
   };
 
@@ -386,7 +386,7 @@ const GroupTicketingForm = () => {
               <input
                 type="text"
                 required
-                value={formData.user}
+                value={formData.user} 
                 onChange={(e) => setFormData({ ...formData, user: e.target.value })}
                 placeholder="Enter Supplier Account"
                 className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
@@ -589,7 +589,7 @@ const GroupTicketingForm = () => {
                     <td className="px-2 py-2 border border-gray-300 dark:border-gray-600">
                       <AsyncSelect
                         cacheOptions
-                        defaultOptions={cityOptions}
+                        defaultOptions={cityOptions} 
                         loadOptions={loadCityOptions}
                         styles={getCustomSelectStyles()}
                         value={cityOptions.find((opt) => opt.value === flight.sectorFrom) || null}
@@ -687,7 +687,7 @@ const GroupTicketingForm = () => {
                         placeholder="e.g., 30kg"
                         className="w-full min-w-[80px] h-9 rounded border border-gray-300 px-2 text-xs outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                       />
-                    </td>
+                    </td> 
                     <td className="px-2 py-2 border border-gray-300 dark:border-gray-600">
                       <select
                         value={flight.meal}
@@ -758,7 +758,7 @@ const GroupTicketingForm = () => {
               <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                 Buying Price Per Seat (Infant)
               </label>
-              <input
+              <input 
                 type="text"
                 value={formData.price.buyingInfantPrice ? formData.price.buyingInfantPrice.toLocaleString() : ''}
                 onChange={(e) => setFormData({ ...formData, price: { ...formData.price, buyingInfantPrice: Number(e.target.value.replace(/,/g, '')) || 0 } })}

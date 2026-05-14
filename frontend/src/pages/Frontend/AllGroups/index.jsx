@@ -969,9 +969,11 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                             <th className="px-4 py-2.5 text-center whitespace-nowrap">
                               Meal
                             </th>
-                            <th className="px-4 py-2.5 text-center whitespace-nowrap">
-                              Days
-                            </th>
+                            {data.groups.some(g => g.details && g.details.length > 1) && (
+                              <th className="px-4 py-2.5 text-center whitespace-nowrap">
+                                Days
+                              </th>
+                            )}
                             <th className="px-4 py-2.5 text-center whitespace-nowrap">
                               Seats
                             </th>
@@ -994,6 +996,8 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                               const lastFlight =
                                 group.details?.[group.details.length - 1];
                               const isMultiLeg = group.details && group.details.length > 1;
+                              // Check if any group in this card is multi-leg to show Days column
+                              const hasMultiLeg = data.groups.some(g => g.details && g.details.length > 1); 
                               // const legLabels = ["Departure", "Arrival"];
 
                               return (
@@ -1020,7 +1024,9 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                         })}
                                       </div>
                                     ) : flight ? (
-                                      new Date(flight.dep_date || flight.flight_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                                      <span className="font-black" style={{ fontFamily: 'sans-serif', color: 'black' }}>
+                                        {new Date(flight.dep_date || flight.flight_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                                      </span>
                                     ) : "—"}
                                   </td>
 
@@ -1039,7 +1045,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                                 {d.flight_no?.toUpperCase() || "—"}
                                               </span>
                                               {i === 0 && group.airline?.airline_name && (
-                                                <span className="text-[10px] text-gray-400 whitespace-nowrap leading-tight">
+                                                <span className="text-[10px] text-gray-900 whitespace-nowrap leading-tight">
                                                   {group.airline.airline_name}
                                                 </span>
                                               )}
@@ -1055,7 +1061,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                             {flight?.flight_no?.toUpperCase() || "—"}
                                           </span>
                                           {group.airline?.airline_name && (
-                                            <span className="text-[10px] text-gray-400 whitespace-nowrap leading-tight">
+                                            <span className="text-[10px] text-gray-900 whitespace-nowrap leading-tight">
                                               {group.airline.airline_name}
                                             </span>
                                           )}
@@ -1096,8 +1102,8 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                     ) : (
                                       <div className="flex items-center justify-center gap-3">
                                         <div className="text-center">
-                                          <div className="text-sm sm:text-base font-bold">{origin}</div>
-                                          <div className="text-xs text-gray-500 font-medium">{flight?.dept_time?.substring(0, 5) || "—"}</div>
+                                          <div className="text-sm sm:text-base font-black" style={{ fontFamily: 'sans-serif' }}>{origin}</div>
+                                          <div className="text-xs text-gray-700 font-medium">{flight?.dept_time?.substring(0, 5) || "—"}</div>
                                         </div>
                                         <div className="flex items-center relative min-w-12 w-26 md:w-48">
                                           <div className="h-0.5 w-full" style={{ background: theme.colors.ublGradient }} />
@@ -1106,8 +1112,8 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                           </div>
                                         </div>
                                         <div className="text-center">
-                                          <div className="text-sm sm:text-base font-bold">{destination}</div>
-                                          <div className="text-xs text-gray-500 font-medium">{(lastFlight?.arv_time || flight?.arv_time)?.substring(0, 5) || "—"}</div>
+                                          <div className="text-sm sm:text-base font-black" style={{ fontFamily: 'sans-serif' }}>{destination}</div>
+                                          <div className="text-xs text-gray-700 font-medium">{(lastFlight?.arv_time || flight?.arv_time)?.substring(0, 5) || "—"}</div>
                                         </div>
                                       </div>
                                     )}
@@ -1162,26 +1168,33 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                   </td>
 
                                   {/* Days */}
-                                  <td className="px-4 py-3 text-center align-middle">
-                                    {(() => {
-                                      let days = group.days;
-                                      if (group.details && group.details.length > 1) {
-                                        const firstRaw = group.details[0].dep_date || group.details[0].flight_date;
-                                        const lastRaw = group.details[group.details.length - 1].dep_date || group.details[group.details.length - 1].flight_date;
-                                        if (firstRaw && lastRaw) {
-                                          const diff = Math.round((new Date(lastRaw) - new Date(firstRaw)) / (1000 * 60 * 60 * 24));
-                                          if (diff > 0) days = diff;
+                                  {hasMultiLeg && (
+                                    <td className="px-4 py-3 text-center align-middle">
+                                      {(() => {
+                                        // Only show days for multi-leg flights
+                                        if (!isMultiLeg) {
+                                          return <span className="text-gray-400 text-xs">—</span>;
                                         }
-                                      }
-                                      return days > 0 ? (
-                                        <span className="inline-block text-xs font-bold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
-                                          {days}
-                                        </span>
-                                      ) : (
-                                        <span className="text-gray-400 text-xs">—</span>
-                                      );
-                                    })()}
-                                  </td>
+                                        
+                                        let days = group.days;
+                                        if (group.details && group.details.length > 1) {
+                                          const firstRaw = group.details[0].dep_date || group.details[0].flight_date;
+                                          const lastRaw = group.details[group.details.length - 1].dep_date || group.details[group.details.length - 1].flight_date;
+                                          if (firstRaw && lastRaw) {
+                                            const diff = Math.round((new Date(lastRaw) - new Date(firstRaw)) / (1000 * 60 * 60 * 24));
+                                            if (diff > 0) days = diff;
+                                          }
+                                        }
+                                        return days > 0 ? (
+                                          <span className="inline-block text-xs font-bold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+                                            {days}
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-400 text-xs">—</span>
+                                        );
+                                      })()}
+                                    </td>
+                                  )}
 
                                   {/* Seats */}
                                   <td className="px-4 py-3 text-center align-middle">
