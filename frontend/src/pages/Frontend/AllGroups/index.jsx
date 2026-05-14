@@ -54,7 +54,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
       "Nov",
       "Dec",
     ];
-    const header = `                *=====${String(today.getDate()).padStart(2, "0")} ${MONTHS_TITLE[today.getMonth()].toUpperCase()} UPDATES=====*`;
+    const header = `*=====${String(today.getDate()).padStart(2, "0")} ${MONTHS_TITLE[today.getMonth()].toUpperCase()} UPDATES=====*`;
     const lines = groupsList
       .map((g) => {
         const details = g.details && g.details.length > 0 ? g.details : [{}];
@@ -432,9 +432,8 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
       const passengersLength = booking.passengers?.length || 0;
 
       booking.flights?.forEach((flight) => {
-        const key = `${flight.flightNo}_${
-          new Date(flight.depDate).toISOString().split("T")[0]
-        }`;
+        const key = `${flight.flightNo}_${new Date(flight.depDate).toISOString().split("T")[0]
+          }`;
 
         // ignore cancelled if needed
         if (booking.status !== "cancelled") {
@@ -1009,7 +1008,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                         {group.details.map((d, i) => {
                                           const rawDate = d.dep_date || d.flight_date;
                                           return (
-                                            <div key={i} className={`flex flex-col ${i > 0 ? "pt-2" : "pb-2"}`}>
+                                            <div key={i} style={{fontFamily:'sans-serif'}} className={`font-bold flex flex-col ${i > 0 ? "pt-2" : "pb-2"}`}>
                                               {/* <span className={`text-[9px] font-bold uppercase tracking-wider mb-0.5 ${i === 0 ? "text-blue-500" : "text-orange-400"}`}>
                                                 {legLabels[i] || `Leg ${i + 1}`}
                                               </span> */}
@@ -1072,7 +1071,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                         {group.details.map((d, i) => (
                                           <div key={i} className={`flex items-center justify-center gap-3 ${i > 0 ? "pt-2" : "pb-2"}`}>
                                             <div className="text-center">
-                                              <div className="text-sm font-bold">{d.origin || "—"}</div>
+                                              <div className="text-sm font-black" style={{ fontFamily: 'sans-serif' }}>{d.origin || "—"}</div>
                                               <div className="text-xs text-gray-500">{d.dept_time?.substring(0, 5) || "—"}</div>
                                             </div>
                                             <div className="flex items-center relative min-w-12 w-26 md:w-40">
@@ -1088,7 +1087,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                               </div>
                                             </div>
                                             <div className="text-center">
-                                              <div className="text-sm font-bold">{d.destination || "—"}</div>
+                                              <div className="text-sm font-black" style={{ fontFamily: 'sans-serif' }}>{d.destination || "—"}</div>
                                               <div className="text-xs text-gray-500">{d.arv_time?.substring(0, 5) || "—"}</div>
                                             </div>
                                           </div>
@@ -1213,7 +1212,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                     {user?.priceOnCall ? (
                                       <span className="text-sm font-bold text-red-500">On Call</span>
                                     ) : (
-                                      <div className="text-sm font-bold" style={{ color: theme.colors.ublGradientStart }}>
+                                      <div className="text-lg font-bold" style={{ color: theme.colors.ublGradientStart , fontFamily: 'sans-serif' }}>
                                         PKR {calculatePriceAfterMargin(group.price, group)?.toLocaleString()}
                                       </div>
                                     )}
