@@ -102,7 +102,7 @@ export default function Footer({ user }) {
                 className="text-lg font-semibold"
                 style={{ color: theme.colors.sidebarTextLight }}
               >
-                Shaheen Wings Travels   ).
+                Shaheen Wings Travels
               </h2>
               <p
                 className="mt-3 text-sm leading-relaxed"
@@ -244,7 +244,7 @@ export default function Footer({ user }) {
             href="https://shaheenwingstravels.com/"
             style={{ color: theme.colors.sidebarText }}
           >
-            &copy; {dayjs().year()} Shaheen Wings Travels   ).
+            &copy; {dayjs().year()} Shaheen Wings Travels 
           </a>
 
           <a

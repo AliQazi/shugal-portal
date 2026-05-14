@@ -57,29 +57,33 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     const header = `                *=====${String(today.getDate()).padStart(2, "0")} ${MONTHS_TITLE[today.getMonth()].toUpperCase()} UPDATES=====*`;
     const lines = groupsList
       .map((g) => {
-        const d = g.details?.[0] || {};
-        const rawDate = d.dep_date || d.flight_date || g.dept_date;
-        if (!rawDate) return null;
-        const date = new Date(rawDate);
-        if (isNaN(date.getTime())) return null;
-        const dd = String(date.getDate()).padStart(2, "0");
-        const mon = MONTHS_TITLE[date.getMonth()];
-        const year = date.getFullYear();
-        const flightNo = (d.flight_no || d.flightNo || "").toUpperCase();
-        const origin = d.origin || d.from || "";
-        const dest = d.destination || d.to || "";
-        const depTime = (d.dept_time || d.dep_time || d.depTime || "").slice(
-          0,
-          5,
-        );
-        const arvTime = (d.arv_time || d.arr_time || d.arrTime || "").slice(
-          0,
-          5,
-        );
-        const depPart = depTime ? ` (${depTime})` : "";
-        const arvPart = arvTime ? ` (${arvTime})` : "";
+        const details = g.details && g.details.length > 0 ? g.details : [{}];
+        const legs = details.map((d) => {
+          const rawDate = d.dep_date || d.flight_date || g.dept_date;
+          if (!rawDate) return null;
+          const date = new Date(rawDate);
+          if (isNaN(date.getTime())) return null;
+          const dd = String(date.getDate()).padStart(2, "0");
+          const mon = MONTHS_TITLE[date.getMonth()];
+          const year = date.getFullYear();
+          const flightNo = (d.flight_no || d.flightNo || "").toUpperCase();
+          const origin = d.origin || d.from || "";
+          const dest = d.destination || d.to || "";
+          const depTime = (d.dept_time || d.dep_time || d.depTime || "").slice(0, 5);
+          const arvTime = (d.arv_time || d.arr_time || d.arrTime || "").slice(0, 5);
+          const depPart = depTime ? ` (${depTime})` : "";
+          const arvPart = arvTime ? ` (${arvTime})` : "";
+          return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}`;
+        }).filter(Boolean);
+        if (!legs.length) return null;
         const price = g.price || 0;
-        return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}..... *PKR ${price}*`;
+        if (legs.length === 1) return `${legs[0]}..... *PKR ${price}*`;
+        const labeledLegs = legs.map((leg, i) => {
+          if (i === 0) return `*GOING:* ${leg}`;
+          if (i === legs.length - 1) return `*RETURN:* ${leg}..... *PKR ${price}*`;
+          return `*LEG ${i + 1}:* ${leg}`;
+        });
+        return labeledLegs.join("\n");
       })
       .filter(Boolean);
     const footer = `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*\n=======================\nShaheen Wings Travels\nMobile: 0309-9802154\nAddress: MA Plaza Ground Floor Shop # 3, Kahror Pacca.\nPtcl: 0608340174\nWebsite: shaheenwings.com`;
@@ -102,24 +106,39 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
       "Nov",
       "Dec",
     ];
-    const d = group.details?.[0] || {};
-    const rawDate = d.dep_date || d.flight_date || group.dept_date;
-    if (!rawDate) return "";
-    const date = new Date(rawDate);
-    if (isNaN(date.getTime())) return "";
-    const dd = String(date.getDate()).padStart(2, "0");
-    const mon = MONTHS_TITLE[date.getMonth()];
-    const year = date.getFullYear();
-    const flightNo = (d.flight_no || d.flightNo || "").toUpperCase();
-    const origin = d.origin || d.from || "";
-    const dest = d.destination || d.to || "";
-    const depTime = (d.dept_time || d.dep_time || d.depTime || "").slice(0, 5);
-    const arvTime = (d.arv_time || d.arr_time || d.arrTime || "").slice(0, 5);
-    const depPart = depTime ? ` (${depTime})` : "";
-    const arvPart = arvTime ? ` (${arvTime})` : "";
+    const details = group.details && group.details.length > 0 ? group.details : [{}];
+    const legs = details.map((d) => {
+      const rawDate = d.dep_date || d.flight_date || group.dept_date;
+      if (!rawDate) return null;
+      const date = new Date(rawDate);
+      if (isNaN(date.getTime())) return null;
+      const dd = String(date.getDate()).padStart(2, "0");
+      const mon = MONTHS_TITLE[date.getMonth()];
+      const year = date.getFullYear();
+      const flightNo = (d.flight_no || d.flightNo || "").toUpperCase();
+      const origin = d.origin || d.from || "";
+      const dest = d.destination || d.to || "";
+      const depTime = (d.dept_time || d.dep_time || d.depTime || "").slice(0, 5);
+      const arvTime = (d.arv_time || d.arr_time || d.arrTime || "").slice(0, 5);
+      const depPart = depTime ? ` (${depTime})` : "";
+      const arvPart = arvTime ? ` (${arvTime})` : "";
+      return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}`;
+    }).filter(Boolean);
+    if (!legs.length) return "";
     const price = group.price || 0;
     const footer = `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*\n=======================\nShaheen Wings Travels\nMobile: 0309-9802154\nAddress: MA Plaza Ground Floor Shop # 3, Kahror Pacca.\nPtcl: 0608340174\nWebsite: shaheenwings.com`;
-    return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}..... *PKR ${price}*\n=======================\n${footer}`;
+    let flightLines;
+    if (legs.length === 1) {
+      flightLines = `${legs[0]}..... *PKR ${price}*`;
+    } else {
+      const labeledLegs = legs.map((leg, i) => {
+        if (i === 0) return `*GOING:* ${leg}`;
+        if (i === legs.length - 1) return `*RETURN:* ${leg}..... *PKR ${price}*`;
+        return `*LEG ${i + 1}:* ${leg}`;
+      });
+      flightLines = labeledLegs.join("\n");
+    }
+    return `${flightLines}\n=======================\n${footer}`;
   };
 
   // Build copy text for all groups in a sector (with footer)
@@ -144,29 +163,33 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     const header = `                *=====${String(today.getDate()).padStart(2, "0")} ${MONTHS_TITLE[today.getMonth()].toUpperCase()} UPDATES=====*`;
     const lines = sectorGroups
       .map((g) => {
-        const d = g.details?.[0] || {};
-        const rawDate = d.dep_date || d.flight_date || g.dept_date;
-        if (!rawDate) return null;
-        const date = new Date(rawDate);
-        if (isNaN(date.getTime())) return null;
-        const dd = String(date.getDate()).padStart(2, "0");
-        const mon = MONTHS_TITLE[date.getMonth()];
-        const year = date.getFullYear();
-        const flightNo = (d.flight_no || d.flightNo || "").toUpperCase();
-        const origin = d.origin || d.from || "";
-        const dest = d.destination || d.to || "";
-        const depTime = (d.dept_time || d.dep_time || d.depTime || "").slice(
-          0,
-          5,
-        );
-        const arvTime = (d.arv_time || d.arr_time || d.arrTime || "").slice(
-          0,
-          5,
-        );
-        const depPart = depTime ? ` (${depTime})` : "";
-        const arvPart = arvTime ? ` (${arvTime})` : "";
+        const details = g.details && g.details.length > 0 ? g.details : [{}];
+        const legs = details.map((d) => {
+          const rawDate = d.dep_date || d.flight_date || g.dept_date;
+          if (!rawDate) return null;
+          const date = new Date(rawDate);
+          if (isNaN(date.getTime())) return null;
+          const dd = String(date.getDate()).padStart(2, "0");
+          const mon = MONTHS_TITLE[date.getMonth()];
+          const year = date.getFullYear();
+          const flightNo = (d.flight_no || d.flightNo || "").toUpperCase();
+          const origin = d.origin || d.from || "";
+          const dest = d.destination || d.to || "";
+          const depTime = (d.dept_time || d.dep_time || d.depTime || "").slice(0, 5);
+          const arvTime = (d.arv_time || d.arr_time || d.arrTime || "").slice(0, 5);
+          const depPart = depTime ? ` (${depTime})` : "";
+          const arvPart = arvTime ? ` (${arvTime})` : "";
+          return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}`;
+        }).filter(Boolean);
+        if (!legs.length) return null;
         const price = g.price || 0;
-        return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}..... *PKR ${price}*`;
+        if (legs.length === 1) return `${legs[0]}..... *PKR ${price}*`;
+        const labeledLegs = legs.map((leg, i) => {
+          if (i === 0) return `*GOING:* ${leg}`;
+          if (i === legs.length - 1) return `*RETURN:* ${leg}..... *PKR ${price}*`;
+          return `*LEG ${i + 1}:* ${leg}`;
+        });
+        return labeledLegs.join("\n");
       })
       .filter(Boolean);
     const footer = `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*\n=======================\nShaheen Wings Travels\nMobile: 0309-9802154\nAddress: MA Plaza Ground Floor Shop # 3, Kahror Pacca.\nPtcl: 0608340174\nWebsite: shaheenwings.com`;
@@ -461,13 +484,10 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
             if (!gtEntry?.ownGroupType) return true;
             if (g.type !== gtEntry.ownGroupType) return false;
 
-            // Special case: split Umrah own groups by leg count
-            // "Umrah Tickets" (value='Umrah Tickets') → multi-leg (return trip)
-            // "Umrah Makkah & Madina" (value='UMRAH GROUP') → single-leg (one-way)
+            // All own Umrah groups show ONLY under "Umrah Tickets" tab
             if (gtEntry.ownGroupType === "Umrah Groups") {
-              const isMultiLeg = (g.details?.length || 0) > 1;
-              if (groupType === "Umrah Tickets") return isMultiLeg;
-              if (groupType === "UMRAH GROUP") return !isMultiLeg;
+              if (groupType === "Umrah Tickets") return true;
+              if (groupType === "UMRAH GROUP") return false;
             }
 
             return true;
@@ -604,30 +624,28 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     </div>
   );
 
-  // Group by sector only — same sector from Al-Haider + Travel Network merges into one card
+  // Group by sector + airline — same sector with different airlines gets separate cards
   const sectorFirstSeen = {};
   const groupedData = groups.reduce((acc, group) => {
     const sector = (group.sector || "Unknown").toUpperCase().trim();
-    const key = sector;
+    const airlineName = group.airline?.airline_name || "";
+    const key = `${sector}|||${airlineName}`;
     if (!(sector in sectorFirstSeen)) {
       sectorFirstSeen[sector] = Object.keys(sectorFirstSeen).length;
     }
     if (!acc[key]) {
       acc[key] = {
-        airline: group.airline?.airline_name || "",
+        airline: airlineName,
         airlineLogo: group.airline?.logo_url || null,
         sector,
         groups: [],
       };
-    } else if (!acc[key].airlineLogo && group.airline?.logo_url) {
-      acc[key].airlineLogo = group.airline.logo_url;
-      acc[key].airline = group.airline.airline_name || acc[key].airline;
     }
     acc[key].groups.push(group);
     return acc;
   }, {});
 
-  // Sort cards: preserve sector order from backend, then sort same-sector cards by earliest dept_date
+  // Sort cards: by sector order, then by airline name within the same sector, then by earliest dept_date
   const getMinDate = (card) => {
     const dates = card.groups
       .map((g) => g.dept_date)
@@ -640,7 +658,8 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
       const sectorOrderA = sectorFirstSeen[a.sector] ?? 999;
       const sectorOrderB = sectorFirstSeen[b.sector] ?? 999;
       if (sectorOrderA !== sectorOrderB) return sectorOrderA - sectorOrderB;
-      // Same sector → card with earliest departure first
+      // Same sector → sort by airline name, then by earliest departure
+      if (a.airline !== b.airline) return a.airline.localeCompare(b.airline);
       return getMinDate(a).localeCompare(getMinDate(b));
     },
   );
@@ -976,24 +995,24 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                               const lastFlight =
                                 group.details?.[group.details.length - 1];
                               const isMultiLeg = group.details && group.details.length > 1;
-                              const legLabels = ["Departure", "Arrival"];
+                              // const legLabels = ["Departure", "Arrival"];
 
                               return (
                                 <tr
                                   key={group.id}
-                                  className="border-b border-gray-100 bg-white hover:bg-blue-50/30 transition-colors"
+                                  className="border-b border-gray-500 bg-white hover:bg-blue-50/30 transition-colors"
                                 >
                                   {/* Date */}
                                   <td className="px-4 py-3 text-xs font-medium text-gray-600 whitespace-nowrap align-top">
                                     {isMultiLeg ? (
-                                      <div className="flex flex-col divide-y divide-dashed divide-gray-200">
+                                      <div className="flex pt-4 flex-col divide-y divide-dashed divide-gray-700">
                                         {group.details.map((d, i) => {
                                           const rawDate = d.dep_date || d.flight_date;
                                           return (
                                             <div key={i} className={`flex flex-col ${i > 0 ? "pt-2" : "pb-2"}`}>
-                                              <span className={`text-[9px] font-bold uppercase tracking-wider mb-0.5 ${i === 0 ? "text-blue-500" : "text-orange-400"}`}>
+                                              {/* <span className={`text-[9px] font-bold uppercase tracking-wider mb-0.5 ${i === 0 ? "text-blue-500" : "text-orange-400"}`}>
                                                 {legLabels[i] || `Leg ${i + 1}`}
-                                              </span>
+                                              </span> */}
                                               <span>
                                                 {rawDate ? new Date(rawDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
                                               </span>
@@ -1009,7 +1028,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                   {/* Flight + Airline */}
                                   <td className="px-4 py-3 align-top">
                                     {isMultiLeg ? (
-                                      <div className="flex flex-col divide-y divide-dashed divide-gray-200">
+                                      <div className="flex flex-col divide-y divide-dashed divide-gray-700">
                                         {group.details.map((d, i) => (
                                           <div key={i} className={`flex items-center gap-1.5 ${i > 0 ? "pt-2" : "pb-2"}`}>
                                             <FaPlane
@@ -1049,7 +1068,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                   {/* Sector */}
                                   <td className="px-4 py-3 align-top">
                                     {isMultiLeg ? (
-                                      <div className="flex flex-col divide-y divide-dashed divide-gray-200">
+                                      <div className="flex flex-col divide-y divide-dashed divide-gray-700">
                                         {group.details.map((d, i) => (
                                           <div key={i} className={`flex items-center justify-center gap-3 ${i > 0 ? "pt-2" : "pb-2"}`}>
                                             <div className="text-center">
@@ -1098,7 +1117,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                   {/* Bag */}
                                   <td className="px-4 py-3 text-center align-top">
                                     {isMultiLeg ? (
-                                      <div className="flex flex-col divide-y divide-dashed divide-gray-200 items-center mt-3">
+                                      <div className="flex flex-col divide-y divide-dashed divide-gray-700 items-center mt-3">
                                         {group.details.map((d, i) => (
                                           <div key={i} className={`${i > 0 ? "pt-2" : "pb-2"}`}>
                                             {d.baggage ? (
@@ -1127,7 +1146,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                   {/* Meal */}
                                   <td className="px-4 py-3 text-center align-top">
                                     {isMultiLeg ? (
-                                      <div className="flex flex-col divide-y divide-dashed divide-gray-200 items-center mt-3">
+                                      <div className="flex flex-col divide-y divide-dashed divide-gray-700 items-center mt-3">
                                         {group.details.map((d, i) => (
                                           <div key={i} className={`${i > 0 ? "pt-2" : "pb-2"}`}>
                                             <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${d.meal && d.meal !== "No" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
@@ -1145,13 +1164,24 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
 
                                   {/* Days */}
                                   <td className="px-4 py-3 text-center align-middle">
-                                    {group.days > 0 ? (
-                                      <span className="inline-block text-xs font-bold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
-                                        {group.days}
-                                      </span>
-                                    ) : (
-                                      <span className="text-gray-400 text-xs">—</span>
-                                    )}
+                                    {(() => {
+                                      let days = group.days;
+                                      if (group.details && group.details.length > 1) {
+                                        const firstRaw = group.details[0].dep_date || group.details[0].flight_date;
+                                        const lastRaw = group.details[group.details.length - 1].dep_date || group.details[group.details.length - 1].flight_date;
+                                        if (firstRaw && lastRaw) {
+                                          const diff = Math.round((new Date(lastRaw) - new Date(firstRaw)) / (1000 * 60 * 60 * 24));
+                                          if (diff > 0) days = diff;
+                                        }
+                                      }
+                                      return days > 0 ? (
+                                        <span className="inline-block text-xs font-bold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+                                          {days}
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 text-xs">—</span>
+                                      );
+                                    })()}
                                   </td>
 
                                   {/* Seats */}

@@ -475,20 +475,9 @@ export const getUnifiedGroups = async (req, res) => {
     });
 
     /* ===============================
-       9️⃣ Filter — Past Departures Remove
+       9️⃣ All Public Groups (no past-date filter — admin controls visibility via Public/Private)
     =============================== */
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const freshGroups = unifiedGroups.filter((group) => {
-      const rawDate = group.dept_date;
-      if (!rawDate) return true; // no date = keep it
-
-      const depDate = new Date(rawDate);
-      depDate.setHours(0, 0, 0, 0);
-
-      return depDate >= today; // ✅ today or future only
-    });
+    const freshGroups = unifiedGroups;
 
     /* ===============================
        🔟 Smart Cache Store / Update
