@@ -80,10 +80,14 @@ export const createPayment = async (req, res) => {
 // Get all payments with filters
 export const getPayments = async (req, res) => {
   try {
-    const { dateFrom, dateTo, status } = req.query;
+    const { dateFrom, dateTo, status, userId } = req.query;
 
     // Build filter query
     let filter = {};
+
+    if (userId) {
+      filter.user = userId;
+    }
 
     if (dateFrom || dateTo) {
       filter.date = {};
