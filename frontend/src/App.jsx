@@ -12,7 +12,7 @@ export default function App() {
     const [showScrollButton, setShowScrollButton] = useState(false);
 
     useEffect(() => {
-        console.log("🚀 App mounted. Setting up inactivity timer...");
+        // console.log("🚀 App mounted. Setting up inactivity timer...");
         const INACTIVITY_LIMIT = 7 * 60 * 1000; // 7 minutes
 
         const resetTimer = () => {

@@ -77,6 +77,17 @@ export const registerUser = async (req, res) => {
     // Set status to Inactive for Agency role, Active for others
     const status = role === "Agency" ? "Inactive" : "Active";
 
+    // Enforce maximum agency limit of 1000
+    if (role === "Agency") {
+      const agencyCount = await Register.countDocuments({ role: "Agency" });
+      if (agencyCount >= 1000) {
+        return res.status(400).json({
+          success: false,
+          message: "Registration limit reached. Maximum 1000 agencies are allowed.",
+        });
+      }
+    }
+
     // Generate sequential 4-digit agency code (0001, 0002, ...)
     let agencyCode = null;
     if (role === "Agency") {
