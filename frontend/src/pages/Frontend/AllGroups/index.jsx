@@ -31,6 +31,50 @@ const getCategoryFromGroup = (group = {}) => {
   return TYPE_TO_CATEGORY[type] || "";
 };
 
+const getSectorStops = (sector = "") =>
+  String(sector)
+    .split("-")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+const getDisplayDetails = (group = {}) => {
+  const details = Array.isArray(group?.details) ? group.details.filter(Boolean) : [];
+  if (details.length > 1) return details;
+
+  const sectorStops = getSectorStops(group?.sector);
+  if (sectorStops.length < 3) return details;
+
+  const baseDetail = details[0] || {};
+  const departureDate =
+    baseDetail.dep_date || baseDetail.flight_date || group?.dept_date || null;
+  const arrivalDate =
+    baseDetail.arv_date || group?.arv_date || departureDate;
+
+  return sectorStops.slice(0, -1).map((origin, index) => {
+    const isFirstLeg = index === 0;
+    const isLastLeg = index === sectorStops.length - 2;
+
+    return {
+      ...baseDetail,
+      sr: index + 1,
+      origin,
+      destination: sectorStops[index + 1],
+      flight_no: isFirstLeg ? baseDetail.flight_no || "" : "",
+      dep_date: isFirstLeg ? departureDate : arrivalDate,
+      flight_date: isFirstLeg ? departureDate : arrivalDate,
+      dept_time: isFirstLeg ? baseDetail.dept_time || "" : "",
+      arv_time: isLastLeg ? baseDetail.arv_time || "" : "",
+    };
+  });
+};
+
+const formatBaggageLabel = (value) => {
+  const baggage = String(value || "").trim();
+  if (!baggage) return "";
+  if (/^\d+(\.\d+)?$/.test(baggage)) return `${baggage}KG`;
+  return baggage;
+};
+
 export default function AllGroups({ headerType, header, searchParams, user }) {
   // Copy feedback state
   const [copiedAll, setCopiedAll] = useState(false);
@@ -969,7 +1013,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                             <th className="px-4 py-2.5 text-center whitespace-nowrap">
                               Meal
                             </th>
-                            {data.groups.some(g => g.details && g.details.length > 1) && (
+                            {data.groups.some((g) => getDisplayDetails(g).length > 1) && (
                               <th className="px-4 py-2.5 text-center whitespace-nowrap">
                                 Days
                               </th>
@@ -992,12 +1036,15 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                               return (a.price || 0) - (b.price || 0);
                             })
                             .map((group) => {
-                              const flight = group.details?.[0];
+                              const displayDetails = getDisplayDetails(group);
+                              const flight = displayDetails[0];
                               const lastFlight =
-                                group.details?.[group.details.length - 1];
-                              const isMultiLeg = group.details && group.details.length > 1;
+                                displayDetails[displayDetails.length - 1];
+                              const isMultiLeg = displayDetails.length > 1;
                               // Check if any group in this card is multi-leg to show Days column
-                              const hasMultiLeg = data.groups.some(g => g.details && g.details.length > 1); 
+                              const hasMultiLeg = data.groups.some(
+                                (g) => getDisplayDetails(g).length > 1,
+                              );
                               // const legLabels = ["Departure", "Arrival"];
 
                               return (
@@ -1009,7 +1056,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                   <td className="px-4 py-3 text-xs font-medium text-gray-600 whitespace-nowrap align-top">
                                     {isMultiLeg ? (
                                       <div className="flex pt-3 flex-col divide-y divide-dashed divide-gray-700">
-                                        {group.details.map((d, i) => {
+                                        {displayDetails.map((d, i) => {
                                           const rawDate = d.dep_date || d.flight_date;
                                           return (
                                             <div key={i} style={{color: 'black', fontFamily:'sans-serif'}} className={`font-black text-sm flex flex-col ${i > 0 ? "pt-2" : "pb-2"}`}>
@@ -1034,7 +1081,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                   <td className="px-4 py-3 align-top">
                                     {isMultiLeg ? (
                                       <div className="flex flex-col divide-y divide-dashed divide-gray-700">
-                                        {group.details.map((d, i) => (
+                                        {displayDetails.map((d, i) => (
                                           <div key={i} className={`flex items-center gap-1.5 ${i > 0 ? "pt-2" : "pb-2"}`}>
                                             <FaPlane
                                               className="text-xs shrink-0"
@@ -1074,7 +1121,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                   <td className="px-4 py-3 align-top">
                                     {isMultiLeg ? (
                                       <div className="flex flex-col divide-y divide-dashed divide-gray-700">
-                                        {group.details.map((d, i) => (
+                                        {displayDetails.map((d, i) => (
                                           <div key={i} className={`flex items-center justify-center gap-3 ${i > 0 ? "pt-2" : "pb-2"}`}>
                                             <div className="text-center">
                                               <div className="text-sm font-black" style={{ fontFamily: 'sans-serif' }}>{d.origin || "—"}</div>
@@ -1123,12 +1170,12 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                   <td className="px-4 py-3 text-center align-top">
                                     {isMultiLeg ? (
                                       <div className="flex flex-col divide-y divide-dashed divide-gray-700 items-center mt-3">
-                                        {group.details.map((d, i) => (
+                                        {displayDetails.map((d, i) => (
                                           <div key={i} className={`${i > 0 ? "pt-2" : "pb-2"}`}>
                                             {d.baggage ? (
                                               <div className="inline-flex items-center gap-1 text-xs font-medium">
                                                 <FaSuitcase className="shrink-0" style={{ color: i === 0 ? theme.colors.ublGradientStart : "#f97316" }} />
-                                                <span>{d.baggage}KG</span>
+                                                <span>{formatBaggageLabel(d.baggage)}</span>
                                               </div>
                                             ) : (
                                               <span className="text-gray-400 text-xs">—</span>
@@ -1140,7 +1187,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                       flight?.baggage ? (
                                         <div className="inline-flex items-center gap-1  text-xs font-medium">
                                           <FaSuitcase className="shrink-0" style={{ color: theme.colors.ublGradientStart }} />
-                                          <span>{flight.baggage}KG</span>
+                                          <span>{formatBaggageLabel(flight.baggage)}</span>
                                         </div>
                                       ) : (
                                         <span className="text-gray-400 text-xs">—</span>
@@ -1152,7 +1199,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                   <td className="px-4 py-3 text-center align-top">
                                     {isMultiLeg ? (
                                       <div className="flex flex-col divide-y divide-dashed divide-gray-700 items-center mt-3">
-                                        {group.details.map((d, i) => (
+                                        {displayDetails.map((d, i) => (
                                           <div key={i} className={`${i > 0 ? "pt-2" : "pb-2"}`}>
                                             <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${d.meal && d.meal !== "No" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                                               {d.meal && d.meal !== "No" ? "Yes" : "No"}
@@ -1177,9 +1224,9 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                         }
                                         
                                         let days = group.days;
-                                        if (group.details && group.details.length > 1) {
-                                          const firstRaw = group.details[0].dep_date || group.details[0].flight_date;
-                                          const lastRaw = group.details[group.details.length - 1].dep_date || group.details[group.details.length - 1].flight_date;
+                                        if (displayDetails.length > 1) {
+                                          const firstRaw = displayDetails[0].dep_date || displayDetails[0].flight_date;
+                                          const lastRaw = displayDetails[displayDetails.length - 1].dep_date || displayDetails[displayDetails.length - 1].flight_date;
                                           if (firstRaw && lastRaw) {
                                             const diff = Math.round((new Date(lastRaw) - new Date(firstRaw)) / (1000 * 60 * 60 * 24));
                                             if (diff > 0) days = diff;

@@ -6,6 +6,7 @@ import Booking from "../models/Booking.js";
 import Margin from "../models/Margin.js";
 import { fetchNormalisedAlHaiderGroups } from "./al-haider.controller.js";
 import { fetchNormalisedTravelNetworkGroups } from "./travel-network.controller.js";
+import { fetchNormalisedAbidAirGroups } from "./abidair.controller.js";
 
 const normalizeSector = (sector) => {
   if (!sector) return null;
@@ -543,14 +544,16 @@ export const getUnifiedGroups = async (req, res) => {
     }
 
     /* ===============================
-       1️⃣1️⃣ Fetch External API Groups (Al-Haider + Travel Network, live)
+       1️⃣1️⃣ Fetch External API Groups (Al-Haider + Travel Network + AbidAir, live)
     =============================== */
     let alHaiderGroups = [];
     let travelNetworkGroups = [];
+    let abidAirGroups = [];
 
-    const [ahResult, tnResult] = await Promise.allSettled([
+    const [ahResult, tnResult, abidResult] = await Promise.allSettled([
       fetchNormalisedAlHaiderGroups(),
       fetchNormalisedTravelNetworkGroups(),
+      fetchNormalisedAbidAirGroups(),
     ]);
 
     if (ahResult.status === "fulfilled") {
@@ -589,15 +592,25 @@ export const getUnifiedGroups = async (req, res) => {
     } else {
       console.error("Travel Network fetch for unified groups failed:", tnResult.reason?.message);
     }
+
+    if (abidResult.status === "fulfilled") {
+      abidAirGroups = abidResult.value.map((g) => ({
+        ...g,
+        source: "abidairtravel",
+        isOwnGroup: false,
+      }));
+    } else {
+      console.error("AbidAir fetch for unified groups failed:", abidResult.reason?.message);
+    }
       // Sabaoon and other API feeds are intentionally disabled here.
 
     /* ===============================
        1️⃣2️⃣ Response
     =============================== */
     const adminGroupsData = cacheDoc.data.map((g) => ({ ...g, isOwnGroup: true }));
-     const combinedData = [...adminGroupsData, ...alHaiderGroups, ...travelNetworkGroups];
+    const combinedData = [...adminGroupsData, ...alHaiderGroups, ...travelNetworkGroups, ...abidAirGroups];
 
-    // Apply sector order to the full combined dataset (admin + al-haider + travel-network)
+    // Apply sector order to the full combined dataset (admin + al-haider + travel-network + abidair)
     // Primary: sector order from admin config; Secondary: departure date ascending
     combinedData.sort((a, b) => {
       const orderA = sectorOrderMap[normalizeSector(a.sector)] ?? 999;

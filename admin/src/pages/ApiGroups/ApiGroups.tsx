@@ -22,6 +22,25 @@ const TYPE_TO_CATEGORY: Record<string, string> = {
     "UK ONE WAY GROUP": "uk",
 };
 
+const getSourceLabel = (source?: string) => {
+    if (source === "travel-network") return "Travel Network";
+    if (source === "abidairtravel") return "AbidAir Travels";
+    if (source === "al-haider") return "Al-Haider";
+    return source || "Unknown";
+};
+
+const getSourceBadgeClass = (source?: string) => {
+    if (source === "travel-network") {
+        return "bg-amber-100 text-amber-700 border-amber-200";
+    }
+
+    if (source === "abidairtravel") {
+        return "bg-purple-100 text-purple-700 border-purple-200";
+    }
+
+    return "bg-emerald-100 text-emerald-700 border-emerald-200";
+};
+
 const getCategoryFromGroup = (group: { type?: string }): string =>
     TYPE_TO_CATEGORY[group.type || ""] || "other";
 
@@ -300,7 +319,7 @@ export default function ApiGroups() {
         acc[key].groups.push(group);
 
         return acc;
-    }, {}); 
+    }, {});
 
     const LoadingSkeleton = () => (
         <div className="space-y-6 p-4">
@@ -454,7 +473,7 @@ export default function ApiGroups() {
                                             </span>
                                         </div>
 
-{(() => {
+                                        {(() => {
                                             const sources = [...new Set(data.groups.map((g) => g.source))];
                                             return (
                                                 <div className="flex items-center gap-1.5">
@@ -466,6 +485,11 @@ export default function ApiGroups() {
                                                     {sources.includes("travel-network") && (
                                                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full tracking-wide border bg-amber-100 text-amber-700 border-amber-200">
                                                             TRAVEL NETWORK
+                                                        </span>
+                                                    )}
+                                                    {sources.includes("abidairtravel") && (
+                                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full tracking-wide border bg-purple-100 text-purple-700 border-purple-200">
+                                                            AbidAir Travels
                                                         </span>
                                                     )}
                                                 </div>
@@ -536,11 +560,10 @@ export default function ApiGroups() {
                                                         return (
                                                             <tr
                                                                 key={id}
-                                                                className={`border-b border-gray-100 transition-colors ${
-                                                                    categoryHasOverride(groupCat)
-                                                                        ? "bg-orange-50/40 hover:bg-orange-50"
-                                                                        : "bg-white hover:bg-blue-50/40"
-                                                                }`}
+                                                                className={`border-b border-gray-100 transition-colors ${categoryHasOverride(groupCat)
+                                                                    ? "bg-orange-50/40 hover:bg-orange-50"
+                                                                    : "bg-white hover:bg-blue-50/40"
+                                                                    }`}
                                                             >
                                                                 {/* Date */}
                                                                 <td className="px-4 py-3 text-xs font-medium text-gray-600 whitespace-nowrap">
@@ -584,12 +607,19 @@ export default function ApiGroups() {
 
                                                                 {/* Source */}
                                                                 <td className="px-4 py-3">
-                                                                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${
-                                                                        group.source === "travel-network"
-                                                                            ? "bg-amber-100 text-amber-700 border-amber-200"
-                                                                            : "bg-emerald-100 text-emerald-700 border-emerald-200"
-                                                                    }`}>
-                                                                        {group.source === "travel-network" ? "Travel Network" : "Al-Haider"}
+                                                                    <span
+                                                                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${group.source === "travel-network"
+                                                                                ? "bg-amber-100 text-amber-700 border-amber-200"
+                                                                                : group.source === "abidairtravel"
+                                                                                    ? "bg-purple-100 text-purple-700 border-purple-200"
+                                                                                    : "bg-emerald-100 text-emerald-700 border-emerald-200"
+                                                                            }`}
+                                                                    >
+                                                                        {group.source === "travel-network"
+                                                                            ? "Travel Network"
+                                                                            : group.source === "abidairtravel"
+                                                                                ? "AbidAir Travels"
+                                                                                : "Al-Haider"}
                                                                     </span>
                                                                 </td>
 
@@ -721,11 +751,10 @@ export default function ApiGroups() {
                                                 key={cat.key}
                                                 type="button"
                                                 onClick={() => handleGroupSelect(cat.key)}
-                                                className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-semibold transition-all ${
-                                                    isSelected
-                                                        ? "border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-200"
-                                                        : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50/40"
-                                                }`}
+                                                className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-semibold transition-all ${isSelected
+                                                    ? "border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-200"
+                                                    : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50/40"
+                                                    }`}
                                             >
                                                 <span>{cat.label}</span>
                                                 {hasMargin && (
