@@ -22,24 +22,24 @@ const TYPE_TO_CATEGORY: Record<string, string> = {
     "UK ONE WAY GROUP": "uk",
 };
 
-const getSourceLabel = (source?: string) => {
-    if (source === "travel-network") return "Travel Network";
-    if (source === "abidairtravel") return "AbidAir Travels";
-    if (source === "al-haider") return "Al-Haider";
-    return source || "Unknown";
-};
+// const getSourceLabel = (source?: string) => {
+//     if (source === "travel-network") return "Travel Network";
+//     if (source === "abidairtravel") return "AbidAir Travels";
+//     if (source === "al-haider") return "Al-Haider";
+//     return source || "Unknown";
+// };
 
-const getSourceBadgeClass = (source?: string) => {
-    if (source === "travel-network") {
-        return "bg-amber-100 text-amber-700 border-amber-200";
-    }
+// const getSourceBadgeClass = (source?: string) => {
+//     if (source === "travel-network") {
+//         return "bg-amber-100 text-amber-700 border-amber-200";
+//     }
 
-    if (source === "abidairtravel") {
-        return "bg-purple-100 text-purple-700 border-purple-200";
-    }
+//     if (source === "abidairtravel") {
+//         return "bg-purple-100 text-purple-700 border-purple-200";
+//     }
 
-    return "bg-emerald-100 text-emerald-700 border-emerald-200";
-};
+//     return "bg-emerald-100 text-emerald-700 border-emerald-200";
+// };
 
 const getCategoryFromGroup = (group: { type?: string }): string =>
     TYPE_TO_CATEGORY[group.type || ""] || "other";
