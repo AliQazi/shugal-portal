@@ -146,9 +146,9 @@ function StatusModal({
 }: {
   booking: UmrahBooking;
   onClose: () => void;
-  onSave: (id: string, status: string, note: string) => Promise<void>;
+  onSave: (id: string, status: UmrahBooking["status"], note: string) => Promise<void>;
 }) {
-  const [status, setStatus] = useState(booking.status);
+  const [status, setStatus] = useState<UmrahBooking["status"]>(booking.status);
   const [note, setNote] = useState(booking.adminNote || "");
   const [saving, setSaving] = useState(false);
 
@@ -184,7 +184,7 @@ function StatusModal({
             <label className="text-sm font-semibold text-gray-700 block mb-1">Status</label>
             <select
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
+              onChange={(e) => setStatus(e.target.value as UmrahBooking["status"])}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {STATUS_OPTIONS.map((s) => (
