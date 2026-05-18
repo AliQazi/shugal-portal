@@ -9,6 +9,10 @@ import {
 import Header from "../../components/Header";
 import Home from "./Home";
 import AllGroups from "./AllGroups";
+import UmrahPackages from "./UmrahPackages";
+import UmrahPackageDetail from "./UmrahPackages/DetailPage";
+import UmrahBookingPage from "./UmrahPackages/BookingPage";
+import UmrahPackageBookings from "./UmrahPackages/BookingsList";
 import BookingForm from "../../components/BookingForm";
 import Bank from "./Bank";
 import Footer from "../../components/Footer";
@@ -138,6 +142,22 @@ export default function Frontend() {
 
       {/* Original Routes with Header and Footer - Protected */}
       <Route
+        path="/umrah-packages"
+        element={
+          user ? (
+            <>
+              <Header user={user} handleLogout={handleLogout} />
+              <div className="p-0 m-0">
+                <UmrahPackages user={user} />
+              </div>
+              <Footer user={user} />
+            </>
+          ) : (
+            <Navigate to="/" replace />
+          )
+        }
+      />
+      <Route
         path="/all-groups"
         element={
           user ? (
@@ -248,6 +268,11 @@ export default function Frontend() {
         <Route path="change-password" element={<ChangePassword />} />
         <Route path="profile" element={<Profile />} />
         <Route path="team-contacts" element={<TeamContactList />} />
+        <Route path="umrah-packages" element={<UmrahPackages user={user} />} />
+        <Route path="umrah-packages/detail" element={<UmrahPackageDetail user={user} />} />
+        <Route path="umrah-packages/book" element={<UmrahBookingPage user={user} />} />
+        <Route path="umrah-package-bookings" element={<UmrahPackageBookings user={user} />} />
+        <Route path="umrah-package-bookings/:id" element={<UmrahPackageBookings user={user} />} />
       </Route>
 
       {/* Profile Route - Standalone Protected */}

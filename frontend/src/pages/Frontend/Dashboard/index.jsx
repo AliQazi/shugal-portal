@@ -16,7 +16,7 @@ const groupImages = {
   "UAE": uaeImg,
   "KSA": jeddahImg,
   "Muscat": mascatImg,
-  "Umrah Makkah & Madina": makkahImg,
+  "Umrah Packages": makkahImg,
   "Umrah Tickets": makkahImg,
   "Behrain": bahrainImg,
   "UK": ukImg,

@@ -535,6 +535,8 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
 
             return true;
           }
+          // "Umrah Tickets" tab should also show API groups typed "UMRAH GROUP"
+          if (groupType === "Umrah Tickets" && g.type === "UMRAH GROUP") return true;
           return g.type === groupType;
         });
       }

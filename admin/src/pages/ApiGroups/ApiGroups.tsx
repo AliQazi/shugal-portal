@@ -140,17 +140,40 @@ export default function ApiGroups() {
         try {
             setLoading(true);
 
-            const res = await axiosInstance.get("/al-haider/available-bookings-by-group", {
-                params: activeCategory === "all" ? {} : { category: activeCategory },
-            });
+            const [alHaiderRes, travelNetRes, abidAirRes] = await Promise.allSettled([
+                axiosInstance.get("/al-haider/available-bookings-by-group", {
+                    params: activeCategory === "all" ? {} : { category: activeCategory },
+                }),
+                axiosInstance.get("/sabaoon/admin-groups"),
+                axiosInstance.get("/abidair/available-bookings-by-group"),
+            ]);
 
-            if (res.data?.success) {
-                const data: ApiGroup[] = res.data.data || [];
-                setGroups(data);
+            const alHaiderGroups: ApiGroup[] =
+                alHaiderRes.status === "fulfilled" && alHaiderRes.value.data?.success
+                    ? (alHaiderRes.value.data.data || []).map((g: ApiGroup) => ({ ...g, source: g.source || "al-haider" }))
+                    : [];
+
+            const travelNetGroups: ApiGroup[] =
+                travelNetRes.status === "fulfilled" && travelNetRes.value.data?.success
+                    ? (travelNetRes.value.data.data || []).map((g: ApiGroup) => ({ ...g, source: g.source || "travel-network" }))
+                    : [];
+
+            const abidAirGroups: ApiGroup[] =
+                abidAirRes.status === "fulfilled" && abidAirRes.value.data?.success
+                    ? (abidAirRes.value.data.data || []).map((g: ApiGroup) => ({ ...g, source: g.source || "abidairtravel" }))
+                    : [];
+
+            let merged = [...alHaiderGroups, ...travelNetGroups, ...abidAirGroups];
+
+            // Apply category filter client-side for travel-network and abidair
+            if (activeCategory !== "all") {
+                merged = merged.filter((g) => getCategoryFromGroup(g) === activeCategory);
             }
+
+            setGroups(merged);
         } catch (err) {
             console.error(err);
-            toast.error("Failed to load Al-Haider API groups");
+            toast.error("Failed to load API groups");
         } finally {
             setLoading(false);
         }
@@ -544,7 +567,9 @@ export default function ApiGroups() {
                                                     .map((group) => {
 
                                                         const id = String(group.id);
-                                                        const flight = group.details?.[0];
+                                                        const details = group.details || [];
+                                                        const flight = details[0];
+                                                        const isMultiLeg = details.length > 1;
 
                                                         const basePrice = group.price || 0;
 
@@ -566,31 +591,50 @@ export default function ApiGroups() {
                                                                     }`}
                                                             >
                                                                 {/* Date */}
-                                                                <td className="px-4 py-3 text-xs font-medium text-gray-600 whitespace-nowrap">
-                                                                    {flight
-                                                                        ? new Date(flight.flight_date).toLocaleDateString(
-                                                                            "en-GB",
-                                                                            {
-                                                                                day: "2-digit",
-                                                                                month: "short",
-                                                                                year: "numeric",
-                                                                            }
-                                                                        )
-                                                                        : "—"}
+                                                                <td className="px-4 py-3 text-xs font-medium text-gray-600 align-top">
+                                                                    {isMultiLeg ? (
+                                                                        <div className="flex flex-col divide-y divide-dashed divide-gray-300">
+                                                                            {details.map((d, i) => {
+                                                                                const rawDate = d.dep_date || d.flight_date;
+                                                                                return (
+                                                                                    <div key={i} className={`font-bold text-xs whitespace-nowrap ${i > 0 ? "pt-2" : "pb-2"}`}>
+                                                                                        {rawDate ? new Date(rawDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="font-bold whitespace-nowrap">
+                                                                            {flight ? new Date(flight.flight_date || flight.dep_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                                                                        </span>
+                                                                    )}
                                                                 </td>
 
                                                                 {/* Flight */}
-                                                                <td className="px-4 py-3">
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        <PlaneSVG className="text-xs text-blue-500 shrink-0" />
-                                                                        <span className="font-semibold text-sm whitespace-nowrap">
-                                                                            {flight?.flight_no || "—"}
-                                                                        </span>
-                                                                    </div>
+                                                                <td className="px-4 py-3 align-top">
+                                                                    {isMultiLeg ? (
+                                                                        <div className="flex flex-col divide-y divide-dashed divide-gray-300">
+                                                                            {details.map((d, i) => (
+                                                                                <div key={i} className={`flex items-center gap-1.5 ${i > 0 ? "pt-2" : "pb-2"}`}>
+                                                                                    <PlaneSVG className={`text-xs shrink-0 ${i === 0 ? "text-blue-500" : "text-orange-400"}`} />
+                                                                                    <span className="font-semibold text-sm whitespace-nowrap">
+                                                                                        {d.flight_no?.toUpperCase() || "—"}
+                                                                                    </span>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <PlaneSVG className="text-xs text-blue-500 shrink-0" />
+                                                                            <span className="font-semibold text-sm whitespace-nowrap">
+                                                                                {flight?.flight_no || "—"}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
                                                                 </td>
 
                                                                 {/* Airline */}
-                                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                                <td className="px-4 py-3 whitespace-nowrap align-top">
                                                                     {group.airline?.logo_url ? (
                                                                         <img
                                                                             src={group.airline.logo_url}
@@ -606,7 +650,7 @@ export default function ApiGroups() {
                                                                 </td>
 
                                                                 {/* Source */}
-                                                                <td className="px-4 py-3">
+                                                                <td className="px-4 py-3 align-top">
                                                                     <span
                                                                         className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${group.source === "travel-network"
                                                                                 ? "bg-amber-100 text-amber-700 border-amber-200"
@@ -624,59 +668,104 @@ export default function ApiGroups() {
                                                                 </td>
 
                                                                 {/* Sector */}
-                                                                <td className="px-4 py-3">
-                                                                    <div className="flex items-center justify-center gap-3">
-                                                                        <div className="text-center">
-                                                                            <div className="text-sm font-bold">{origin}</div>
-                                                                            <div className="text-xs text-gray-500 font-medium">
-                                                                                {flight?.dept_time?.substring(0, 5) || "—"}
-                                                                            </div>
+                                                                <td className="px-4 py-3 align-top">
+                                                                    {isMultiLeg ? (
+                                                                        <div className="flex flex-col divide-y divide-dashed divide-gray-300">
+                                                                            {details.map((d, i) => (
+                                                                                <div key={i} className={`flex items-center justify-center gap-2 ${i > 0 ? "pt-2" : "pb-2"}`}>
+                                                                                    <div className="text-center">
+                                                                                        <div className="text-sm font-black">{d.origin || "—"}</div>
+                                                                                        <div className="text-xs text-gray-500">{d.dept_time?.substring(0, 5) || "—"}</div>
+                                                                                    </div>
+                                                                                    <div className="flex items-center relative min-w-8 w-14">
+                                                                                        <div className={`h-0.5 w-full ${i === 0 ? "bg-blue-400" : "bg-orange-400"}`} />
+                                                                                        <div className="absolute left-1/2 -translate-x-1/2 bg-white px-0.5">
+                                                                                            <PlaneSVG className={`text-xs ${i === 0 ? "text-blue-500" : "text-orange-400"}`} />
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div className="text-center">
+                                                                                        <div className="text-sm font-black">{d.destination || "—"}</div>
+                                                                                        <div className="text-xs text-gray-500">{d.arv_time?.substring(0, 5) || "—"}</div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            ))}
                                                                         </div>
+                                                                    ) : (
+                                                                        <div className="flex items-center justify-center gap-3">
+                                                                            <div className="text-center">
+                                                                                <div className="text-sm font-bold">{origin}</div>
+                                                                                <div className="text-xs text-gray-500 font-medium">
+                                                                                    {flight?.dept_time?.substring(0, 5) || "—"}
+                                                                                </div>
+                                                                            </div>
 
-                                                                        <div className="flex items-center relative min-w-10 w-16">
-                                                                            <div className="h-0.5 w-full bg-linear-to-r from-blue-400 to-blue-600" />
-                                                                            <div className="absolute left-1/2 -translate-x-1/2 bg-white px-0.5">
-                                                                                <PlaneSVG className="text-xs text-blue-500" />
+                                                                            <div className="flex items-center relative min-w-10 w-16">
+                                                                                <div className="h-0.5 w-full bg-blue-400" />
+                                                                                <div className="absolute left-1/2 -translate-x-1/2 bg-white px-0.5">
+                                                                                    <PlaneSVG className="text-xs text-blue-500" />
+                                                                                </div>
                                                                             </div>
-                                                                        </div>
 
-                                                                        <div className="text-center">
-                                                                            <div className="text-sm font-bold">{destination}</div>
-                                                                            <div className="text-xs text-gray-500 font-medium">
-                                                                                {(group.details?.[group.details.length - 1]?.arv_time || flight?.arv_time)?.substring(0, 5) || "—"}
+                                                                            <div className="text-center">
+                                                                                <div className="text-sm font-bold">{destination}</div>
+                                                                                <div className="text-xs text-gray-500 font-medium">
+                                                                                    {(group.details?.[group.details.length - 1]?.arv_time || flight?.arv_time)?.substring(0, 5) || "—"}
+                                                                                </div>
                                                                             </div>
                                                                         </div>
-                                                                    </div>
+                                                                    )}
                                                                 </td>
 
                                                                 {/* Baggage */}
-                                                                <td className="px-4 py-3 text-center">
-                                                                    {flight?.baggage ? (
-                                                                        <div className="inline-flex items-center gap-1 text-xs font-medium">
-                                                                            <SuitcaseSVG className="text-xs text-blue-500 shrink-0" />
-                                                                            <span>{flight.baggage}KG</span>
+                                                                <td className="px-4 py-3 text-center align-top">
+                                                                    {isMultiLeg ? (
+                                                                        <div className="flex flex-col divide-y divide-dashed divide-gray-300 items-center">
+                                                                            {details.map((d, i) => (
+                                                                                <div key={i} className={`${i > 0 ? "pt-2" : "pb-2"}`}>
+                                                                                    {d.baggage ? (
+                                                                                        <div className="inline-flex items-center gap-1 text-xs font-medium">
+                                                                                            <SuitcaseSVG className={`text-xs shrink-0 ${i === 0 ? "text-blue-500" : "text-orange-400"}`} />
+                                                                                            <span>{d.baggage}KG</span>
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <span className="text-gray-400 text-xs">—</span>
+                                                                                    )}
+                                                                                </div>
+                                                                            ))}
                                                                         </div>
                                                                     ) : (
-                                                                        <span className="text-gray-400 text-xs">—</span>
+                                                                        flight?.baggage ? (
+                                                                            <div className="inline-flex items-center gap-1 text-xs font-medium">
+                                                                                <SuitcaseSVG className="text-xs text-blue-500 shrink-0" />
+                                                                                <span>{flight.baggage}KG</span>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <span className="text-gray-400 text-xs">—</span>
+                                                                        )
                                                                     )}
                                                                 </td>
 
                                                                 {/* Meal */}
-                                                                <td className="px-4 py-3 text-center">
-                                                                    <span
-                                                                        className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${flight?.meal && flight.meal !== "No"
-                                                                            ? "bg-green-100 text-green-700"
-                                                                            : "bg-gray-100 text-gray-500"
-                                                                            }`}
-                                                                    >
-                                                                        {flight?.meal && flight.meal !== "No"
-                                                                            ? "Yes"
-                                                                            : "No"}
-                                                                    </span>
+                                                                <td className="px-4 py-3 text-center align-top">
+                                                                    {isMultiLeg ? (
+                                                                        <div className="flex flex-col divide-y divide-dashed divide-gray-300 items-center">
+                                                                            {details.map((d, i) => (
+                                                                                <div key={i} className={`${i > 0 ? "pt-2" : "pb-2"}`}>
+                                                                                    <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${d.meal && d.meal !== "No" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                                                                                        {d.meal && d.meal !== "No" ? "Yes" : "No"}
+                                                                                    </span>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${flight?.meal && flight.meal !== "No" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                                                                            {flight?.meal && flight.meal !== "No" ? "Yes" : "No"}
+                                                                        </span>
+                                                                    )}
                                                                 </td>
 
                                                                 {/* Seats */}
-                                                                <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                                <td className="px-4 py-3 text-center whitespace-nowrap align-top">
                                                                     <span className="text-sm font-bold text-gray-800">
                                                                         {group.available_no_of_pax}
                                                                     </span>
@@ -684,14 +773,14 @@ export default function ApiGroups() {
 
                                                                 {/* Price Details */}
                                                                 {/* Base Price */}
-                                                                <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                                <td className="px-4 py-3 text-center whitespace-nowrap align-top">
                                                                     <div className="text-sm font-semibold text-blue-600">
                                                                         PKR {basePrice.toLocaleString()}
                                                                     </div>
                                                                 </td>
 
                                                                 {/* Margin */}
-                                                                <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                                <td className="px-4 py-3 text-center whitespace-nowrap align-top">
                                                                     <div className="flex flex-col items-center gap-0.5">
                                                                         <span className="text-sm font-bold text-orange-600">
                                                                             + PKR {marginAmount.toLocaleString()}
@@ -705,7 +794,7 @@ export default function ApiGroups() {
                                                                 </td>
 
                                                                 {/* Final Price */}
-                                                                <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                                <td className="px-4 py-3 text-center whitespace-nowrap align-top">
                                                                     <div className="text-sm font-bold text-green-600">
                                                                         PKR {finalPrice.toLocaleString()}
                                                                     </div>

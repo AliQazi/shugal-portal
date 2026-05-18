@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import axiosInstance from "../../api/axios";
+import { getMyUmrahBookings } from "../../api/umrahBookingApi";
 import MaskedDatePicker from "../../components/MaskedDatePicker";
 import TopBar from "../../components/TopBar/TopBar";
 
@@ -31,6 +32,7 @@ const Payment = () => {
   const [payments, setPayments] = useState([]);
   const [banks, setBanks] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [umrahBookings, setUmrahBookings] = useState([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -49,7 +51,7 @@ const Payment = () => {
     }
   };
 
-  // Fetch user's bookings
+  // Fetch user's regular bookings
   const fetchBookings = async () => {
     try {
       const user = JSON.parse(sessionStorage.getItem("frontend_user"));
@@ -71,6 +73,18 @@ const Payment = () => {
       }
     } catch (error) {
       console.error("Error fetching bookings:", error);
+    }
+  };
+
+  // Fetch user's Umrah package bookings
+  const fetchUmrahBookings = async () => {
+    try {
+      const response = await getMyUmrahBookings();
+      if (response.success) {
+        setUmrahBookings(response.data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching Umrah bookings:", error);
     }
   };
 
@@ -116,6 +130,7 @@ const Payment = () => {
   useEffect(() => {
     fetchBanks();
     fetchBookings();
+    fetchUmrahBookings();
     fetchPayments();
   }, []);
 
@@ -346,7 +361,12 @@ const Payment = () => {
                 <option value="">Select Booking</option>
                 {bookings.map((booking) => (
                   <option key={booking._id} value={booking._id}>
-                    {booking.bookingReference} - {booking.sector || "N/A"}
+                    {booking.bookingReference || booking._id} - {booking.sector || "N/A"}
+                  </option>
+                ))}
+                {umrahBookings.map((booking) => (
+                  <option key={booking._id} value={booking._id}>
+                    {booking.bookingNumber || booking.bookingReference || booking._id} - {booking.packageName || booking.packageSource || "Umrah Package"}
                   </option>
                 ))}
               </select>

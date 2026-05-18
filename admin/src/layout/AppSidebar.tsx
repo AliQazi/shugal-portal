@@ -4,6 +4,7 @@ import logo from "../../../frontend/src/assets/images/logo2.png";
 
 // Assume these icons are imported from an icon library
 import {
+  BoxIcon,
   ChevronDownIcon,
   GridIcon,
   HorizontaLDots,
@@ -70,6 +71,22 @@ const navItems: NavItem[] = [
     icon: <UserCircleIcon />,
     name: "Team Contacts",
     path: "/team-contacts",
+  },
+  {
+    icon: <TableIcon />,
+    name: "Umrah Package",
+    subItems: [
+      { name: "Hotels", path: "/umrah-hotels", pro: false },
+      { name: "Transport", path: "/umrah-transport", pro: false },
+      { name: "Visa", path: "/umrah-visa", pro: false },
+      { name: "Create Packages", path: "/umrah-packages", pro: false },
+      // { name: "Package Bookings", path: "/umrah-package-bookings", pro: false },
+    ],
+  },
+  {
+     icon: <BoxIcon />,
+     name : "Ummrah Packages Bookings",
+     path:"/umrah-package-bookings",
   },
   {
     icon: <TableIcon />,

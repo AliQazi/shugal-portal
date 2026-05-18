@@ -1,6 +1,7 @@
 import Payment from "../models/Payment.js";
 import MarginLedger from "../models/MarginLedger.js";
 import Booking from "../models/Booking.js";
+import UmrahPackageBooking from "../models/UmrahPackageBooking.js";
 import { cloudinary } from "../config/cloudinary.js";
 import PDFDocument from "pdfkit";
 import ExcelJS from "exceljs";
@@ -280,24 +281,35 @@ export const getLedgerByUser = async (req, res) => {
       .sort({ date: 1 });
 
     const bookingFilter = { userId };
+    const umrahBookingFilter = { user: userId };
     if (dateFrom || dateTo) {
-      bookingFilter.createdAt = {};
-      if (dateFrom) bookingFilter.createdAt.$gte = new Date(dateFrom);
+      const createdAt = {};
+      if (dateFrom) createdAt.$gte = new Date(dateFrom);
       if (dateTo) {
         const end = new Date(dateTo);
         end.setHours(23, 59, 59, 999);
-        bookingFilter.createdAt.$lte = end;
+        createdAt.$lte = end;
+      }
+      if (Object.keys(createdAt).length) {
+        bookingFilter.createdAt = createdAt;
+        umrahBookingFilter.createdAt = createdAt;
       }
     }
 
     const userBookings = await Booking.find(bookingFilter)
       .select("_id status bookingReference pricing.grandTotal sector passengers")
       .lean();
-    const bookingIds = userBookings.map((b) => b._id);
-    const bookingMap = new Map(userBookings.map((b) => [String(b._id), b]));
+
+    const umrahBookings = await UmrahPackageBooking.find(umrahBookingFilter)
+      .select("_id status bookingNumber bookingReference pricing.totalAmount pricing.pricePerPerson packageSource packageData passengers")
+      .lean();
+
+    const allBookings = [...userBookings, ...umrahBookings];
+    const bookingIds = allBookings.map((b) => b._id);
+    const bookingMap = new Map(allBookings.map((b) => [String(b._id), b]));
 
     // Self-heal: backfill missing booking_confirmed ledger rows on read
-    const confirmedBookingIds = userBookings
+    const confirmedBookingIds = allBookings
       .filter((b) => b.status === "confirmed")
       .map((b) => b._id);
 
@@ -305,23 +317,34 @@ export const getLedgerByUser = async (req, res) => {
       const existingConfirmedRows = await MarginLedger.find({
         entryType: "booking_confirmed",
         bookingId: { $in: confirmedBookingIds },
-      })
-        .select("bookingId")
-        .lean();
+      }).lean();
 
       const existingSet = new Set(existingConfirmedRows.map((r) => String(r.bookingId)));
       const missingConfirmedIds = confirmedBookingIds.filter(
         (id) => !existingSet.has(String(id)),
       );
 
-      if (missingConfirmedIds.length > 0) {
+      const staleConfirmedIds = existingConfirmedRows
+        .filter((row) => !row.totalFare || row.totalFare === 0 || !row.bookingReference)
+        .map((row) => String(row.bookingId));
+
+      const repairIds = [...new Set([...missingConfirmedIds, ...staleConfirmedIds])];
+
+      if (repairIds.length > 0) {
         const { recordBookingMarginLedger } = await import("./groupMargin.controller.js");
         const latestMargin = await import("../models/Margin.js")
           .then((m) => m.default.findOne({}).sort({ createdAt: -1 }).lean());
 
-        const missingConfirmedBookings = await Booking.find({
-          _id: { $in: missingConfirmedIds },
+        const repairBookingIds = repairIds.map((id) => String(id));
+
+        const missingRegularBookings = await Booking.find({
+          _id: { $in: repairBookingIds },
         }).lean();
+        const missingUmrahBookings = await UmrahPackageBooking.find({
+          _id: { $in: repairBookingIds },
+        }).lean();
+
+        const missingConfirmedBookings = [...missingRegularBookings, ...missingUmrahBookings];
 
         for (const booking of missingConfirmedBookings) {
           await recordBookingMarginLedger({ booking, globalMargin: latestMargin });

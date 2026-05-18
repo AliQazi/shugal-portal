@@ -14,7 +14,7 @@ import { groupTypes } from "../../data/groupTypes";
 
 const groupImages = {
   "All Groups": madinaImg,
-  "Umrah Makkah & Madina": makkahImg,
+  "Umrah Packages": makkahImg,
   "Umrah Tickets": umrahticket,
   "Behrain": bahrain,
   "UAE": uaeImg,

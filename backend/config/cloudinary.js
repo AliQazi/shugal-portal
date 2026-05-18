@@ -65,6 +65,16 @@ const passengerDocStorage = new CloudinaryStorage({
   },
 });
 
+// Configure storage for Umrah package logos
+const umrahPackageStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "umrah-packages",
+    allowed_formats: ["jpg", "jpeg", "png", "gif", "svg", "webp"],
+    transformation: [{ width: 800, height: 800, crop: "limit" }],
+  },
+});
+
 const upload = multer({ storage: storage });
 const uploadBankLogo = multer({ storage: bankStorage });
 const uploadAirlineLogo = multer({ storage: airlineStorage });
@@ -73,6 +83,7 @@ const uploadPassengerDoc = multer({
   storage: passengerDocStorage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
 });
+const uploadUmrahPackage = multer({ storage: umrahPackageStorage });
 
 export {
   cloudinary,
@@ -81,4 +92,5 @@ export {
   uploadAirlineLogo,
   uploadProfileLogo,
   uploadPassengerDoc,
+  uploadUmrahPackage,
 };

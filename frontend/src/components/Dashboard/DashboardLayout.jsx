@@ -17,6 +17,7 @@ import {
   LogOut,
   Bell,
   Home,
+  Package,
 } from "lucide-react";
 import logo from "../../assets/images/logo2-.png";
 
@@ -196,6 +197,11 @@ const DashboardLayout = ({ user, handleLogout }) => {
       path: "/dashboard/team-contacts",
       label: "Team Contacts",
       icon: <Users size={18} />,
+    },
+    {
+      path: "/dashboard/umrah-package-bookings",
+      label: "Umrah Pkg Bookings",
+      icon: <Package size={18} />,
     },
     {
       path: "/dashboard/change-password",

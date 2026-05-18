@@ -19,6 +19,11 @@ import specialOffer from "./routes/specialOffer.route.js";
 
 import teamContactRoutes from "./routes/teamContact.routes.js";
 import groupMarginRoutes from "./routes/groupMargin.routes.js";
+import hotelRoutes from "./routes/hotel.routes.js";
+import transportRoutes from "./routes/transport.routes.js";
+import visaRoutes from "./routes/visa.routes.js";
+import umrahPackageRoutes from "./routes/umrahPackage.routes.js";
+import umrahPackageBookingRoutes from "./routes/umrahPackageBooking.routes.js";
 
 import { getValidSabaoonToken, initializeSabaoonToken } from "./utils/sabaoonToken.js";
 import testEmail from "./utils/testEmail.js";
@@ -72,6 +77,11 @@ app.use("/api/specialOffer", specialOffer);
 
 app.use("/api/team-contacts", teamContactRoutes);
 app.use("/api/group-margin", groupMarginRoutes);
+app.use("/api/hotels", hotelRoutes);
+app.use("/api/transports", transportRoutes);
+app.use("/api/visas", visaRoutes);
+app.use("/api/umrah-packages", umrahPackageRoutes);
+app.use("/api/umrah-package-bookings", umrahPackageBookingRoutes);
 
 // Sabaoon integration removed. Only Al-Haider API is used for group data.
 

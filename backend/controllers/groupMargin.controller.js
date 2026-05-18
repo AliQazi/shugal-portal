@@ -289,6 +289,17 @@ export const recordBookingMarginLedger = async ({
   globalMargin,
 }) => {
   try {
+    const fallbackGroupId = String(
+      booking.groupId ||
+      booking.package ||
+      booking.packageData?._id ||
+      booking.packageData?.id ||
+      booking.bookingReference ||
+      booking.bookingNumber ||
+      booking._id ||
+      "umrah"
+    );
+
     const bookingSource = String(booking.source || "").toLowerCase().trim();
     const bookingGroupType = String(booking.groupType || "").trim();
     const normalizedSector = String(booking.sector || "").toUpperCase().trim();
@@ -298,9 +309,9 @@ export const recordBookingMarginLedger = async ({
     const candidateKeys = [];
     if (category) candidateKeys.push(makeKey("group-category", category));
     if (normalizedSector) candidateKeys.push(makeKey("sector", `sector:${normalizedSector}`));
-    if (bookingSource && booking.groupId) candidateKeys.push(makeKey(bookingSource, booking.groupId));
-    if (bookingGroupType && booking.groupId)
-      candidateKeys.push(makeKey(bookingGroupType, booking.groupId));
+    if (bookingSource && fallbackGroupId) candidateKeys.push(makeKey(bookingSource, fallbackGroupId));
+    if (bookingGroupType && fallbackGroupId)
+      candidateKeys.push(makeKey(bookingGroupType, fallbackGroupId));
 
     let override = null;
     for (const key of candidateKeys) {
@@ -308,9 +319,15 @@ export const recordBookingMarginLedger = async ({
       if (override) break;
     }
 
-    const basePrice = booking.pricing?.adultBasePrice || booking.pricing?.adultPrice || 0;
-    const totalFare = Number(booking.pricing?.grandTotal || 0);
+    const basePrice =
+      Number(booking.pricing?.adultBasePrice || booking.pricing?.adultPrice || booking.pricing?.pricePerPerson || 0);
+    const totalFare = Number(
+      booking.pricing?.grandTotal || booking.pricing?.totalAmount || booking.pricing?.pricePerPerson || 0,
+    );
     let marginAmount = 0;
+    const bookingReference =
+      booking.bookingReference || booking.bookingNumber || booking.reference || "";
+    const userId = booking.userId || booking.user || null;
 
     if (override && override.marginAmount > 0) {
       marginAmount = override.marginAmount;
@@ -324,9 +341,14 @@ export const recordBookingMarginLedger = async ({
     const pax = (booking.adultsCount || 0) + (booking.childrenCount || 0);
     const totalMarginEarned = marginAmount * pax;
 
-    await MarginLedger.create({
+    const existingEntries = await MarginLedger.find({
       entryType: "booking_confirmed",
-      groupId: booking.groupId,
+      bookingId: booking._id,
+    }).lean();
+
+    const ledgerPayload = {
+      entryType: "booking_confirmed",
+      groupId: fallbackGroupId,
       source: bookingSource || bookingGroupType || "",
       sector: booking.sector || "",
       flightNo: booking.flights?.[0]?.flightNo || "",
@@ -334,14 +356,24 @@ export const recordBookingMarginLedger = async ({
       basePrice,
       marginAmount,
       bookingId: booking._id,
-      bookingReference: booking.bookingReference || booking.reference || "",
+      bookingReference,
       passengers: pax,
       totalMarginEarned,
       totalFare,
-      note: `Booking confirmed: ${booking.bookingReference || booking._id}`,
-      userId: booking.userId || null,
+      note: `Booking confirmed: ${bookingReference || booking._id}`,
+      userId,
       appliedBy: "system",
-    });
+    };
+
+    if (existingEntries.length > 0) {
+      await MarginLedger.updateMany(
+        { entryType: "booking_confirmed", bookingId: booking._id },
+        ledgerPayload,
+        { runValidators: true },
+      );
+    } else {
+      await MarginLedger.create(ledgerPayload);
+    }
   } catch (err) {
     // Non-fatal: just log — don't block booking confirmation
     console.error("recordBookingMarginLedger error:", err);

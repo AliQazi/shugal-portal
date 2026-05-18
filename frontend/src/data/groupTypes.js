@@ -6,9 +6,9 @@ export const groupTypes = [
         ownGroupType: ''
     },
     {
-        label: 'Umrah Makkah & Madina',
+        label: 'Umrah Packages',
         value: 'UMRAH GROUP',
-        path: 'all-groups?group_type=UMRAH GROUP',
+        path: 'umrah-packages',
         ownGroupType: 'Umrah Groups'
     },
     {

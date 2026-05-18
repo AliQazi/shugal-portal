@@ -44,6 +44,12 @@ import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import ManageSectors from "./pages/ManageSectors/ManageSectors";
 import ApiGroups from "./pages/ApiGroups/ApiGroups";
+import HotelManagement from "./pages/UmrahPackage/HotelManagement";
+import TransportManagement from "./pages/UmrahPackage/TransportManagement";
+import VisaManagement from "./pages/UmrahPackage/VisaManagement";
+import UmrahPackageList from "./pages/UmrahPackage/UmrahPackageList";
+import AddUmrahPackage from "./pages/UmrahPackage/AddUmrahPackage";
+import UmrahPackageBookingsAdmin from "./pages/UmrahPackage/UmrahPackageBookingsAdmin";
 
 export default function App() {
   return (
@@ -77,6 +83,13 @@ export default function App() {
                 <Route path="/manage-sectors" element={<ManageSectors />} />
                 <Route path="/api-groups" element={<ApiGroups />} />
                 <Route path="/view-accounts" element={<ViewAccounts />} />
+                <Route path="/umrah-hotels" element={<HotelManagement />} />
+                <Route path="/umrah-transport" element={<TransportManagement />} />
+                <Route path="/umrah-visa" element={<VisaManagement />} />
+                <Route path="/umrah-packages" element={<UmrahPackageList />} />
+                <Route path="/umrah-packages/create" element={<AddUmrahPackage />} />
+                <Route path="/umrah-packages/edit/:id" element={<AddUmrahPackage />} />
+                <Route path="/umrah-package-bookings" element={<UmrahPackageBookingsAdmin />} />
                 <Route path="/ledger/:id" element={<Ledger />} />
                 <Route path="/bank-ledger" element={<BankLedger />} />
 
