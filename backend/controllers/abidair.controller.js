@@ -36,10 +36,33 @@ export const getAbidAirTypeFilters = (category) => {
   return filters[key] ?? null;
 };
 
-const formatDate = (value) => {
+const parseDateValue = (value) => {
   if (!value) return null;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().split("T")[0];
+
+  const dateString = String(value).trim();
+  const exactMatch = dateString.match(/^(\d{1,2})-([A-Za-z]+)-(\d{4})$/);
+  if (exactMatch) {
+    const day = Number(exactMatch[1]);
+    const monthName = exactMatch[2].slice(0, 3).toLowerCase();
+    const year = Number(exactMatch[3]);
+    const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+    const month = monthNames.indexOf(monthName);
+    if (month >= 0 && !Number.isNaN(day) && !Number.isNaN(year)) {
+      return new Date(year, month, day);
+    }
+  }
+
+  const parsed = new Date(dateString);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatDate = (value) => {
+  const parsed = parseDateValue(value);
+  if (!parsed) return null;
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
 const formatTime = (value) => {
@@ -100,14 +123,16 @@ const normalizeFlightDetail = (detail, fallbackDepDate = null) => {
 };
 
 const normalizeAbidAirGroup = (group) => {
-  const fd = group?.flight_details || {};
-  const route = group?.route || {};
-  const time = group?.time || {};
+  const payload = group?.flight || group;
+  const fd = payload?.flight_details || payload?.flightDetails || payload?.flight_detail || {};
+  const route = payload?.route || {};
+  const time = payload?.time || {};
 
+  const id = String(group?.package_id || group?.id || group?.packageId || group?.PackageId || payload?.id || "");
   const depDate = formatDate(time?.departure?.date);
   const arvDate = formatDate(time?.arrival?.date);
 
-  const sector = fd?.sector || "";
+  const sector = fd?.sector || route?.sector || "";
 
   const [sectorOrigin, sectorDestination] = sector.includes("-")
     ? sector.split("-").map((v) => v.trim())
@@ -162,11 +187,15 @@ const normalizeAbidAirGroup = (group) => {
   }
 
   return {
-    id: String(group?.id || ""),
+    id,
+    packageId: id,
     source: "abidairtravel",
     isOwnGroup: false,
 
-    groupName: fd?.type || null,
+    groupName: String(group?.package_name || payload?.package_name || fd?.type || group?.groupName || "") || null,
+    packageName: String(group?.package_name || payload?.package_name || fd?.type || group?.groupName || "") || null,
+    hotels: group?.hotels || payload?.hotels || null,
+    rates: group?.rates || payload?.rates || null,
 
     sector:
       sector ||
@@ -187,9 +216,10 @@ const normalizeAbidAirGroup = (group) => {
 
     showSeat: true,
 
-    price: Number(fd?.sale_price || 0),
-    childPrice: 0,
-    infantPrice: 0,
+    price: Number(group?.rates?.sharing || fd?.sale_price || 0),
+    flightPrice: Number(fd?.sale_price || 0),
+    childPrice: Number(group?.rates?.child_without_bed || 0),
+    infantPrice: Number(group?.rates?.infant || 0),
 
     pnr: fd?.pnr || "",
 
@@ -216,36 +246,62 @@ export const fetchNormalisedAbidAirGroups = async () => {
   }
 
   const cleanBaseURL = baseURL.replace(/\/+$/, "");
+  const candidates = [`${cleanBaseURL}/flight/active`, `${cleanBaseURL}/packages/active`];
+  if (!/\/api$/i.test(cleanBaseURL)) {
+    candidates.push(`${cleanBaseURL}/api/packages/active`);
+  }
 
-//   console.log("ABID AIR URL:", `${cleanBaseURL}/flight/active`);
-//   console.log("ABID AIR TOKEN EXISTS:", !!token);
+  const rawGroupArrays = [];
+  let lastError = null;
 
-  const response = await axios.get(`${cleanBaseURL}/flight/active`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
+  await Promise.allSettled(
+    candidates.map((url) =>
+      axios.get(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+      })
+    )
+  ).then((results) => {
+    results.forEach((result) => {
+      if (result.status === "fulfilled") {
+        const response = result.value;
+        const resultData = response.data;
+        const rawGroups = Array.isArray(resultData)
+          ? resultData
+          : resultData?.data ||
+            resultData?.flights ||
+            resultData?.groups ||
+            resultData?.result ||
+            resultData?.items || [];
+
+        if (Array.isArray(rawGroups) && rawGroups.length > 0) {
+          rawGroupArrays.push(...rawGroups);
+        }
+      } else {
+        lastError = result.reason || lastError;
+      }
+    });
   });
 
-//   console.log("ABID AIR RAW RESPONSE:", response.data);
+  if (rawGroupArrays.length === 0) {
+    if (lastError) {
+      throw lastError;
+    }
+    return [];
+  }
 
-  const payload = response.data;
+  const normalizedGroups = rawGroupArrays
+    .map(normalizeAbidAirGroup)
+    .filter((group) => group.id);
 
-  const rawGroups = Array.isArray(payload)
-    ? payload
-    : payload?.data ||
-      payload?.flights ||
-      payload?.groups ||
-      payload?.result ||
-      payload?.items || 
-      [];
+  const uniqueGroups = Array.from(
+    new Map(normalizedGroups.map((group) => [group.id, group])).values()
+  );
 
-//   console.log("ABID AIR RAW GROUPS COUNT:", rawGroups.length);
-
-return rawGroups
-  .map(normalizeAbidAirGroup)
-  .filter((group) => group.id);
+  return uniqueGroups;
 };
 export const getAvailableAbidAirBookingsByGroup = async (req, res) => {
   try {

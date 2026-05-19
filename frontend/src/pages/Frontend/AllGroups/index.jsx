@@ -31,6 +31,15 @@ const getCategoryFromGroup = (group = {}) => {
   return TYPE_TO_CATEGORY[type] || "";
 };
 
+const isUmrahPackageGroup = (group = {}) =>
+  Boolean(
+    group?.packageName ||
+    group?.hotels ||
+    group?.rates ||
+    group?.packageId ||
+    group?.package_id,
+  );
+
 const getSectorStops = (sector = "") =>
   String(sector)
     .split("-")
@@ -525,18 +534,25 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         fetchedGroups = fetchedGroups.filter((g) => {
           if (g.isOwnGroup) {
             if (!gtEntry?.ownGroupType) return true;
-            if (g.type !== gtEntry.ownGroupType) return false;
+            if (g.type !== gtEntry?.ownGroupType) return false;
 
             // All own Umrah groups show ONLY under "Umrah Tickets" tab
             if (gtEntry.ownGroupType === "Umrah Groups") {
-              if (groupType === "Umrah Tickets") return true;
-              if (groupType === "UMRAH GROUP") return false;
+              return groupType === "Umrah Tickets";
             }
 
             return true;
           }
-          // "Umrah Tickets" tab should also show API groups typed "UMRAH GROUP"
-          if (groupType === "Umrah Tickets" && g.type === "UMRAH GROUP") return true;
+
+          if (groupType === "Umrah Tickets") {
+            if (g.type === "UMRAH GROUP" && !isUmrahPackageGroup(g)) return true;
+            return g.type === groupType;
+          }
+
+          if (groupType === "UMRAH GROUP") {
+            return g.type === "UMRAH GROUP" && isUmrahPackageGroup(g);
+          }
+
           return g.type === groupType;
         });
       }

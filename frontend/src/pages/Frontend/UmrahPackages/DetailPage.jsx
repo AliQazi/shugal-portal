@@ -4,6 +4,31 @@ import { FaCar, FaBus, FaPlaneDeparture, FaHotel, FaCheckCircle, FaMapMarkerAlt,
 import { Ticket, ClipboardCheck, Info } from "lucide-react";
 
 const GRADIENT = "linear-gradient(135deg, #1a2a4a 0%, #1a4a4a 100%)";
+
+const getStoredPackageGroup = (search) => {
+  try {
+    const params = new URLSearchParams(search);
+    const key = params.get("pkg");
+    if (!key) return null;
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+
+const getPackageStorageKey = (pkg) => {
+  const id = pkg?.package_id || pkg?.packageId || pkg?.id || pkg?._id || pkg?.flight?.id || pkg?.flight?.flight_details?.pnr || pkg?.packageName || "package";
+  return `umrahPackageDetail_${String(id).replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+};
+
+const getHotelsArray = (hotels) => {
+  if (Array.isArray(hotels)) return hotels;
+  if (!hotels || typeof hotels !== "object") return [];
+  return Object.values(hotels).filter(Boolean);
+};
+
 const PRIMARY = "#21397C";
 const SUCCESS = "#22c55e";
 
@@ -220,18 +245,41 @@ function TransportPill({ transport }) {
 
 // ─────────── MAIN DETAIL PAGE ───────────
 export default function DetailPage({ user }) {
-  const { state } = useLocation();
+  const location = useLocation();
   const navigate = useNavigate();
-  const group = state?.group;
+  const groupFromState = location.state?.group;
+  const groupFromStorage = getStoredPackageGroup(location.search);
+  const group = groupFromState || groupFromStorage;
 
   const [selectedRoom, setSelectedRoom] = useState(() => {
-    const rooms = state?.group?.rooms || {};
+    const rooms = group?.rooms || {};
     return (
       Object.keys(rooms).find((k) => rooms[k] !== null && rooms[k] !== undefined && rooms[k] !== 0) ||
       Object.keys(rooms)[0] ||
       "sharing"
     );
   });
+
+  const packageFlights = group?.flights?.length > 0
+    ? group.flights
+    : Array.isArray(group?.details)
+      ? group.details.map((detail) => ({
+          flightNo: detail.flight_no || detail.flightNo || detail.flight_number || "",
+          airline: group.airline?.airline_name || group.airline?.short_name || detail.airline || "",
+          pnr: group.pnr || detail.pnr || "",
+          sale_price: Number(group.price || group.flightPrice || detail.sale_price || 0),
+          sectorFrom: detail.origin || detail.from || "",
+          sectorTo: detail.destination || detail.to || "",
+          depDate: detail.dep_date || detail.flight_date || detail.date ? new Date(detail.dep_date || detail.flight_date || detail.date) : null,
+          depTime: detail.dept_time || detail.dep_time || detail.departure_time || "",
+          arrDate: detail.arv_date || detail.arr_date || detail.arrival_date ? new Date(detail.arv_date || detail.arr_date || detail.arrival_date) : null,
+          arrTime: detail.arv_time || detail.arr_time || detail.arrival_time || "",
+          baggage: detail.baggage || detail.baggage_allowance || group.baggage || "",
+          meal: detail.meal || detail.meals || group.meal || "",
+          origin: detail.origin || detail.from || "",
+          destination: detail.destination || detail.to || "",
+        }))
+      : [];
 
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
 
@@ -258,7 +306,8 @@ export default function DetailPage({ user }) {
 
   // Group hotels by city
   const hotelsByCity = {};
-  (group.hotels || []).forEach((hotel) => {
+  const hotelsList = getHotelsArray(group.hotels);
+  hotelsList.forEach((hotel) => {
     const city = hotel.city || "Other";
     if (!hotelsByCity[city]) hotelsByCity[city] = [];
     hotelsByCity[city].push(hotel);
@@ -321,9 +370,9 @@ export default function DetailPage({ user }) {
               >
                 {group.packageName}
               </h1>
-              {group.flights && group.flights.length > 0 && (
+              {packageFlights.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  {group.flights.map((fl, i) => (
+                  {packageFlights.map((fl, i) => (
                     <div key={i} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.88rem", opacity: 0.9 }}>
                       <FaPlaneDeparture size={13} />
                       <span>
@@ -353,7 +402,7 @@ export default function DetailPage({ user }) {
                 </span>
               )}
               {(() => {
-                const ns = (group.hotels || []).map((h) => h.nights || 0).filter((n) => n > 0);
+                const ns = getHotelsArray(group.hotels).map((h) => h.nights || 0).filter((n) => n > 0);
                 return ns.length > 0 ? (
                   <span style={{ background: "rgba(255,255,255,0.18)", padding: "6px 14px", borderRadius: "999px", fontSize: "0.8rem", fontWeight: 700 }}>
                     🌙 {ns.join("+")} NIGHTS
@@ -411,13 +460,13 @@ export default function DetailPage({ user }) {
             <IncludesCard />
 
             {/* Transport */}
-            {group.transport && group.transport.length > 0 && (
+            {(group.transport || group.transports) && (group.transport || group.transports).length > 0 && (
               <div style={cardStyle}>
                 <h3 style={{ ...cardTitleStyle, display: "flex", alignItems: "center", gap: "10px" }}>
                   <FaBus size={16} /> Transport Details
                 </h3>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                  {group.transport.map((item, i) => (
+                  {(group.transport || group.transports).map((item, i) => (
                     <TransportPill key={i} transport={item} />
                   ))}
                 </div>
@@ -431,10 +480,10 @@ export default function DetailPage({ user }) {
             style={{ position: isMobile ? "static" : "sticky", top: "20px", display: "flex", flexDirection: "column", gap: "24px" }}
           >
             {/* Flight Schedule */}
-            {group.flights && group.flights.length > 0 && (
+            {packageFlights.length > 0 && (
               <div style={cardStyle}>
                 <h3 style={cardTitleStyle}>✈ Flight Schedule</h3>
-                {group.flights.map((flight, i) => (
+                {packageFlights.map((flight, i) => (
                   <React.Fragment key={i}>
                     {i > 0 && <div style={{ height: "1px", background: "#edf2f7", margin: "15px 0" }} />}
                     <FlightInfo
@@ -518,15 +567,21 @@ export default function DetailPage({ user }) {
                 </button>
                 <button
                   disabled={!currentPrice}
-                  onClick={() =>
-                    navigate("/dashboard/umrah-packages/book", {
+                  onClick={() => {
+                    const key = getPackageStorageKey(group);
+                    try {
+                      sessionStorage.setItem(key, JSON.stringify(group));
+                    } catch (err) {
+                      console.warn("Failed to persist booking package state", err);
+                    }
+                    navigate(`/dashboard/umrah-packages/book?pkg=${encodeURIComponent(key)}`, {
                       state: {
                         packageData: group,
                         selectedRoom,
                         pricePerPerson: currentPrice,
                       },
-                    })
-                  }
+                    });
+                  }}
                   style={{ ...priBtn, opacity: currentPrice ? 1 : 0.5, cursor: currentPrice ? "pointer" : "not-allowed" }}
                 >
                   Book Now

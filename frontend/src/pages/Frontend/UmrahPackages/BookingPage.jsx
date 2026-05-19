@@ -22,6 +22,25 @@ import { createUmrahBooking } from "../../../api/umrahBookingApi";
 import { parseMRZ } from "../../../utils/parseMRZ";
 import { toast } from "react-toastify";
 
+const getStoredBookingPackage = (search) => {
+  try {
+    const params = new URLSearchParams(search);
+    const key = params.get("pkg");
+    if (!key) return null;
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+
+const getHotelsArray = (hotels) => {
+  if (Array.isArray(hotels)) return hotels;
+  if (!hotels || typeof hotels !== "object") return [];
+  return Object.values(hotels).filter(Boolean);
+};
+
 const formatDate = (dateStr) => {
   if (!dateStr) return "N/A";
   const d = new Date(dateStr);
@@ -65,11 +84,11 @@ const mkChild  = () => ({ type: "Child",  title: "Child", givenName: "", surName
 const mkInfant = () => ({ type: "Infant", title: "INF",   givenName: "", surName: "", passport: "", dateOfBirth: "", passportExpiry: "", nationality: "Pakistan", passportFile: null, passportFileName: "" });
 
 export default function UmrahBookingPage({ user }) {
-  const { state } = useLocation();
+  const location = useLocation();
   const navigate = useNavigate();
-  const packageData  = state?.packageData;
-  const selectedRoom = state?.selectedRoom;   
-  const pricePerPerson = state?.pricePerPerson;
+  const packageData  = location.state?.packageData || getStoredBookingPackage(location.search);
+  const selectedRoom = location.state?.selectedRoom || "sharing";   
+  const pricePerPerson = location.state?.pricePerPerson || 0;
 
   const [loading, setLoading] = useState(false);
   const [mrzModal, setMrzModal] = useState({ open: false, index: null, type: "adult" });
@@ -301,11 +320,11 @@ export default function UmrahBookingPage({ user }) {
   }
 
   const flights       = packageData?.flights || [];
-  const hotels        = packageData?.hotels  || [];
+  const hotels        = getHotelsArray(packageData?.hotels);
   const pkgName       = packageData?.packageName || "Umrah Package";
 
   const hotelsByCity  = {};
-  (hotels || []).forEach((h) => { const c = h?.city || "Other"; if (!hotelsByCity[c]) hotelsByCity[c] = []; hotelsByCity[c].push(h); });
+  hotels.forEach((h) => { const c = h?.city || "Other"; if (!hotelsByCity[c]) hotelsByCity[c] = []; hotelsByCity[c].push(h); });
 
   return (
     <div style={{ backgroundColor: "#f4f7fe", minHeight: "100vh", padding: "30px 20px", fontFamily: "Inter, system-ui, sans-serif" }}>

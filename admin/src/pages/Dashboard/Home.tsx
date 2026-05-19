@@ -76,11 +76,18 @@ const DASHBOARD_CATEGORIES = [
     badgeClass: "bg-violet-50 text-violet-700 border-violet-100",
   },
   {
-    title: "Umrah Ticket",
-    description: "Fetch Umrah group bookings.",
-    category: "umrah",
+    title: "Umrah Tickets",
+    description: "Fetch Umrah ticket bookings.",
+    category: "umrah-tickets",
     accentClass: "from-rose-500 to-red-600",
     badgeClass: "bg-rose-50 text-rose-700 border-rose-100",
+  },
+  {
+    title: "Umrah Packages",
+    description: "Fetch Umrah package bookings.",
+    category: "umrah-packages",
+    accentClass: "from-fuchsia-500 to-fuchsia-600",
+    badgeClass: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100",
   },
   {
     title: "UK",

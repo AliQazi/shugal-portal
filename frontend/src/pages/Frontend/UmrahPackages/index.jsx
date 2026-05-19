@@ -12,11 +12,13 @@ const MONTHS_TITLE = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "S
 
 // Colors updated to match the reference image's pastel borders
 const ROOM_STYLES = {
-  sharing: { bg: "#e8f4fd", text: "#1565c0", border: "#90caf9" },
-  quint: { bg: "#fce4ec", text: "#b0125a", border: "#f48fb1" },
-  quad: { bg: "#f3e5f5", text: "#6a1b9a", border: "#ce93d8" },
-  triple: { bg: "#e8f5e9", text: "#2e7d32", border: "#a5d6a7" },
-  double: { bg: "#fff8e1", text: "#e65100", border: "#ffcc80" },
+  sharing: { bg: "#e8f4fd", text: "#1565c0", border: "#90caf9", label: "Sharing" },
+  quint: { bg: "#fce4ec", text: "#b0125a", border: "#f48fb1", label: "Quint" },
+  quad: { bg: "#f3e5f5", text: "#6a1b9a", border: "#ce93d8", label: "Quad" },
+  triple: { bg: "#e8f5e9", text: "#2e7d32", border: "#a5d6a7", label: "Triple" },
+  double: { bg: "#fff8e1", text: "#e65100", border: "#ffcc80", label: "Double" },
+  child_without_bed: { bg: "#fff1f8", text: "#ad1457", border: "#f8bbd0", label: "Child (No Bed)" },
+  infant: { bg: "#e0f2fe", text: "#0c4a6e", border: "#bae6fd", label: "Infant" },
 };
 
 export default function UmrahPackages({ user }) {
@@ -32,27 +34,323 @@ export default function UmrahPackages({ user }) {
 
   const primaryColor = theme?.colors?.primary || "#1e3a8a";
 
+  const getPackageStorageKey = (pkg) => {
+    const id = pkg?.package_id || pkg?.packageId || pkg?.id || pkg?._id || pkg?.flight?.id || pkg?.flight?.flight_details?.pnr || pkg?.packageName || "package";
+    return `umrahPackageDetail_${String(id).replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+  };
+
   useEffect(() => { fetchPackages(); }, []);
+
+  const isAbidAirPackage = (pkg) =>
+    Boolean(
+      pkg?.package_name ||
+      pkg?.packageName ||
+      pkg?.packageId ||
+      pkg?.package_id ||
+      pkg?.flight,
+    );
+
+  const isAbidAirUmrahPackage = (pkg) => {
+    const source = String(pkg?.source || "").toLowerCase();
+    const isAbidAirSource = source === "abidairtravel";
+    const hasPackageId = Boolean(pkg?.package_id || pkg?.packageId);
+    const hasPackageName = Boolean(pkg?.package_name || pkg?.packageName || pkg?.groupName);
+    const hasHotels = Boolean(pkg?.hotels || pkg?.hotel);
+    const hasRates = Boolean(pkg?.rates || pkg?.rate || pkg?.packageRates || pkg?.package_rates);
+    const isFlightPackageType = String(pkg?.flight?.flight_details?.type || "").toUpperCase().trim() === "UMRAH GROUPS";
+    const hasPackageStructure = (hasPackageId || hasPackageName || hasHotels) && hasRates;
+    return Boolean(isAbidAirSource && (hasPackageStructure || isFlightPackageType));
+  };
+
+  const isManualUmrahPackage = (pkg) =>
+    Boolean(
+      pkg?.packageName &&
+      (Array.isArray(pkg?.hotels) && pkg.hotels.length > 0) &&
+      pkg?.roomTypes,
+    );
+
+  const parsePackageHotels = (pkg) => {
+    if (!pkg) return null;
+
+    const normalizeHotelArray = (list) => {
+      return list.reduce((acc, hotel) => {
+        if (!hotel || !hotel.city) return acc;
+        const cityKey = String(hotel.city).trim().toLowerCase();
+        if (!cityKey) return acc;
+        acc[cityKey] = {
+          hotelName: hotel.hotelName || hotel.name || hotel.hotel || "",
+          distance: hotel.distance || hotel.distanceFromHaram || hotel.distanceKm || 0,
+          rating: hotel.rating || 0,
+          supplier: hotel.supplier || "",
+          city: hotel.city,
+          checkIn: hotel.checkIn || hotel.check_in || "",
+          checkOut: hotel.checkOut || hotel.check_out || "",
+          nights: hotel.nights || 0,
+          mapUrl: hotel.mapUrl || hotel.map_url || "",
+        };
+        return acc;
+      }, {});
+    };
+
+    if (Array.isArray(pkg.hotels)) return normalizeHotelArray(pkg.hotels);
+    if (Array.isArray(pkg.hotel)) return normalizeHotelArray(pkg.hotel);
+    if (pkg.hotels && typeof pkg.hotels === "object") return pkg.hotels;
+    if (pkg.hotel && typeof pkg.hotel === "object") return pkg.hotel;
+    return null;
+  };
+
+  const parsePackageRates = (pkg) => {
+    const normalizedRates = {
+      sharing: 0,
+      quint: 0,
+      quad: 0,
+      triple: 0,
+      double: 0,
+      child_without_bed: 0,
+      infant: 0,
+    };
+
+    if (!pkg || typeof pkg !== "object") return normalizedRates;
+
+    const rawRates =
+      pkg.rates ||
+      pkg.rate ||
+      pkg.packageRates ||
+      pkg.package_rates ||
+      pkg.rooms ||
+      pkg.roomTypes ||
+      pkg.room_rates ||
+      pkg.flight?.rates ||
+      pkg.package?.rates ||
+      {};
+
+    const normalizeKey = (key) => String(key || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
+    const assign = (key, value) => {
+      const amount = Number(value);
+      if (!Number.isNaN(amount) && amount > 0) {
+        normalizedRates[key] = amount;
+      }
+    };
+
+    const hydrateFromObject = (obj) => {
+      Object.entries(obj).forEach(([rawKey, rawValue]) => {
+        const key = normalizeKey(rawKey);
+        if (rawValue && typeof rawValue === "object") {
+          if ("price" in rawValue || "rate" in rawValue || "amount" in rawValue || "value" in rawValue) {
+            assign(key, rawValue.price ?? rawValue.rate ?? rawValue.amount ?? rawValue.value);
+          }
+          return;
+        }
+
+        if (key.includes("sharing") || key.includes("share")) assign("sharing", rawValue);
+        else if (key.includes("quint")) assign("quint", rawValue);
+        else if (key.includes("quad")) assign("quad", rawValue);
+        else if (key.includes("triple") || key.includes("tpl")) assign("triple", rawValue);
+        else if (key.includes("double") || key === "dbl") assign("double", rawValue);
+        else if (key.includes("child") || key.includes("without_bed")) assign("child_without_bed", rawValue);
+        else if (key.includes("infant") || key.includes("baby")) assign("infant", rawValue);
+      });
+    };
+
+    if (Array.isArray(rawRates)) {
+      rawRates.forEach((entry) => {
+        if (entry && typeof entry === "object") {
+          const key = normalizeKey(entry.type || entry.name || entry.room_type || entry.rate_type || entry.category || "");
+          const value = entry.price ?? entry.rate ?? entry.amount ?? entry.value ?? entry.value;
+          if (key) {
+            hydrateFromObject({ [key]: value });
+          }
+        }
+      });
+    } else {
+      hydrateFromObject(rawRates);
+    }
+
+    const fallback = (key, ...values) => {
+      if (normalizedRates[key]) return;
+      for (const value of values) {
+        if (value === undefined || value === null) continue;
+        const amount = Number(value);
+        if (!Number.isNaN(amount) && amount > 0) {
+          normalizedRates[key] = amount;
+          break;
+        }
+      }
+    };
+
+    fallback("sharing", pkg.price, pkg.sharing, pkg.sharing_price, pkg.share);
+    fallback("double", pkg.doublePrice, pkg.double_price, pkg.dbl, pkg.double);
+    fallback("triple", pkg.triplePrice, pkg.triple_price, pkg.triple, pkg.tpl);
+    fallback("quad", pkg.quadPrice, pkg.quad_price, pkg.quad);
+    fallback("quint", pkg.quintPrice, pkg.quint_price, pkg.quint);
+    fallback("child_without_bed", pkg.childPrice, pkg.child_price, pkg.child, pkg.child_without_bed);
+    fallback("infant", pkg.infantPrice, pkg.infant_price, pkg.infant, pkg.baby);
+
+    return normalizedRates;
+  };
+
+  const parseFlightDate = (value) => {
+    if (!value) return null;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  const computePackageDuration = (pkg) => {
+    const dep = pkg.dept_date || pkg.details?.[0]?.dep_date || pkg.details?.[0]?.flight_date || pkg.details?.[0]?.date || null;
+    const arv = pkg.arv_date || pkg.details?.[pkg.details.length - 1]?.arv_date || pkg.details?.[pkg.details.length - 1]?.flight_date || pkg.details?.[pkg.details.length - 1]?.date || null;
+    const depDate = parseFlightDate(dep);
+    const arvDate = parseFlightDate(arv);
+    if (depDate && arvDate) {
+      const days = Math.round((arvDate.getTime() - depDate.getTime()) / (1000 * 60 * 60 * 24));
+      return days > 0 ? days : 0;
+    }
+    return 0;
+  };
+
+  const buildFlightLegs = (pkg) => {
+    const details = Array.isArray(pkg.details) && pkg.details.length > 0 ? pkg.details : null;
+    if (details) {
+      return details.map((detail) => ({
+        flightNo: detail.flight_no || detail.flightNo || detail.flight_number || "",
+        airline: pkg.airline?.airline_name || pkg.airline?.short_name || detail.airline || "",
+        pnr: pkg.pnr || detail.pnr || "",
+        sale_price: Number(pkg.price || pkg.flightPrice || detail.sale_price || 0),
+        sectorFrom: detail.origin || detail.from || "",
+        sectorTo: detail.destination || detail.to || "",
+        depDate: parseFlightDate(detail.dep_date || detail.flight_date || detail.date) || null,
+        depTime: detail.dept_time || detail.dep_time || detail.departure_time || "",
+        arvDate: parseFlightDate(detail.arv_date || detail.arr_date || detail.arrival_date || null) || null,
+        arvTime: detail.arv_time || detail.arr_time || detail.arrival_time || "",
+        baggage: detail.baggage || detail.baggage_allowance || pkg.baggage || "",
+        meal: detail.meal || detail.meals || pkg.meal || "",
+        origin: detail.origin || detail.from || "",
+        destination: detail.destination || detail.to || "",
+      }));
+    }
+
+    const flight = pkg.flight || {};
+    const flightDetails = flight.flight_details || {};
+    const route = flight.route || {};
+    const time = flight.time || {};
+
+    const hasFlightDetails =
+      flightDetails.flight_number ||
+      route.origin ||
+      route.destination ||
+      time.departure?.date ||
+      time.arrival?.date;
+
+    if (!hasFlightDetails) return [];
+
+    const departureDate = time.departure?.date || null;
+    const arrivalDate = time.arrival?.date || null;
+
+    const firstLeg = {
+      flightNo: flightDetails.flight_number || "",
+      airline: flightDetails.airline || "",
+      pnr: flightDetails.pnr || "",
+      sale_price: Number(flightDetails.sale_price || 0),
+      sectorFrom: route.origin || "",
+      sectorTo: route.destination || "",
+      depDate: parseFlightDate(departureDate),
+      depTime: time.departure?.time || "",
+      arvDate: parseFlightDate(arrivalDate),
+      arvTime: time.arrival?.time || "",
+      baggage: flightDetails.baggage || route.baggage || "",
+      meal: flightDetails.meal || "",
+      origin: route.origin || "",
+      destination: route.destination || "",
+    };
+
+    const flights = [firstLeg];
+
+    if (route.is_return || route.return || time.return) {
+      flights.push({
+        flightNo: route.return?.flight_number || "",
+        airline: flightDetails.airline || "",
+        pnr: flightDetails.pnr || "",
+        sale_price: Number(flightDetails.sale_price || 0),
+        sectorFrom: route.return?.departure || route.destination || "",
+        sectorTo: route.return?.arrival || route.origin || "",
+        depDate: parseFlightDate(time.return?.departure?.date),
+        depTime: time.return?.departure?.time || "",
+        arvDate: parseFlightDate(time.return?.arrival?.date),
+        arvTime: time.return?.arrival?.time || "",
+        baggage: route.baggage || flightDetails.baggage || "",
+        meal: route.return?.return_meal || flightDetails.meal || "",
+        origin: route.return?.departure || route.destination || "",
+        destination: route.return?.arrival || route.origin || "",
+      });
+    }
+
+    return flights;
+  };
 
   const fetchPackages = async () => {
     try {
       setLoading(true);
-      const res = await axiosInstance.get("/umrah-packages");
-      const fetched = res.data?.data || [];
-      const formatted = fetched.map(pkg => ({
-        ...pkg,
-        id: pkg._id,
-        airlineName: pkg.airlineName || pkg.umrahGroupTicket?.flights?.[0]?.airline || "Airline",
-        sector: `${pkg.umrahGroupTicket?.flights?.[0]?.sectorFrom || ""}-${pkg.umrahGroupTicket?.flights?.[0]?.sectorTo || ""}`.toUpperCase(),
-        flights: pkg.umrahGroupTicket?.flights || pkg.flights || [],
-        rooms: pkg.roomTypes || {},
-        dept_date: pkg.umrahGroupTicket?.flights?.[0]?.depDate ? new Date(pkg.umrahGroupTicket.flights[0].depDate) : null
-      }));
-      setAirlines([...new Set(formatted.map(g => g.airlineName))].filter(Boolean).sort());
-      setSectors([...new Set(formatted.map(g => g.sector))].filter(Boolean).sort());
+      const [apiGroups, manualPackages] = await Promise.allSettled([
+        axiosInstance.get("/abidair/available-bookings-by-group"),
+        axiosInstance.get("/umrah-packages"),
+      ]);
+
+      const abidairData =
+        apiGroups.status === "fulfilled" ? apiGroups.value.data?.data || [] : [];
+      const manualData =
+        manualPackages.status === "fulfilled" ? manualPackages.value.data?.data || [] : [];
+
+      const apiPackages = (Array.isArray(abidairData) ? abidairData : []).filter(isAbidAirUmrahPackage);
+      const manualPackagesList = (Array.isArray(manualData) ? manualData : []).filter(isManualUmrahPackage);
+      const packagesData = [...apiPackages, ...manualPackagesList];
+
+      const uniquePackages = new Map();
+      packagesData.forEach((pkg) => {
+        const id = String(pkg.package_id || pkg.packageId || pkg.id || pkg._id || pkg.flight?.id || pkg.flight?.flight_details?.pnr || pkg.packageName || Math.random());
+        const src = String(pkg.source || pkg.packageSource || (pkg.flight ? "abidairtravel" : "manual")).toLowerCase();
+        const key = `${src}-${id}`;
+        if (!uniquePackages.has(key)) uniquePackages.set(key, pkg);
+      });
+
+      const formatted = Array.from(uniquePackages.values()).map((pkg) => {
+        const packageName = pkg.package_name || pkg.packageName || pkg.groupName || pkg.flight?.type || "Umrah Package";
+        const airlineName = pkg.flight?.flight_details?.airline || pkg.airline?.airline_name || pkg.airline?.short_name || "Airline";
+        const hotels = parsePackageHotels(pkg);
+        const rates = parsePackageRates(pkg);
+        const flights = buildFlightLegs(pkg);
+        const sector = `${flights[0]?.sectorFrom || ""}-${flights[0]?.sectorTo || ""}`.toUpperCase();
+        const duration =  21;
+        const hotelNights =
+          pkg.nightCount ||
+          pkg.hotelNights ||
+          (Array.isArray(pkg.hotels)
+            ? pkg.hotels.map((h) => h.nights || 0).filter(Boolean).join("+")
+            : Object.values(hotels || {}).map((h) => h.nights || 0).filter(Boolean).join("+"));
+
+        return {
+          ...pkg,
+          hotelNights,
+          id: pkg.package_id || pkg.packageId || pkg.id || pkg._id || `${packageName}-${Math.random()}`,
+          packageName,
+          airlineName,
+          sector,
+          flights,
+          rooms: rates,
+          hotels,
+          packageDuration: duration,
+          availablePackages: pkg.available_no_of_pax || pkg.availablePackages || pkg.availableSeats || 0,
+          dept_date: flights[0]?.depDate || null,
+        };
+      });
+
+      setAirlines([...new Set(formatted.map((g) => g.airlineName))].filter(Boolean).sort());
+      setSectors([...new Set(formatted.map((g) => g.sector))].filter(Boolean).sort());
       setPackages(formatted);
-    } catch (err) { toast.error("Failed to load packages"); }
-    finally { setLoading(false); }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load packages");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredPackages = packages.filter(pkg => {
@@ -68,7 +366,7 @@ export default function UmrahPackages({ user }) {
     <div className="min-h-screen bg-[#f1f5f9]">
       <TopBar title="Umrah Packages" icon={<Package className="text-white w-6 h-6" />} />
 
-      <div className="max-w-[1400px] mx-auto p-4">
+      <div className="max-w-350 mx-auto p-4">
         {/* Toolbar same as before */}
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col lg:flex-row justify-between items-center gap-4 mb-6">
           <div className="flex items-center gap-4 w-full lg:w-auto">
@@ -105,26 +403,26 @@ export default function UmrahPackages({ user }) {
 
           <main className="flex-1 space-y-4">
             {filteredPackages.map((pkg, idx) => {
-              const makkah = pkg.hotels?.find(h => /makkah|mecca/i.test(h.city || h.hotelName)) || pkg.hotels?.[0];
-              const madinah = pkg.hotels?.find(h => /madin|medina/i.test(h.city || h.hotelName)) || pkg.hotels?.[1];
+              const makkah = pkg.hotels?.makkah || pkg.hotels?.Makkah || null;
+              const madinah = pkg.hotels?.madina || pkg.hotels?.Madina || null;
 
               return (
                 <div key={pkg.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden transition-all hover:shadow-md">
                   
                   {/* HEADER - MATCHING IMAGE GRADIENT */}
-                  <header className="px-5 py-2.5 flex flex-col md:flex-row items-center justify-between gap-3 bg-gradient-to-r from-[#1e3a8a] via-[#1e3a8a] to-[#2dd4bf] text-white">
+                  <header className="px-5 py-2.5 flex flex-col md:flex-row items-center justify-between gap-3 bg-linear-to-r from-[#1e3a8a] via-[#1e3a8a] to-[#2dd4bf] text-white">
                     <div className="flex items-center gap-2 font-bold text-[13px] md:text-sm tracking-wide">
                       {idx + 1} <FaStar className="text-orange-400 text-xs" /> {pkg.packageName.toUpperCase()}
                     </div>
                     
                     <div className="flex flex-wrap gap-2">
-                      <div className="bg-white/20 backdrop-blur-sm px-4 py-1 rounded-full border border-white/30 text-[10px] font-bold flex items-center gap-1.5 uppercase">
+                      {/* <div className="bg-white/20 backdrop-blur-sm px-4 py-1 rounded-full border border-white/30 text-[14px] font-bold flex items-center gap-1.5 uppercase">
                         📦 {pkg.packageDuration} Days
+                      </div> */}
+                      <div className="bg-white/20 backdrop-blur-sm px-4 py-1 rounded-full border border-white/30 text-[14px] font-bold flex items-center gap-1.5 uppercase">
+                        🌙 21 Nights 
                       </div>
-                      <div className="bg-white/20 backdrop-blur-sm px-4 py-1 rounded-full border border-white/30 text-[10px] font-bold flex items-center gap-1.5 uppercase">
-                        🌙 {pkg.nightCount || "7+6+7"} Nights
-                      </div>
-                      <div className="bg-white/20 backdrop-blur-sm px-4 py-1 rounded-full border border-white/30 text-[10px] font-bold flex items-center gap-1.5 uppercase">
+                      <div className="bg-white/20 backdrop-blur-sm px-4 py-1 rounded-full border border-white/30 text-[13px] font-bold flex items-center gap-1.5 uppercase">
                         👥 Seats: {pkg.availablePackages || 0}
                       </div>
                     </div>
@@ -162,7 +460,7 @@ export default function UmrahPackages({ user }) {
                   <div className="p-4 flex flex-col lg:flex-row items-center lg:items-start justify-between gap-6 relative">
                     
                     {/* MAKKAH SECTION (Left) */}
-                    <div className="flex flex-col items-center text-center w-[180px] shrink-0">
+                    <div className="flex flex-col items-center text-center w-45 shrink-0">
                       <div className="w-24 h-16 mb-2 overflow-hidden rounded shadow-sm">
                         <img src="https://www.mtctutorials.com/wp-content/uploads/2022/06/Kaaba-High-Quality-PNG-Image-1.png" className="w-full h-full object-contain" alt="Makkah" />
                       </div>
@@ -180,8 +478,8 @@ export default function UmrahPackages({ user }) {
                           const price = pkg.rooms[key];
                           if (!price) return null;
                           return (
-                            <div key={key} style={{ backgroundColor: style.bg, borderColor: style.border }} className="border-2 rounded-lg px-4 py-1.5 min-w-[95px] text-center flex flex-col items-center transition-transform hover:scale-105">
-                              <span className="text-[9px] font-black uppercase mb-0.5 tracking-tighter" style={{ color: style.text }}>{key}</span>
+                            <div key={key} style={{ backgroundColor: style.bg, borderColor: style.border }} className="border-2 rounded-lg px-4 py-1.5 min-w-23.75 text-center flex flex-col items-center transition-transform hover:scale-105">
+                              <span className="text-[9px] font-black uppercase mb-0.5 tracking-tighter" style={{ color: style.text }}>{style.label || key}</span>
                               <span className="text-[12px] font-black whitespace-nowrap" style={{ color: style.text }}>RS {Number(price).toLocaleString()}/-</span>
                             </div>
                           );
@@ -200,7 +498,7 @@ export default function UmrahPackages({ user }) {
                     </div>
 
                     {/* MADINAH & BOOKING SECTION (Right) */}
-                    <div className="flex items-center gap-4 w-[280px] shrink-0 justify-end">
+                    <div className="flex items-center gap-4 w-70 shrink-0 justify-end">
                       <div className="flex flex-col items-center text-center">
                         <div className="w-16 h-12 mb-2">
                            <img src="https://png.pngtree.com/png-clipart/20220616/original/pngtree-prophet-mohammad-madina-or-madinah-nabawi-mosque-masjid-milad-un-nabi-png-image_8081426.png" className="w-full h-full object-contain" alt="Madinah" />
@@ -211,8 +509,16 @@ export default function UmrahPackages({ user }) {
                       </div>
 
                       <button 
-                        onClick={() => navigate("/dashboard/umrah-packages/detail", { state: { group: pkg } })}
-                        className="bg-gradient-to-r from-[#1e40af] to-[#0d9488] hover:from-[#1e3a8a] hover:to-[#0f766e] text-white font-bold py-2.5 px-6 rounded-lg text-sm transition-all shadow-md active:scale-95 whitespace-nowrap"
+                        onClick={() => {
+                          const key = getPackageStorageKey(pkg);
+                          try {
+                            sessionStorage.setItem(key, JSON.stringify(pkg));
+                          } catch (err) {
+                            console.warn("Failed to persist package detail state", err);
+                          }
+                          navigate(`/dashboard/umrah-packages/detail?pkg=${encodeURIComponent(key)}`, { state: { group: pkg } });
+                        }}
+                        className="bg-linear-to-r from-[#1e40af] to-[#0d9488] hover:from-[#1e3a8a] hover:to-[#0f766e] text-white font-bold py-2.5 px-6 rounded-lg text-sm transition-all shadow-md active:scale-95 whitespace-nowrap"
                       >
                         Book Now
                       </button>
