@@ -407,11 +407,11 @@ const PlaneSVG = ({ className = "" }: { className?: string }) => (
   </svg>
 );
 
-const SuitcaseSVG = ({ className = "" }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor" width="1em" height="1em">
-    <path d="M20 7h-3V6a3 3 0 0 0-3-3H10a3 3 0 0 0-3 3v1H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM9 6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1H9V6zm11 14H4V9h16v11z" />
-  </svg>
-);
+// const SuitcaseSVG = ({ className = "" }: { className?: string }) => (
+//   <svg className={className} viewBox="0 0 24 24" fill="currentColor" width="1em" height="1em">
+//     <path d="M20 7h-3V6a3 3 0 0 0-3-3H10a3 3 0 0 0-3 3v1H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM9 6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1H9V6zm11 14H4V9h16v11z" />
+//   </svg>
+// );
 
 const RefreshSVG = ({ className = "" }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} width="1em" height="1em">
