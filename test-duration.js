@@ -1,0 +1,1 @@
+console.log(\" 24 Jun 26 "-, new Date(\24" Jun "26\).toISOString());  ; echo console.log(\15" Jul 26 "-, new Date(\15" Jul "26\).toISOString());  ; echo console.log(\diff\, (new Date(\15" Jul "26\).getTime() - new Date(\24" Jun "26\).getTime())/(1000*60*60*24));  ; node test-duration.js ; del test-duration.js

@@ -204,13 +204,14 @@ const normalizeAbidAirGroup = (group) => {
     type: normalizeAbidAirType(fd?.type, group),
 
     available_no_of_pax: Number(
-      group?.available_no_of_pax ||
-        fd?.available_no_of_pax ||
-        fd?.availableSeats ||
-        fd?.available_seats ||
-        group?.availableSeats ||
-        group?.seats ||
-        group?.available_seats ||
+      group?.available_no_of_pax ??
+        fd?.available_no_of_pax ??
+        fd?.remain_seats ??
+        fd?.availableSeats ??
+        fd?.available_seats ??
+        group?.availableSeats ??
+        group?.seats ??
+        group?.available_seats ??
         1
     ),
 

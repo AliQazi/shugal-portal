@@ -27,9 +27,10 @@ export default function UmrahPackages({ user }) {
   const [loading, setLoading] = useState(true);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(true);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
-  const [filters, setFilters] = useState({ sectors: [], airlines: [], searchKeyword: "", departDate: null });
+  const [filters, setFilters] = useState({ sectors: [], airlines: [], packageNames: [], searchKeyword: "", departDate: null });
   const [airlines, setAirlines] = useState([]);
   const [sectors, setSectors] = useState([]);
+  const [packageNames, setPackageNames] = useState([]);
   const [copiedRow, setCopiedRow] = useState({});
 
   const primaryColor = theme?.colors?.primary || "#1e3a8a";
@@ -228,6 +229,29 @@ export default function UmrahPackages({ user }) {
       }));
     }
 
+    const groupTicketFlights = Array.isArray(pkg.umrahGroupTicket?.flights) && pkg.umrahGroupTicket.flights.length > 0
+      ? pkg.umrahGroupTicket.flights
+      : null;
+
+    if (groupTicketFlights) {
+      return groupTicketFlights.map((detail) => ({
+        flightNo: detail.flightNo || detail.flight_no || detail.flight_number || "",
+        airline: detail.airline || pkg.umrahGroupTicket?.airline || pkg.airline?.airline_name || pkg.airline?.short_name || "",
+        pnr: pkg.umrahGroupTicket?.pnr || pkg.pnr || "",
+        sale_price: Number(pkg.price || pkg.flightPrice || pkg.umrahGroupTicket?.price?.total || 0),
+        sectorFrom: detail.sectorFrom || detail.origin || detail.from || "",
+        sectorTo: detail.sectorTo || detail.destination || detail.to || "",
+        depDate: parseFlightDate(detail.depDate || detail.dep_date || detail.flight_date || detail.date) || null,
+        depTime: detail.depTime || detail.dept_time || detail.dep_time || detail.departure_time || "",
+        arvDate: parseFlightDate(detail.arrDate || detail.arv_date || detail.arr_date || detail.arrival_date || null) || null,
+        arvTime: detail.arrTime || detail.arv_time || detail.arr_time || detail.arrival_time || "",
+        baggage: detail.baggage || detail.baggage_allowance || pkg.baggage || "",
+        meal: detail.meal || detail.meals || pkg.meal || "",
+        origin: detail.sectorFrom || detail.origin || detail.from || "",
+        destination: detail.sectorTo || detail.destination || detail.to || "",
+      }));
+    }
+
     const flight = pkg.flight || {};
     const flightDetails = flight.flight_details || {};
     const route = flight.route || {};
@@ -312,8 +336,8 @@ export default function UmrahPackages({ user }) {
       });
 
       const formatted = Array.from(uniquePackages.values()).map((pkg) => {
-        const packageName = pkg.package_name || pkg.packageName || pkg.groupName || pkg.flight?.type || "Umrah Package";
-        const airlineName = pkg.flight?.flight_details?.airline || pkg.airline?.airline_name || pkg.airline?.short_name || "Airline";
+        const packageName = pkg.package_name || pkg.packageName || pkg.groupName || pkg.umrahGroupTicket?.groupName || pkg.flight?.type || "Umrah Package";
+        const airlineName = pkg.flight?.flight_details?.airline || pkg.umrahGroupTicket?.airline || pkg.airline?.airline_name || pkg.airline?.short_name || "Airline";
         const hotels = parsePackageHotels(pkg);
         const rates = parsePackageRates(pkg);
         const flights = buildFlightLegs(pkg);
@@ -342,8 +366,15 @@ export default function UmrahPackages({ user }) {
         };
       });
 
+      formatted.sort((a, b) => {
+        const aTime = a.dept_date?.getTime() ?? 0;
+        const bTime = b.dept_date?.getTime() ?? 0;
+        return aTime - bTime;
+      });
+
       setAirlines([...new Set(formatted.map((g) => g.airlineName))].filter(Boolean).sort());
       setSectors([...new Set(formatted.map((g) => g.sector))].filter(Boolean).sort());
+      setPackageNames([...new Set(formatted.map((g) => g.packageName))].filter(Boolean).sort());
       setPackages(formatted);
     } catch (err) {
       console.error(err);
@@ -357,6 +388,7 @@ export default function UmrahPackages({ user }) {
     const keyword = filters.searchKeyword.toLowerCase();
     if (filters.airlines.length && !filters.airlines.includes(pkg.airlineName)) return false;
     if (filters.sectors.length && !filters.sectors.includes(pkg.sector)) return false;
+    if (filters.packageNames.length && !filters.packageNames.includes(pkg.packageName)) return false;
     if (keyword && !`${pkg.packageName} ${pkg.airlineName}`.toLowerCase().includes(keyword)) return false;
     if (filters.departDate && pkg.dept_date?.toDateString() !== new Date(filters.departDate).toDateString()) return false;
     return true;
@@ -389,14 +421,36 @@ export default function UmrahPackages({ user }) {
 
         <div className="flex flex-col lg:flex-row gap-6">
           {showAdvancedSearch && (
-            <aside className="hidden lg:block w-64 shrink-0 bg-white p-6 rounded-xl border border-gray-200 h-fit sticky top-6">
-              <h3 className="font-bold text-xs text-gray-400 uppercase mb-4 tracking-widest">Airlines</h3>
-              <div className="space-y-2 mb-6">
-                {airlines.map(a => (
-                  <label key={a} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer hover:text-blue-600">
-                    <input type="checkbox" className="rounded text-blue-600" checked={filters.airlines.includes(a)} onChange={() => setFilters(p => ({ ...p, airlines: p.airlines.includes(a) ? p.airlines.filter(i => i !== a) : [...p.airlines, a] }))} /> {a}
-                  </label>
-                ))}
+            <aside className="hidden lg:block w-64 shrink-0 bg-white p-6 rounded-xl border border-gray-200 h-fit sticky top-24">
+              {/* <div className="mb-6">
+                <h3 className="font-bold text-xs text-gray-400 uppercase mb-4 tracking-widest">Package Names</h3>
+                <div className="space-y-2">
+                  {packageNames.map((name) => (
+                    <label key={name} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer hover:text-blue-600">
+                      <input type="checkbox" className="rounded text-blue-600" checked={filters.packageNames.includes(name)} onChange={() => setFilters(p => ({ ...p, packageNames: p.packageNames.includes(name) ? p.packageNames.filter(i => i !== name) : [...p.packageNames, name] }))} /> {name}
+                    </label>
+                  ))}
+                </div>
+              </div> */}
+              <div className="mb-6">
+                <h3 className="font-bold text-xs text-gray-400 uppercase mb-4 tracking-widest">Airlines</h3>
+                <div className="space-y-2">
+                  {airlines.map(a => (
+                    <label key={a} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer hover:text-blue-600">
+                      <input type="checkbox" className="rounded text-blue-600" checked={filters.airlines.includes(a)} onChange={() => setFilters(p => ({ ...p, airlines: p.airlines.includes(a) ? p.airlines.filter(i => i !== a) : [...p.airlines, a] }))} /> {a}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h3 className="font-bold text-xs text-gray-400 uppercase mb-4 tracking-widest">Sectors</h3>
+                <div className="space-y-2">
+                  {sectors.map((sector) => (
+                    <label key={sector} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer hover:text-blue-600">
+                      <input type="checkbox" className="rounded text-blue-600" checked={filters.sectors.includes(sector)} onChange={() => setFilters(p => ({ ...p, sectors: p.sectors.includes(sector) ? p.sectors.filter(i => i !== sector) : [...p.sectors, sector] }))} /> {sector}
+                    </label>
+                  ))}
+                </div>
               </div>
             </aside>
           )}
@@ -416,11 +470,11 @@ export default function UmrahPackages({ user }) {
                     </div>
                     
                     <div className="flex flex-wrap gap-2">
-                      {/* <div className="bg-white/20 backdrop-blur-sm px-4 py-1 rounded-full border border-white/30 text-[14px] font-bold flex items-center gap-1.5 uppercase">
-                        📦 {pkg.packageDuration} Days
-                      </div> */}
                       <div className="bg-white/20 backdrop-blur-sm px-4 py-1 rounded-full border border-white/30 text-[14px] font-bold flex items-center gap-1.5 uppercase">
-                        🌙 21 Nights 
+                        📦 {pkg.packageDuration} Days
+                      </div>
+                      <div className="bg-white/20 backdrop-blur-sm px-4 py-1 rounded-full border border-white/30 text-[14px] font-bold flex items-center gap-1.5 uppercase">
+                        🌙 {pkg.packageDuration -1 } Nights
                       </div>
                       <div className="bg-white/20 backdrop-blur-sm px-4 py-1 rounded-full border border-white/30 text-[13px] font-bold flex items-center gap-1.5 uppercase">
                         👥 Seats: {pkg.availablePackages || 0}

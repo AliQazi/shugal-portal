@@ -279,7 +279,24 @@ export default function DetailPage({ user }) {
           origin: detail.origin || detail.from || "",
           destination: detail.destination || detail.to || "",
         }))
-      : [];
+      : Array.isArray(group?.umrahGroupTicket?.flights)
+        ? group.umrahGroupTicket.flights.map((detail) => ({
+            flightNo: detail.flightNo || detail.flight_no || detail.flight_number || "",
+            airline: detail.airline || group.umrahGroupTicket?.airline || group.airline?.airline_name || group.airline?.short_name || "",
+            pnr: group.umrahGroupTicket?.pnr || group.pnr || "",
+            sale_price: Number(group.price || group.flightPrice || group.umrahGroupTicket?.price?.total || 0),
+            sectorFrom: detail.sectorFrom || detail.origin || detail.from || "",
+            sectorTo: detail.sectorTo || detail.destination || detail.to || "",
+            depDate: detail.depDate || detail.dep_date || detail.flight_date || detail.date ? new Date(detail.depDate || detail.dep_date || detail.flight_date || detail.date) : null,
+            depTime: detail.depTime || detail.dept_time || detail.dep_time || detail.departure_time || "",
+            arrDate: detail.arrDate || detail.arv_date || detail.arr_date || detail.arrival_date ? new Date(detail.arrDate || detail.arv_date || detail.arr_date || detail.arrival_date) : null,
+            arrTime: detail.arrTime || detail.arv_time || detail.arr_time || detail.arrival_time || "",
+            baggage: detail.baggage || detail.baggage_allowance || group.baggage || "",
+            meal: detail.meal || detail.meals || group.meal || "",
+            origin: detail.sectorFrom || detail.origin || detail.from || "",
+            destination: detail.sectorTo || detail.destination || detail.to || "",
+          }))
+        : [];
 
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
 
