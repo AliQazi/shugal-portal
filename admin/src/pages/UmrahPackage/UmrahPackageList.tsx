@@ -26,7 +26,12 @@ export default function UmrahPackageList() {
     setLoading(true);
     try {
       const res = await axiosInstance.get("/umrah-packages");
-      if (res.data.success) setPackages(res.data.data);
+      if (res.data.success) {
+        const fetchedPackages = Array.isArray(res.data.data) ? res.data.data : [];
+        setPackages([
+          ...fetchedPackages
+        ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()));
+      }
     } catch { toast.error("Failed to fetch packages"); }
     finally { setLoading(false); }
   };

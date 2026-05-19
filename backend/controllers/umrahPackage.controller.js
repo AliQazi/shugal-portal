@@ -6,7 +6,7 @@ export const getUmrahPackages = async (req, res) => {
     const packages = await UmrahPackage.find({ isActive: true })
       .populate("umrahGroupTicket")
       .populate("visa")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: 1 });
     res.status(200).json({ success: true, data: packages });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
