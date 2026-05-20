@@ -276,13 +276,19 @@ const GroupTicketing = () => {
 
                       {/* Sector / Route */}
                       <td className="px-4 py-4">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-white">
-                          <span>{booking.flights[0]?.sectorFrom || "N/A"}</span>
-                          <span className="text-blue-500">➔</span>
-                          <span>{booking.flights[booking.flights.length - 1]?.sectorTo || "N/A"}</span>
-                        </div>
-                        <div className="text-[11px] text-gray-500 mt-0.5">
-                          {booking.flights[0]?.depTime} | {new Date(booking.flights[0]?.depDate).toLocaleDateString('en-GB')}
+                        <div className="space-y-2">
+                          {booking.flights.map((flight, flightIndex) => (
+                            <div key={flightIndex}>
+                              <div className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-white">
+                                <span>{flight.sectorFrom || "N/A"}</span>
+                                <span className="text-blue-500">➔</span>
+                                <span>{flight.sectorTo || "N/A"}</span>
+                              </div>
+                              <div className="text-[11px] text-gray-500 mt-0.5">
+                                {flight.depTime} | {new Date(flight.depDate).toLocaleDateString('en-GB')}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </td>
 

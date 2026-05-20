@@ -10,6 +10,60 @@ import { theme } from "../../../theme/theme";
 
 const MONTHS_TITLE = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+// City to Airport Code Mapping
+const CITY_TO_AIRPORT = {
+  "FAISALABAD": "LYP",
+  "JEDDAH": "JED",
+  "MEDINA": "MED",
+  "MADINAH": "MED",
+  "ISLAMABAD": "ISB",
+  "DAMMAM": "DMM",
+  "MUSCAT": "MCT",
+  "RIYADH": "RUH",
+  "LAHORE": "LHE",
+  "DUBAI": "DXB",
+  "MULTAN": "MUX",
+  "PESHAWAR": "PEW",
+  "SIALKOT": "SKT",
+  "SHARJAH": "SHJ",
+  // Already airport codes (3-letter) - keep as is
+  "LYP": "LYP",
+  "JED": "JED",
+  "MED": "MED",
+  "ISB": "ISB",
+  "DMM": "DMM",
+  "MCT": "MCT",
+  "RUH": "RUH",
+  "LHE": "LHE",
+  "DXB": "DXB",
+  "MUX": "MUX",
+  "PEW": "PEW",
+  "SKT": "SKT",
+  "SHJ": "SHJ",
+};
+
+// Convert sector string to airport codes (e.g., "FAISALABAD-JEDDAH" → "LYP-JED")
+const normalizeSector = (sector = "") => {
+  const parts = String(sector)
+    .split("-")
+    .map((part) => part.trim().toUpperCase())
+    .filter(Boolean);
+  
+  return parts
+    .map((part) => CITY_TO_AIRPORT[part] || part)
+    .join("-");
+};
+
+// Normalize airline names to handle variations (e.g., "SAUDI AIRLINE" and "Saudi Airlines" → "SAUDI AIRLINE")
+const normalizeAirline = (airline = "") => {
+  return String(airline)
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, " ")
+    .replace(/AIRLINES?$/i, "AIRLINE")
+    .trim();
+};
+
 // Colors updated to match the reference image's pastel borders
 const ROOM_STYLES = {
   sharing: { bg: "#e8f4fd", text: "#1565c0", border: "#90caf9", label: "Sharing" },
@@ -76,27 +130,91 @@ export default function UmrahPackages({ user }) {
     const normalizeHotelArray = (list) => {
       return list.reduce((acc, hotel) => {
         if (!hotel || !hotel.city) return acc;
-        const cityKey = String(hotel.city).trim().toLowerCase();
+        const rawCity = String(hotel.city).trim().toUpperCase();
+        let cityKey = rawCity.toLowerCase();
+        
+        // Normalize MADINAH/MADINA to both use "madinah"
+        if (cityKey === "madina") cityKey = "madinah";
+        
         if (!cityKey) return acc;
-        acc[cityKey] = {
-          hotelName: hotel.hotelName || hotel.name || hotel.hotel || "",
-          distance: hotel.distance || hotel.distanceFromHaram || hotel.distanceKm || 0,
-          rating: hotel.rating || 0,
-          supplier: hotel.supplier || "",
-          city: hotel.city,
-          checkIn: hotel.checkIn || hotel.check_in || "",
-          checkOut: hotel.checkOut || hotel.check_out || "",
-          nights: hotel.nights || 0,
-          mapUrl: hotel.mapUrl || hotel.map_url || "",
-        };
+        
+        // Only store the first hotel for each city (or update if not already set)
+        if (!acc[cityKey]) {
+          acc[cityKey] = {
+            hotelName: hotel.hotelName || hotel.name || hotel.hotel || "",
+            distance: hotel.distance || hotel.distanceFromHaram || hotel.distanceKm || 0,
+            rating: hotel.rating || 0,
+            supplier: hotel.supplier || "",
+            city: hotel.city,
+            checkIn: hotel.checkIn || hotel.check_in || "",
+            checkOut: hotel.checkOut || hotel.check_out || "",
+            nights: hotel.nights || 0,
+            mapUrl: hotel.mapUrl || hotel.map_url || "",
+          };
+        }
         return acc;
       }, {});
     };
 
+    const parseHotelString = (hotelString, cityName) => {
+      if (!hotelString) return null;
+      
+      const str = String(hotelString).trim();
+      // Extract distance from format: "Hotel Name (1200-M+Shuttle)"
+      const distanceMatch = str.match(/\((\d+)-?[A-Za-z]*\+?[A-Za-z]*\)/);
+      const distance = distanceMatch ? parseInt(distanceMatch[1], 10) : 0;
+      
+      // Extract hotel name by removing the distance part
+      const hotelName = str.replace(/\s*\(\d+.*\)/, "").trim();
+      
+      return {
+        hotelName: hotelName || "Hotel",
+        distance: distance,
+        rating: 0,
+        supplier: "",
+        city: cityName,
+        checkIn: "",
+        checkOut: "",
+        nights: 0,
+        mapUrl: "",
+      };
+    };
+
+    // Handle string-based hotel format from abidair (e.g., { makkah: "Hotel Name (1200-M+Shuttle)" })
+    if (pkg.hotels && typeof pkg.hotels === "object" && !Array.isArray(pkg.hotels)) {
+      const result = {};
+      Object.entries(pkg.hotels).forEach(([key, value]) => {
+        let cityKey = String(key).trim().toLowerCase();
+        
+        // Normalize city keys
+        if (cityKey === "madina") cityKey = "madinah";
+        if (cityKey === "makka") cityKey = "makkah";
+        
+        if (typeof value === "string") {
+          // Parse string format hotel data
+          result[cityKey] = parseHotelString(value, key);
+        } else if (value && typeof value === "object") {
+          // Parse structured hotel object
+          result[cityKey] = {
+            hotelName: value.hotelName || value.name || value.hotel || "Hotel",
+            distance: value.distance || value.distanceFromHaram || value.distanceKm || 0,
+            rating: value.rating || 0,
+            supplier: value.supplier || "",
+            city: value.city || key,
+            checkIn: value.checkIn || value.check_in || "",
+            checkOut: value.checkOut || value.check_out || "",
+            nights: value.nights || 0,
+            mapUrl: value.mapUrl || value.map_url || "",
+          };
+        }
+      });
+      return result;
+    }
+
+    // Handle array format
     if (Array.isArray(pkg.hotels)) return normalizeHotelArray(pkg.hotels);
     if (Array.isArray(pkg.hotel)) return normalizeHotelArray(pkg.hotel);
-    if (pkg.hotels && typeof pkg.hotels === "object") return pkg.hotels;
-    if (pkg.hotel && typeof pkg.hotel === "object") return pkg.hotel;
+    
     return null;
   };
 
@@ -320,6 +438,7 @@ export default function UmrahPackages({ user }) {
 
       const abidairData =
         apiGroups.status === "fulfilled" ? apiGroups.value.data?.data || [] : [];
+        console.log("Fetched API Packages:", abidairData);
       const manualData =
         manualPackages.status === "fulfilled" ? manualPackages.value.data?.data || [] : [];
 
@@ -337,11 +456,16 @@ export default function UmrahPackages({ user }) {
 
       const formatted = Array.from(uniquePackages.values()).map((pkg) => {
         const packageName = pkg.package_name || pkg.packageName || pkg.groupName || pkg.umrahGroupTicket?.groupName || pkg.flight?.type || "Umrah Package";
-        const airlineName = pkg.flight?.flight_details?.airline || pkg.umrahGroupTicket?.airline || pkg.airline?.airline_name || pkg.airline?.short_name || "Airline";
+        const rawAirlineName = pkg.flight?.flight_details?.airline || pkg.umrahGroupTicket?.airline || pkg.airline?.airline_name || pkg.airline?.short_name || "Airline";
+        const airlineName = normalizeAirline(rawAirlineName);
         const hotels = parsePackageHotels(pkg);
         const rates = parsePackageRates(pkg);
         const flights = buildFlightLegs(pkg);
-        const sector = `${flights[0]?.sectorFrom || ""}-${flights[0]?.sectorTo || ""}`.toUpperCase();
+        const sector = normalizeSector(
+          flights.length > 0
+            ? [flights[0]?.sectorFrom, ...flights.map(f => f.sectorTo)].filter(Boolean).join("-")
+            : ""
+        );
         const duration =  21;
         const hotelNights =
           pkg.nightCount ||
@@ -387,7 +511,7 @@ export default function UmrahPackages({ user }) {
   const filteredPackages = packages.filter(pkg => {
     const keyword = filters.searchKeyword.toLowerCase();
     if (filters.airlines.length && !filters.airlines.includes(pkg.airlineName)) return false;
-    if (filters.sectors.length && !filters.sectors.includes(pkg.sector)) return false;
+    if (filters.sectors.length && !filters.sectors.includes(normalizeSector(pkg.sector))) return false;
     if (filters.packageNames.length && !filters.packageNames.includes(pkg.packageName)) return false;
     if (keyword && !`${pkg.packageName} ${pkg.airlineName}`.toLowerCase().includes(keyword)) return false;
     if (filters.departDate && pkg.dept_date?.toDateString() !== new Date(filters.departDate).toDateString()) return false;
@@ -457,8 +581,9 @@ export default function UmrahPackages({ user }) {
 
           <main className="flex-1 space-y-4">
             {filteredPackages.map((pkg, idx) => {
-              const makkah = pkg.hotels?.makkah || pkg.hotels?.Makkah || null;
-              const madinah = pkg.hotels?.madina || pkg.hotels?.Madina || null;
+              // Access hotels with normalized keys (lowercase)
+              const makkah = pkg.hotels?.makkah;
+              const madinah = pkg.hotels?.madinah;
 
               return (
                 <div key={pkg.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden transition-all hover:shadow-md">

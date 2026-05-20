@@ -26,6 +26,50 @@ const TYPE_TO_CATEGORY = {
   "UK ONE WAY GROUP": "uk",
 };
 
+// City to Airport Code Mapping
+const CITY_TO_AIRPORT = {
+  "FAISALABAD": "LYP",
+  "JEDDAH": "JED",
+  "MEDINA": "MED",
+  "MADINAH": "MED",
+  "ISLAMABAD": "ISB",
+  "DAMMAM": "DMM",
+  "MUSCAT": "MCT",
+  "RIYADH": "RUH",
+  "LAHORE": "LHE",
+  "DUBAI": "DXB",
+  "MULTAN": "MUX",
+  "PESHAWAR": "PEW",
+  "SIALKOT": "SKT",
+  "SHARJAH": "SHJ",
+  // Already airport codes (3-letter) - keep as is
+  "LYP": "LYP",
+  "JED": "JED",
+  "MED": "MED",
+  "ISB": "ISB",
+  "DMM": "DMM",
+  "MCT": "MCT",
+  "RUH": "RUH",
+  "LHE": "LHE",
+  "DXB": "DXB",
+  "MUX": "MUX",
+  "PEW": "PEW",
+  "SKT": "SKT",
+  "SHJ": "SHJ",
+};
+
+// Convert sector string to airport codes (e.g., "FAISALABAD-JEDDAH" → "LYP-JED")
+const normalizeSector = (sector = "") => {
+  const parts = String(sector)
+    .split("-")
+    .map((part) => part.trim().toUpperCase())
+    .filter(Boolean);
+  
+  return parts
+    .map((part) => CITY_TO_AIRPORT[part] || part)
+    .join("-");
+};
+
 const getCategoryFromGroup = (group = {}) => {
   const type = String(group?.type || "").toUpperCase().trim();
   return TYPE_TO_CATEGORY[type] || "";
@@ -565,7 +609,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
       const uniqueSectors = [
         ...new Set(
           fetchedGroups
-            .map((g) => (g.sector || "").toUpperCase().trim())
+            .map((g) => normalizeSector(g.sector))
             .filter(Boolean),
         ),
       ];
@@ -589,7 +633,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
 
     if (filters.sectors.length > 0) {
       filtered = filtered.filter((g) =>
-        filters.sectors.includes((g.sector || "").toUpperCase().trim()),
+        filters.sectors.includes(normalizeSector(g.sector)),
       );
     }
     if (filters.airlines.length > 0) {
@@ -688,7 +732,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
   // Group by sector + airline — same sector with different airlines gets separate cards
   const sectorFirstSeen = {};
   const groupedData = groups.reduce((acc, group) => {
-    const sector = (group.sector || "Unknown").toUpperCase().trim();
+    const sector = normalizeSector(group.sector) || "Unknown";
     const airlineName = group.airline?.airline_name || "";
     const key = `${sector}|||${airlineName}`;
     if (!(sector in sectorFirstSeen)) {

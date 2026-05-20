@@ -252,7 +252,7 @@ const getPackageDuration = (group: ApiGroup) => {
 
   return Math.max(
     0,
-    Math.round((returnArrival.getTime() - departure.getTime()) / (1000 * 60 * 60 * 24))
+    Math.round((returnArrival.getTime() - departure.getTime()) / (1000 * 60 * 60 * 24)) +1
   );
 };
 
@@ -685,9 +685,34 @@ export default function ApiGroups() {
       );
     }
 
+    // Sort package groups by earliest departure date
+    const sortedPackageGroups = packageGroups.slice().sort((a, b) => {
+      const getMinDate = (rows: ApiGroup[]): Date | null => {
+        let minDate: Date | null = null;
+        rows.forEach((row) => {
+          const da = row.dept_date || row.details?.[0]?.dep_date || "";
+          const parsed = parsePackageDate(da);
+          if (parsed) {
+            if (!minDate || parsed.getTime() < minDate.getTime()) {
+              minDate = parsed;
+            }
+          }
+        });
+        return minDate;
+      };
+
+      const dateA = getMinDate(a.rows);
+      const dateB = getMinDate(b.rows);
+
+      if (dateA !== null && dateB !== null) return dateA.getTime() - dateB.getTime();
+      if (dateA !== null) return -1;
+      if (dateB !== null) return 1;
+      return 0;
+    });
+
     return (
       <div className="space-y-10">
-        {packageGroups.map((packageGroup) => (
+        {sortedPackageGroups.map((packageGroup) => (
           <div key={packageGroup.key} className="bg-white">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 mb-5">
               <div className="flex items-center gap-4">
@@ -739,7 +764,17 @@ export default function ApiGroups() {
                 </thead>
 
                 <tbody>
-                  {packageGroup.rows.map((row) => {
+                  {packageGroup.rows
+                    .slice()
+                    .sort((a, b) => {
+                      const da = a.dept_date || a.details?.[0]?.dep_date || "";
+                      const db = b.dept_date || b.details?.[0]?.dep_date || "";
+                      const parsedA = parsePackageDate(da);
+                      const parsedB = parsePackageDate(db);
+                      if (parsedA && parsedB) return parsedA.getTime() - parsedB.getTime();
+                      return da.localeCompare(db);
+                    })
+                    .map((row) => {
                     const details = row.details || [];
                     const goingFlight = details[0] || {};
                     const returnFlight = details[1] || {};
