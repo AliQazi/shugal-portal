@@ -77,13 +77,77 @@ export const printGDSBooking = (booking: any, showPrice = true): void => {
   const arrTime = flight.arrTime || booking.arrTime || "00:00";
   const depDate = formatFullDate(booking.departureDate);
 
-  const sector = `${originCode} - ${destCode}`;
+  const safeUpper = (value: any): string => (value ? String(value).toUpperCase() : "");
+  const safeValue = (value: any, fallback = "N/A"): string =>
+    value !== undefined && value !== null && value !== "" ? String(value) : fallback;
+
+  const segments: Array<{
+    airline: string;
+    flightNo: string;
+    origin: string;
+    destination: string;
+    depDate: string;
+    depTime: string;
+    arrTime: string;
+  }> =
+    Array.isArray(booking.flights) && booking.flights.length > 0
+      ? booking.flights.map((fl: any) => ({
+          airline: booking.airline?.name || fl.airlineName || "AIRLINE",
+          flightNo: fl.flightNo || fl.flightNumber || flightNum,
+          origin: safeUpper(fl.origin || fl.sectorFrom || originCode),
+          destination: safeUpper(fl.destination || fl.sectorTo || destCode),
+          depDate: formatFullDate(fl.depDate || fl.flightDate || booking.departureDate),
+          depTime: fl.depTime || depTime || "00:00",
+          arrTime: fl.arrTime || arrTime || "00:00",
+        }))
+      : [
+          {
+            airline: airlineName,
+            flight,
+            origin: originCode,
+            destination: destCode,
+            depDate,
+            depTime,
+            arrTime,
+          },
+        ];
+
+  const routePoints = segments.reduce<string[]>((acc, segment) => {
+    if (segment.origin && segment.origin !== "N/A") {
+      if (!acc.length || acc[acc.length - 1] !== segment.origin) acc.push(segment.origin);
+    }
+    if (segment.destination && segment.destination !== "N/A") {
+      acc.push(segment.destination);
+    }
+    return acc;
+  }, []);
+
+  const sector = routePoints.length
+    ? routePoints.join(" - ")
+    : `${originCode} - ${destCode}`;
+
+  const adultPrice = booking.pricing?.adultPrice ?? 0;
+  const childPrice = booking.pricing?.childPrice ?? 0;
+  const infantPrice = booking.pricing?.infantPrice ?? 0;
+  const grandTotal = booking.pricing?.grandTotal ?? booking.price ?? booking.amount ?? 0;
+
+  const passengerFarePerType: Record<string, number> = {
+    adult: adultPrice,
+    child: childPrice,
+    infant: infantPrice,
+  };
+
+  const getPassengerFare = (type: any): string => {
+    const key = String(type || "adult").toLowerCase();
+    return `PKR ${Number(passengerFarePerType[key] ?? adultPrice).toLocaleString()}`;
+  };
 
   const passengers: any[] =
     booking.passengers && booking.passengers.length > 0
       ? booking.passengers
       : [
           {
+            type: booking.passengers?.[0]?.type || "Adult",
             title: booking.passengers?.[0]?.title || "",
             givenName: booking.passengers?.[0]?.givenName || "PASSENGER",
             surName: booking.passengers?.[0]?.surName || "NAME",
@@ -256,25 +320,31 @@ export const printGDSBooking = (booking: any, showPrice = true): void => {
       <table>
         <thead>
           <tr>
-            <th>Airline</th>
-            <th>Flight</th>
-            <th>Route</th>
-            <th>Departure Date</th>
-            <th>Departure Time</th>
-            <th>Arrival Time</th>
-            ${showPNR ? "<th>PNR</th>" : ""}
+            <th style="color: #000; font-weight: bold; font-size: 13px;">Airline</th>
+            <th style="color: #000; font-weight: bold; font-size: 13px;">Flight</th>
+            <th style="color: #000; font-weight: bold; font-size: 13px;">Route</th>
+            <th style="color: #000; font-weight: bold; font-size: 13px;">Departure Date</th>
+            <th style="color: #000; font-weight: bold; font-size: 13px;">Departure Time</th>
+            <th style="color: #000; font-weight: bold; font-size: 13px;">Arrival Time</th>
+            ${showPNR ? "<th style=\"color: #000; font-weight: bold; font-size: 13px;\">PNR</th>" : ""}
           </tr>
         </thead>
         <tbody>
+          ${segments
+            .map(
+              (seg) => `
           <tr>
-            <td>${airlineName}</td>
-            <td>${flightNum}</td>
-            <td>${sector.split("-").slice(0, 2).join("-")}</td>
-            <td>${depDate}</td>
-            <td>${depTime}</td>
-            <td>${arrTime}</td>
+            <td>${safeValue(seg.airline, airlineName)}</td>
+            <td>${safeValue(seg.flightNo, flightNum)}</td>
+            <td>${safeValue(seg.origin, originCode)} - ${safeValue(seg.destination, destCode)}</td>
+            <td>${seg.depDate}</td>
+            <td>${safeValue(seg.depTime, depTime)}</td>
+            <td>${safeValue(seg.arrTime, arrTime)}</td>
             ${showPNR ? `<td>${pnr}</td>` : ""}
           </tr>
+          `,
+            )
+            .join("")}
         </tbody>
       </table>
 
@@ -283,10 +353,11 @@ export const printGDSBooking = (booking: any, showPrice = true): void => {
       <table>
         <thead>
           <tr>
-            <th style="width: 40%;">Name</th>
-            <th>Type</th>
-            <th>Passport</th>
-            <th>Nationality</th>
+            <th style="width: 32%; color: #000; font-weight: bold; font-size: 13px;">Name</th>
+            <th style="color: #000; font-weight: bold; font-size: 13px;">Type</th>
+            <th style="color: #000; font-weight: bold; font-size: 13px;">Passport</th>
+            <th style="color: #000; font-weight: bold; font-size: 13px;">Nationality</th>
+            ${showPrice ? '<th style="color: #000; font-weight: bold; font-size: 13px;">Fare</th>' : ''}
           </tr>
         </thead>
         <tbody>
@@ -295,13 +366,20 @@ export const printGDSBooking = (booking: any, showPrice = true): void => {
               (p) => `
             <tr>
               <td class="bold-td">${p.title || ""} ${p.givenName || ""} ${p.surName || ""}</td>
-              <td>adult</td>
+              <td>${safeValue(p.type?.toLowerCase(), "adult")}</td>
               <td>${p.passport || "N/A"}</td>
-              <td>Pakistani</td>
+              <td>${safeValue(p.nationality || "Pakistani")}</td>
+              ${showPrice ? `<td>${getPassengerFare(p.type)}</td>` : ''}
             </tr>
           `,
             )
             .join("")}
+          ${showPrice ? `
+          <tr>
+            <td colspan="4" class="bold-td">GRAND TOTAL</td>
+            <td class="bold-td">PKR ${Number(grandTotal).toLocaleString()}</td>
+          </tr>
+          ` : ''}
         </tbody>
       </table>
 

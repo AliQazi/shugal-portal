@@ -13,6 +13,11 @@ export const printGDSBooking = (booking, showPrice = true) => {
     // --- 2. Data Preparation (Preserving your logic + adding PDF specific helpers) ---
     const flight = booking.flights?.[0] || {};
 
+    // Helper
+    const safeUpper = (value) => (value ? String(value).toUpperCase() : "");
+    const safeValue = (value, fallback = "N/A") =>
+        value !== undefined && value !== null && value !== "" ? String(value) : fallback;
+
     // Booking Status
     const bookingStatusRaw = booking.status || booking.bookingStatus || "N/A";
     const bookingStatus = bookingStatusRaw.toUpperCase();
@@ -23,75 +28,120 @@ export const printGDSBooking = (booking, showPrice = true) => {
         flight.airlineName ||
         "AIRLINE"
     ).toUpperCase();
-    // Note: Ensure this path is accessible from the browser window, or use a Base64 string if possible
-    const agencyLogo = "/src/assets/images/logo.webp";
     const airlineLogo = booking.airline?.logoUrl || flight.airlineLogo || "";
 
     // Booking Refs
     const pnr = booking.pnr || booking.bookingReference || "N/A";
     const bookingRef = booking.bookingReference || pnr;
 
-    // Flight Details
-    const flightNum = booking.flightNumber || flight.flightNo || "XX000";
-    // Location Logic
-    const origin = (
-        booking.origin ||
-        booking.originCity ||
-        flight.origin ||
-        ""
-    ).toUpperCase();
-
-    // Try multiple sources for IATA / airport codes (flight, booking, sector fields)
-    let originCode = (
-        booking.originCode ||
-        flight.originCode ||
-        booking.originIata ||
-        flight.sectorFrom ||
-        ""
-    ).toUpperCase();
-
-    const dest = (
-        booking.destination ||
-        booking.destinationCity ||
-        flight.destination ||
-        ""
-    ).toUpperCase();
-
-    let destCode = (
-        booking.destinationCode ||
-        flight.destinationCode ||
-        booking.destinationIata ||
-        flight.sectorTo ||
-        ""
-    ).toUpperCase();
-
-    // If still missing, try parsing from booking.sector (e.g. "ISB-AUH")
-    if ((!originCode || !originCode.trim() || originCode === "") && booking.sector) {
-        const sectorMatch = booking.sector.match(/([A-Z]{3})-([A-Z]{3})/);
-        if (sectorMatch) originCode = sectorMatch[1];
-    }
-    if ((!destCode || !destCode.trim() || destCode === "") && booking.sector) {
-        const sectorMatch = booking.sector.match(/([A-Z]{3})-([A-Z]{3})/);
-        if (sectorMatch) destCode = sectorMatch[2];
-    }
-
-    // Final fallback to show 'N/A' instead of a static hard-coded IATA
-    originCode = originCode || "N/A";
-    destCode = destCode || "N/A";
-
-    // Time Logic
+    // Flight-level fallback fields
+    const flightNum =
+        booking.flightNumber || flight.flightNo || flight.flightNumber || "XX000";
     const depTime = flight.depTime || booking.depTime || "00:00";
     const arrTime = flight.arrTime || booking.arrTime || "00:00";
     const depDate = formatFullDate(booking.departureDate);
     const arrDate = formatFullDate(booking.arrivalDate || booking.departureDate);
-
-    // Baggage & Sector
     const baggage = booking.baggageWeight || flight.baggage || "20KG";
-    const sector = `${originCode} - ${destCode}`;
 
-    // Plane Icon (Base64 from your PDF code)
-    const planeIconBase64 =
-        "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzAwMCIgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiBzdHlsZT0idHJhbnNmb3JtOiByb3RhdGUoOTBkZWcpOyI+PHBhdGggZD0iTTIxIDE2di0ybC04LTVWMy41YzAtLjgzLS42Ny0xLjUtMS41LTEuNVMxMCAyLjY3IDEwIDMuNVY5TDIgMTR2Mmw4LTIuNVYxOWwtMiAxLjVWMjJsMy41LTEgMy41IDF2LTEuNUwxMyAxOXYtNS41bDggMi41eiIvPjwvc3ZnPg==";
+    // Try multiple sources for IATA / airport codes
+    let originCode = safeUpper(
+        booking.originCode ||
+        flight.originCode ||
+        booking.originIata ||
+        flight.sectorFrom ||
+        booking.origin ||
+        booking.originCity ||
+        flight.origin ||
+        "",
+    );
+    let destCode = safeUpper(
+        booking.destinationCode ||
+        flight.destinationCode ||
+        booking.destinationIata ||
+        flight.sectorTo ||
+        booking.destination ||
+        booking.destinationCity ||
+        flight.destination ||
+        "",
+    );
+
+    if ((!originCode || originCode.trim() === "") && booking.sector) {
+        const sectorMatch = booking.sector.match(/([A-Z]{3})-([A-Z]{3})/);
+        if (sectorMatch) originCode = sectorMatch[1];
+    }
+    if ((!destCode || destCode.trim() === "") && booking.sector) {
+        const sectorMatch = booking.sector.match(/([A-Z]{3})-([A-Z]{3})/);
+        if (sectorMatch) destCode = sectorMatch[2];
+    }
+
+    originCode = originCode || "N/A";
+    destCode = destCode || "N/A";
+
+    // Build full route from flights when available
+    const segments =
+        Array.isArray(booking.flights) && booking.flights.length > 0
+            ? booking.flights.map((fl) => ({
+                airline: booking.airline?.name || fl.airlineName || "AIRLINE",
+                flightNo: fl.flightNo || fl.flightNumber || flightNum,
+                origin: safeUpper(fl.origin || fl.sectorFrom || ""),
+                destination: safeUpper(fl.destination || fl.sectorTo || ""),
+                depTime: fl.depTime || fl.depTime || "00:00",
+                arrTime: fl.arrTime || fl.arrTime || "00:00",
+                depDate: formatFullDate(fl.depDate || fl.flightDate || booking.departureDate),
+                arrDate: formatFullDate(fl.arrDate || fl.arrivalDate || booking.arrivalDate || booking.departureDate),
+            }))
+            : [
+                {
+                    airline: airlineName,
+                    flightNo,
+                    origin: originCode,
+                    destination: destCode,
+                    depTime,
+                    arrTime,
+                    depDate,
+                    arrDate,
+                },
+            ];
+
+    const routePoints = segments.reduce((acc, segment) => {
+        if (segment.origin && segment.origin !== "N/A") {
+            if (!acc.length || acc[acc.length - 1] !== segment.origin) acc.push(segment.origin);
+        }
+        if (segment.destination && segment.destination !== "N/A") {
+            acc.push(segment.destination);
+        }
+        return acc;
+    }, []);
+
+    const route =
+        routePoints.length > 0
+            ? routePoints.join(" - ")
+            : booking.sector || `${originCode} - ${destCode}`;
+
+    // Passenger pricing summary
+    const adultCount = booking.adultsCount ?? booking.passengers?.filter((p) => String(p.type).toLowerCase() === "adult").length ?? 0;
+    const childCount = booking.childrenCount ?? booking.passengers?.filter((p) => String(p.type).toLowerCase() === "child").length ?? 0;
+    const infantCount = booking.infantsCount ?? booking.passengers?.filter((p) => String(p.type).toLowerCase() === "infant").length ?? 0;
+    const adultPrice = booking.pricing?.adultPrice ?? 0;
+    const childPrice = booking.pricing?.childPrice ?? 0;
+    const infantPrice = booking.pricing?.infantPrice ?? 0;
+    const adultTotal = booking.pricing?.adultTotal ?? adultCount * adultPrice;
+    const childTotal = booking.pricing?.childTotal ?? childCount * childPrice;
+    const infantTotal = booking.pricing?.infantTotal ?? infantCount * infantPrice;
+    const grandTotal = booking.pricing?.grandTotal ?? booking.price ?? booking.amount ?? 0;
+
+    const passengerFarePerType = {
+        adult: adultPrice,
+        child: childPrice,
+        infant: infantPrice,
+    };
+
+    const getPassengerFare = (type) => {
+        const key = String(type || "adult").toLowerCase();
+        return passengerFarePerType[key] ?? adultPrice;
+    };
+
+    const formatFare = (amount) => `PKR ${Number(amount).toLocaleString()}`;
 
     // Passengers (Logic adapted to handle array like the PDF, defaulting to your single passenger extract if needed)
     const passengers =
@@ -99,6 +149,7 @@ export const printGDSBooking = (booking, showPrice = true) => {
             ? booking.passengers
             : [
                 {
+                    type: booking.passengers?.[0]?.type || "Adult",
                     title: booking.passengers?.[0]?.title || "",
                     givenName: booking.passengers?.[0]?.givenName || "PASSENGER",
                     surName: booking.passengers?.[0]?.surName || "NAME",
@@ -138,21 +189,10 @@ export const printGDSBooking = (booking, showPrice = true) => {
     // Only show PNR if booking status does not contain 'HOLD' (case-insensitive)
     const showPNR = !/hold/i.test(bookingStatusRaw);
 
-    const priceAmount = booking.pricing?.grandTotal || booking.price || booking.amount || 0;
-    const priceHTML = showPrice
-        ? `<div class="sum-card">
-        <div class="sum-label">PRICE (PKR)</div>
-        <div class="sum-val">PKR ${Number(priceAmount).toLocaleString()}</div>
-    </div>`
-        : "";
-
-    // Only render PNR box if not HOLD
     const pnrHTML = showPNR ? `<div class="sum-card">
         <div class="sum-label">PNR</div>
         <div class="sum-val">${pnr}</div>
     </div>` : "";
-    const pnrSegmentHTML = showPNR ? `<th>PNR</th>` : "";
-    const pnrValueHTML = showPNR ? `<td>${pnr}</td>` : "";
 
     const ticketHTML = `
 <!DOCTYPE html>
@@ -186,7 +226,7 @@ export const printGDSBooking = (booking, showPrice = true) => {
         .ref-value { font-size: 17px; font-weight: bold; color: #505050; margin-top: -2px; }
 
         /* 2. Top Summary Boxes */
-        .summary-row { display: grid; grid-template-columns: repeat(${3 + (showPNR ? 1 : 0) + (showPrice ? 1 : 0)}, 1fr); gap: 15px; margin-bottom: 30px; }
+        .summary-row { display: grid; grid-template-columns: repeat(${3 + (showPNR ? 1 : 0)}, 1fr); gap: 15px; margin-bottom: 30px; }
         .sum-card { 
             border: 1px solid #f0f0f0; 
             border-radius: 12px; 
@@ -267,45 +307,48 @@ export const printGDSBooking = (booking, showPrice = true) => {
         <!-- Summary Row -->
         <div class="summary-row">
             <div class="sum-card">
-                <div class="sum-label">FLIGHT</div> 
+                <div class="sum-label">FLIGHT</div>
                 <div class="sum-val">${airlineName} ${flightNum}</div>
             </div>
             ${pnrHTML}
             <div class="sum-card">
                 <div class="sum-label">ROUTE</div>
-                <div class="sum-val">${sector}</div>
+                <div class="sum-val">${route}</div>
             </div>
             <div class="sum-card">
                 <div class="sum-label">STATUS</div>
                 <div class="sum-val">${bookingStatus}</div>
             </div>
-            ${priceHTML}
         </div>
 
         <!-- Flight Segments -->
         <div class="section-title">FLIGHT SEGMENTS</div>
         <table>
             <thead>
-                <tr>
-                    <th>Airline</th>
-                    <th>Flight</th>
-                    <th>Route</th>
-                    <th>Departure Date</th>
-                    <th>Departure Time</th>
-                    <th>Arrival Time</th>
-                    ${showPNR ? '<th>PNR</th>' : ''}
-                </tr>
+                  <tr>
+            <th style="color: #000; font-weight: bold; font-size: 13px;">Airline</th>
+            <th style="color: #000; font-weight: bold; font-size: 13px;">Flight</th>
+            <th style="color: #000; font-weight: bold; font-size: 13px;">Route</th>
+            <th style="color: #000; font-weight: bold; font-size: 13px;">Departure Date</th>
+            <th style="color: #000; font-weight: bold; font-size: 13px;">Departure Time</th>
+            <th style="color: #000; font-weight: bold; font-size: 13px;">Arrival Time</th>
+            ${showPNR ? "<th style=\"color: #000; font-weight: bold; font-size: 13px;\">PNR</th>" : ""}
+          </tr>
             </thead>
             <tbody>
-                <tr>
-                    <td>${airlineName}</td>
-                    <td>${flightNum}</td>
-                    <td>${sector.split('-').slice(0, 2).join('-')}</td>
-                    <td>${depDate}</td>
-                    <td>${depTime}</td>
-                    <td>${arrTime}</td>
-                    ${showPNR ? `<td>${pnr}</td>` : ''}
-                </tr>
+                ${segments
+            .map((seg) => `
+                        <tr>
+                            <td>${safeValue(seg.airline, airlineName)}</td>
+                            <td>${safeValue(seg.flightNo, flightNum)}</td>
+                            <td>${safeValue(seg.origin, originCode)} - ${safeValue(seg.destination, destCode)}</td>
+                            <td>${seg.depDate}</td>
+                            <td>${safeValue(seg.depTime, depTime)}</td>
+                            <td>${safeValue(seg.arrTime, arrTime)}</td>
+                            ${showPNR ? `<td>${pnr}</td>` : ''}
+                        </tr>
+                    `)
+            .join('')}
             </tbody>
         </table>
 
@@ -314,21 +357,32 @@ export const printGDSBooking = (booking, showPrice = true) => {
         <table>
             <thead>
                 <tr>
-                    <th style="width: 40%;">Name</th>
-                    <th>Type</th>
-                    <th>Passport</th>
-                    <th>Nationality</th>
-                </tr>
+            <th style="width: 32%; color: #000; font-weight: bold; font-size: 13px;">Name</th>
+            <th style="color: #000; font-weight: bold; font-size: 13px;">Type</th>
+            <th style="color: #000; font-weight: bold; font-size: 13px;">Passport</th>
+            <th style="color: #000; font-weight: bold; font-size: 13px;">Nationality</th>
+            ${showPrice ? '<th style="color: #000; font-weight: bold; font-size: 13px;">Fare</th>' : ''}
+          </tr>
             </thead>
             <tbody>
-                ${passengers.map(p => `
+                ${passengers.map((p) => {
+                const fare = getPassengerFare(p.type);
+                return `
                     <tr>
                         <td class="bold-td">${p.title || ""} ${p.givenName || ""} ${p.surName || ""}</td>
-                        <td>adult</td>
+                        <td>${safeValue(p.type?.toLowerCase(), "adult")}</td>
                         <td>${p.passport || "N/A"}</td>
-                        <td>Pakistani</td>
+                        <td>${safeValue(p.nationality || "Pakistani")}</td>
+                        ${showPrice ? `<td>${fare}</td>` : ''}
                     </tr>
-                `).join('')}
+                `;
+            }).join('')}
+                ${showPrice ? `
+                <tr>
+                    <td colspan="4" class="bold-td">GRAND TOTAL</td>
+                    <td class="bold-td">${formatFare(grandTotal)}</td>
+                </tr>
+                ` : ''}
             </tbody>
         </table>
 
@@ -398,15 +452,15 @@ const getAgencyName = (booking) => {
     const storedFrontendUser = getStoredFrontendUser();
 
     if (typeof booking.userId === "object" && booking.userId?.companyName) {
-    return booking.userId.companyName;
-  }
+        return booking.userId.companyName;
+    }
     if (booking.agencyName) {
         return booking.agencyName;
     }
     if (storedFrontendUser.companyName) {
         return storedFrontendUser.companyName;
     }
-  return "SUPRA TRAVEL & TOURS";
+    return "SUPRA TRAVEL & TOURS";
 };
 
 
@@ -422,9 +476,9 @@ const getStoredFrontendUser = () => {
 const getName = (booking) => {
     const storedFrontendUser = getStoredFrontendUser();
 
-  if (typeof booking.userId === "object" && booking.userId?.name) {
-    return booking.userId.name;
-  }
+    if (typeof booking.userId === "object" && booking.userId?.name) {
+        return booking.userId.name;
+    }
     if (booking.contactPersonName) {
         return booking.contactPersonName;
     }
@@ -437,7 +491,7 @@ const getName = (booking) => {
     if (storedFrontendUser.companyName) {
         return storedFrontendUser.companyName;
     }
-  return "SUPRA TRAVEL & TOURS";
+    return "SUPRA TRAVEL & TOURS";
 };
 
 const getAgencyEmail = (booking) => {

@@ -769,7 +769,7 @@ export default function MyBookings() {
                               <button
                                 onClick={() => printGDSBooking(booking, true)}
                                 className="p-2.5 text-slate-600 bg-slate-100 hover:bg-slate-200 hover:text-slate-700 rounded-lg transition-all shadow-sm hover:shadow-md border border-slate-200 cursor-pointer"
-                                title="Print Ticket (with Price)"
+                                title="Print Ticket (With Fare)"
                               >
                                 <svg
                                   className="w-4 h-4"
@@ -789,7 +789,7 @@ export default function MyBookings() {
                               <button
                                 onClick={() => printGDSBooking(booking, false)}
                                 className="p-2.5 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-700 rounded-lg transition-all shadow-sm hover:shadow-md border border-emerald-200 cursor-pointer"
-                                title="Print Ticket (without Price)"
+                                title="Print Ticket"
                               >
                                 <svg
                                   className="w-4 h-4"
