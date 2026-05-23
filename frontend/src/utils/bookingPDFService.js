@@ -357,7 +357,8 @@ export const printGDSBooking = (booking, showPrice = true) => {
         <table>
             <thead>
                 <tr>
-            <th style="width: 32%; color: #000; font-weight: bold; font-size: 13px;">Name</th>
+            <th style="width: 7%; color: #000; font-weight: bold; font-size: 13px;">No.</th>
+            <th style="width: 25%; color: #000; font-weight: bold; font-size: 13px;">Name</th>
             <th style="color: #000; font-weight: bold; font-size: 13px;">Type</th>
             <th style="color: #000; font-weight: bold; font-size: 13px;">Passport</th>
             <th style="color: #000; font-weight: bold; font-size: 13px;">Nationality</th>
@@ -365,10 +366,11 @@ export const printGDSBooking = (booking, showPrice = true) => {
           </tr>
             </thead>
             <tbody>
-                ${passengers.map((p) => {
+                ${passengers.map((p, idx) => {
                 const fare = getPassengerFare(p.type);
                 return `
                     <tr>
+                        <td>${idx + 1}</td>
                         <td class="bold-td">${p.title || ""} ${p.givenName || ""} ${p.surName || ""}</td>
                         <td>${safeValue(p.type?.toLowerCase(), "adult")}</td>
                         <td>${p.passport || "N/A"}</td>
@@ -379,7 +381,7 @@ export const printGDSBooking = (booking, showPrice = true) => {
             }).join('')}
                 ${showPrice ? `
                 <tr>
-                    <td colspan="4" class="bold-td">GRAND TOTAL</td>
+                    <td colspan="5" class="bold-td">GRAND TOTAL</td>
                     <td class="bold-td">${formatFare(grandTotal)}</td>
                 </tr>
                 ` : ''}

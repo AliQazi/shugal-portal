@@ -4,6 +4,7 @@ import {
   Routes,
   Navigate,
   Link,
+  useLocation,
   useSearchParams,
 } from "react-router-dom";
 import Header from "../../components/Header";
@@ -28,6 +29,7 @@ import TeamContactList from "./Dashboard/TeamContactList";
 import Profile from "../../components/Profile/Profile";
 import MyBookings from "../MyBookings";
 import BookingDetail from "../BookingDetail";
+import UmrahPackageBookingDetail from "./UmrahPackages/BookingDetail";
 import { groupTypes } from "../../data/groupTypes";
 import { getUserProfile } from "../../api/profileApi";
 
@@ -35,6 +37,7 @@ export default function Frontend() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -75,9 +78,27 @@ export default function Frontend() {
     return decodeURIComponent(str.replace(/\+/g, " "));
   };
 
-  const handleGroupTypeChange = (groupType) => {
-    if (groupType) {
-      setSearchParams({ group_type: groupType });
+  const isDashboardTabActive = (type) => {
+    const [basePath, queryString = ""] = type.path.split("?");
+    const normalizedQuery = normalizeParams(queryString);
+
+    if (basePath === "umrah-packages") {
+      return location.pathname === "/dashboard/umrah-packages";
+    }
+
+    return (
+      location.pathname === "/dashboard/all-groups" &&
+      normalizeParams(searchParams.toString()) === normalizedQuery
+    );
+  };
+
+  const handleGroupTypeChange = (groupType, path) => {
+    if (path.startsWith("all-groups")) {
+      if (groupType) {
+        setSearchParams({ group_type: groupType });
+      } else {
+        setSearchParams({});
+      }
     } else {
       setSearchParams({});
     }
@@ -242,9 +263,8 @@ export default function Frontend() {
                     <Link
                       to={`/dashboard/${type.path}`}
                       key={type.value}
-                      onClick={() => handleGroupTypeChange(type.value)}
-                      className={`px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-colors ${(normalizeParams(searchParams.toString()) || "") ===
-                        normalizeParams(type.path.split("?")[1] || "")
+                      onClick={() => handleGroupTypeChange(type.value, type.path)}
+                      className={`px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-colors ${isDashboardTabActive(type)
                         ? "bg-blue-600 text-white"
                         : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
                         }`}
@@ -272,7 +292,7 @@ export default function Frontend() {
         <Route path="umrah-packages/detail" element={<UmrahPackageDetail user={user} />} />
         <Route path="umrah-packages/book" element={<UmrahBookingPage user={user} />} />
         <Route path="umrah-package-bookings" element={<UmrahPackageBookings user={user} />} />
-        <Route path="umrah-package-bookings/:id" element={<UmrahPackageBookings user={user} />} />
+        <Route path="umrah-package-bookings/:id" element={<UmrahPackageBookingDetail user={user} />} />
       </Route>
 
       {/* Profile Route - Standalone Protected */}

@@ -30,16 +30,26 @@ function PassengerModal({
   booking: UmrahBooking;
   onClose: () => void;
 }) {
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+      className="fixed inset-0 z-99999 flex items-center justify-center p-4 bg-black/60"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
     >
       <div
-        className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl"
+        className="relative z-100000 bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 bg-linear-to-r from-[#1e3a5f] to-[#2d5a8f] text-white px-6 py-4 flex justify-between items-center rounded-t-2xl">
+        <div className="sticky top-0 z-30 bg-linear-to-r from-[#1e3a5f] to-[#2d5a8f] text-white px-6 py-4 flex justify-between items-center rounded-t-2xl">
           <div>
             <h2 className="text-lg font-bold">{booking.bookingNumber}</h2>
             <p className="text-sm opacity-80">{booking.packageName}</p>
@@ -152,6 +162,14 @@ function StatusModal({
   const [note, setNote] = useState(booking.adminNote || "");
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
+
   const handleSave = async () => {
     setSaving(true);
     await onSave(booking._id, status, note);
@@ -160,14 +178,16 @@ function StatusModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+      className="fixed inset-0 z-99999 flex items-center justify-center p-4 bg-black/60"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
     >
       <div
-        className="bg-white rounded-2xl w-full max-w-md shadow-2xl"
+        className="relative z-100000 bg-white rounded-2xl w-full max-w-md shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="bg-linear-to-r from-[#1e3a5f] to-[#2d5a8f] text-white px-6 py-4 rounded-t-2xl flex justify-between items-center">
+        <div className="sticky top-0 z-30 bg-linear-to-r from-[#1e3a5f] to-[#2d5a8f] text-white px-6 py-4 rounded-t-2xl flex justify-between items-center">
           <h3 className="font-bold text-lg">Update Booking Status</h3>
           <button
             onClick={onClose}

@@ -244,6 +244,85 @@ const formatPackageDateTime = (date?: string, time?: string) => {
   return `${formattedDate}${time ? ` ${time}` : ""}`;
 };
 
+const normalizeSector = (sector: string = "") =>
+  String(sector)
+    .split("-")
+    .map((part) => part.trim().toUpperCase())
+    .filter(Boolean)
+    .join("-");
+
+const getSectorStops = (sector: string = "") =>
+  String(sector)
+    .split("-")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+const deriveSectorFromDetails = (group: ApiGroup) => {
+  const details = Array.isArray(group.details) ? group.details.filter(Boolean) : [];
+  const stops: string[] = [];
+
+  details.forEach((detail) => {
+    const origin = String(detail.origin || "").trim().toUpperCase();
+    const destination = String(detail.destination || "").trim().toUpperCase();
+
+    if (origin && stops[stops.length - 1] !== origin) {
+      stops.push(origin);
+    }
+    if (destination && stops[stops.length - 1] !== destination) {
+      stops.push(destination);
+    }
+  });
+
+  return stops.join("-");
+};
+
+const getEffectiveSector = (group: ApiGroup) => {
+  const sector = normalizeSector(group.sector || "");
+  const sectorStops = getSectorStops(sector);
+  if (sectorStops.length >= 3) return sector;
+
+  const derived = normalizeSector(deriveSectorFromDetails(group));
+  const derivedStops = getSectorStops(derived);
+
+  return derivedStops.length > sectorStops.length ? derived : sector;
+};
+
+const getDisplayDetails = (group: ApiGroup) => {
+  const details = Array.isArray(group.details) ? group.details.filter(Boolean) : [];
+  const sectorStops = getSectorStops(getEffectiveSector(group));
+
+  if (sectorStops.length < 3) {
+    return details;
+  }
+
+  if (details.length === sectorStops.length - 1) {
+    return details;
+  }
+
+  const baseDetail = details[0] || {};
+  const departureDate =
+    baseDetail.dep_date || baseDetail.flight_date || group.dept_date || null;
+  const arrivalDate =
+    baseDetail.arv_date || group.arv_date || departureDate;
+
+  return sectorStops.slice(0, -1).map((origin, index) => {
+    const isFirstLeg = index === 0;
+    const isLastLeg = index === sectorStops.length - 2;
+    const detail = details[index] || details[details.length - 1] || baseDetail;
+
+    return {
+      ...detail,
+      origin,
+      destination: sectorStops[index + 1],
+      flight_no: detail.flight_no || "",
+      dep_date: isFirstLeg ? departureDate : arrivalDate,
+      flight_date: isFirstLeg ? departureDate : arrivalDate,
+      dept_time: isFirstLeg ? detail.dept_time || "" : "",
+      arv_time: isLastLeg ? detail.arv_time || "" : "",
+    } as FlightDetail;
+  });
+};
+
 const getPackageDuration = (group: ApiGroup) => {
   const departure = parsePackageDate(group.details?.[0]?.dep_date);
   const returnArrival = parsePackageDate(group.details?.[1]?.arv_date || group.details?.[group.details.length - 1]?.arv_date);
@@ -641,7 +720,8 @@ export default function ApiGroups() {
   };
 
   const groupedData = groups.reduce<Record<string, GroupedEntry>>((acc, group) => {
-    const sector = (group.sector || "Unknown").toUpperCase().trim();
+    const effectiveSector = getEffectiveSector(group) || "Unknown";
+    const sector = effectiveSector.toUpperCase().trim();
     const key = sector;
 
     if (!acc[key]) {
@@ -1052,9 +1132,10 @@ export default function ApiGroups() {
                             return da.localeCompare(db);
                           })
                           .map((group) => {
-                            const details = group.details || [];
-                            const flight = details[0];
-                            const isMultiLeg = details.length > 1;
+                            const displayDetails = getDisplayDetails(group);
+                            const effectiveSector = getEffectiveSector(group) || group.sector || "";
+                            const flight = displayDetails[0];
+                            const isMultiLeg = displayDetails.length > 1;
 
                             const basePrice = Number(group.price || 0);
                             const marginAmount = getEffectiveMarginAmount(group);
@@ -1073,7 +1154,7 @@ export default function ApiGroups() {
                                 <td className="px-4 py-3 text-xs font-medium text-gray-600 align-top">
                                   {isMultiLeg ? (
                                     <div className="flex flex-col divide-y divide-dashed divide-gray-300">
-                                      {details.map((d, i) => {
+                                      {displayDetails.map((d, i) => {
                                         const rawDate = d.dep_date || d.flight_date;
 
                                         return (
@@ -1098,7 +1179,7 @@ export default function ApiGroups() {
                                 <td className="px-4 py-3 align-top">
                                   {isMultiLeg ? (
                                     <div className="flex flex-col divide-y divide-dashed divide-gray-300">
-                                      {details.map((d, i) => (
+                                      {displayDetails.map((d, i) => (
                                         <div key={i} className={i > 0 ? "pt-2" : "pb-2"}>
                                           <div className="font-bold text-gray-800 text-xs">
                                             {d.flight_no || "—"}
@@ -1132,7 +1213,7 @@ export default function ApiGroups() {
                                 </td>
 
                                 <td className="px-4 py-3 text-xs font-bold text-center text-gray-700 align-top">
-                                  {group.sector || "—"}
+                                  {effectiveSector || "—"}
                                 </td>
 
                                 <td className="px-4 py-3 text-xs text-center text-gray-700 align-top">

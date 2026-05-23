@@ -70,6 +70,43 @@ const normalizeSector = (sector = "") => {
     .join("-");
 };
 
+const getSectorStops = (sector = "") =>
+  String(sector)
+    .split("-")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+const deriveSectorFromDetails = (group = {}) => {
+  const details = Array.isArray(group?.details) ? group.details.filter(Boolean) : [];
+  if (details.length === 0) return "";
+
+  const stops = [];
+  details.forEach((detail) => {
+    const origin = String(detail.origin || detail.from || "").trim().toUpperCase();
+    const destination = String(detail.destination || detail.to || "").trim().toUpperCase();
+
+    if (origin && stops[stops.length - 1] !== origin) {
+      stops.push(origin);
+    }
+    if (destination && stops[stops.length - 1] !== destination) {
+      stops.push(destination);
+    }
+  });
+
+  return stops.map((part) => CITY_TO_AIRPORT[part] || part).join("-");
+};
+
+const getEffectiveSector = (group = {}) => {
+  const sector = normalizeSector(group?.sector || "");
+  const sectorStops = getSectorStops(sector);
+  if (sectorStops.length >= 3) return sector;
+
+  const derived = deriveSectorFromDetails(group);
+  const derivedStops = getSectorStops(derived);
+
+  return derivedStops.length > sectorStops.length ? derived : sector;
+};
+
 const getCategoryFromGroup = (group = {}) => {
   const type = String(group?.type || "").toUpperCase().trim();
   return TYPE_TO_CATEGORY[type] || "";
@@ -84,18 +121,18 @@ const isUmrahPackageGroup = (group = {}) =>
     group?.package_id,
   );
 
-const getSectorStops = (sector = "") =>
-  String(sector)
-    .split("-")
-    .map((part) => part.trim())
-    .filter(Boolean);
-
 const getDisplayDetails = (group = {}) => {
   const details = Array.isArray(group?.details) ? group.details.filter(Boolean) : [];
-  if (details.length > 1) return details;
+  const sectorStops = getSectorStops(getEffectiveSector(group));
 
-  const sectorStops = getSectorStops(group?.sector);
-  if (sectorStops.length < 3) return details;
+  if (sectorStops.length < 3) {
+    return details;
+  }
+
+  // If the provided details already match the expected number of legs, keep them.
+  if (details.length === sectorStops.length - 1) {
+    return details;
+  }
 
   const baseDetail = details[0] || {};
   const departureDate =
@@ -106,17 +143,22 @@ const getDisplayDetails = (group = {}) => {
   return sectorStops.slice(0, -1).map((origin, index) => {
     const isFirstLeg = index === 0;
     const isLastLeg = index === sectorStops.length - 2;
+    const detail = details[index] || details[details.length - 1] || baseDetail;
 
     return {
-      ...baseDetail,
+      ...detail,
       sr: index + 1,
       origin,
       destination: sectorStops[index + 1],
-      flight_no: isFirstLeg ? baseDetail.flight_no || "" : "",
+      flight_no: detail.flight_no || detail.flightNo || "",
       dep_date: isFirstLeg ? departureDate : arrivalDate,
       flight_date: isFirstLeg ? departureDate : arrivalDate,
-      dept_time: isFirstLeg ? baseDetail.dept_time || "" : "",
-      arv_time: isLastLeg ? baseDetail.arv_time || "" : "",
+      dept_time: isFirstLeg
+        ? detail.dept_time || detail.dep_time || detail.depTime || ""
+        : "",
+      arv_time: isLastLeg
+        ? detail.arv_time || detail.arr_time || detail.arvTime || ""
+        : "",
     };
   });
 };
@@ -609,7 +651,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
       const uniqueSectors = [
         ...new Set(
           fetchedGroups
-            .map((g) => normalizeSector(g.sector))
+            .map((g) => getEffectiveSector(g))
             .filter(Boolean),
         ),
       ];
@@ -633,7 +675,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
 
     if (filters.sectors.length > 0) {
       filtered = filtered.filter((g) =>
-        filters.sectors.includes(normalizeSector(g.sector)),
+        filters.sectors.includes(getEffectiveSector(g)),
       );
     }
     if (filters.airlines.length > 0) {
@@ -732,7 +774,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
   // Group by sector + airline — same sector with different airlines gets separate cards
   const sectorFirstSeen = {};
   const groupedData = groups.reduce((acc, group) => {
-    const sector = normalizeSector(group.sector) || "Unknown";
+    const sector = getEffectiveSector(group) || "Unknown";
     const airlineName = group.airline?.airline_name || "";
     const key = `${sector}|||${airlineName}`;
     if (!(sector in sectorFirstSeen)) {

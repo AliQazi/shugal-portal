@@ -18,25 +18,39 @@ export const createUmrahPackageBooking = async (req, res) => {
       packageData,
     } = req.body;
 
-    // Parse passengers array from multipart body (passengers[0][field] format)
-    const passengerMap = {};
-    for (const key of Object.keys(req.body)) {
-      const match = key.match(/^passengers\[(\d+)\]\[(\w+)\]$/);
-      if (match) {
-        const idx = parseInt(match[1]);
-        const field = match[2];
-        if (!passengerMap[idx]) passengerMap[idx] = {};
-        passengerMap[idx][field] = req.body[key];
+    let passengers = [];
+    if (req.body.passengers) {
+      if (typeof req.body.passengers === "string") {
+        try {
+          passengers = JSON.parse(req.body.passengers);
+        } catch (parseErr) {
+          passengers = [];
+        }
+      } else if (Array.isArray(req.body.passengers)) {
+        passengers = req.body.passengers;
       }
     }
-    const passengers = Object.values(passengerMap);
+
+    if (!passengers.length) {
+      const passengerMap = {};
+      for (const key of Object.keys(req.body)) {
+        const match = key.match(/^passengers\[(\d+)\]\[(\w+)\]$/);
+        if (match) {
+          const idx = parseInt(match[1], 10);
+          const field = match[2];
+          if (!passengerMap[idx]) passengerMap[idx] = {};
+          passengerMap[idx][field] = req.body[key];
+        }
+      }
+      passengers = Object.values(passengerMap);
+    }
 
     // Upload passport files to Cloudinary
     if (req.files) {
       for (const [fieldName, files] of Object.entries(req.files)) {
         const matchIdx = fieldName.match(/^passportFile_(\d+)$/);
         if (!matchIdx) continue;
-        const idx = parseInt(matchIdx[1]);
+        const idx = parseInt(matchIdx[1], 10);
         if (!passengers[idx]) continue;
         const file = Array.isArray(files) ? files[0] : files;
         if (file && file.path) {
@@ -45,7 +59,28 @@ export const createUmrahPackageBooking = async (req, res) => {
       }
     }
 
-    const parsedPricing = typeof pricing === "string" ? JSON.parse(pricing) : pricing;
+    let parsedPricing = {};
+    if (pricing) {
+      if (typeof pricing === "string") {
+        try {
+          parsedPricing = JSON.parse(pricing);
+        } catch {
+          parsedPricing = {};
+        }
+      } else if (typeof pricing === "object") {
+        parsedPricing = pricing;
+      }
+    }
+
+    if (!parsedPricing.pricePerPerson && !parsedPricing.totalAmount) {
+      for (const key of Object.keys(req.body)) {
+        const match = key.match(/^pricing\[(\w+)\]$/);
+        if (match) {
+          parsedPricing[match[1]] = req.body[key];
+        }
+      }
+    }
+
     const parsedPackageData = typeof packageData === "string" ? JSON.parse(packageData) : packageData;
 
     const booking = new UmrahPackageBooking({

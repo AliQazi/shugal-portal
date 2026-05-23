@@ -218,18 +218,17 @@ export default function UmrahBookingPage({ user }) {
       fd.append("packageId", packageData?._id || packageData?.id || "");
       fd.append("packageName", packageData?.packageName || "Umrah Package");
       fd.append("packageSource", "local");
-      fd.append("user", user?._id || "");
       fd.append("roomType", selectedRoom);
       fd.append("specialRequests", formData.specialRequests);
-      fd.append("pricing[pricePerPerson]", pricePerPerson);
-      fd.append("pricing[currency]", "PKR");
-      fd.append("pricing[totalAmount]", totalPrice());
+      fd.append("pricing", JSON.stringify({
+        pricePerPerson: Number(pricePerPerson || 0),
+        currency: "PKR",
+        totalAmount: totalPrice(),
+      }));
       fd.append("packageData", JSON.stringify(packageData));
+      fd.append("passengers", JSON.stringify(getAllPassengers()));
 
       getAllPassengers().forEach((p, i) => {
-        ["type", "title", "givenName", "surName", "passport", "dateOfBirth", "passportExpiry", "nationality"].forEach(
-          (k) => fd.append(`passengers[${i}][${k}]`, p[k])
-        );
         if (p.passportFile) fd.append(`passportFile_${i}`, p.passportFile, `pax-${i}-${p.passportFile.name}`);
       });
 
