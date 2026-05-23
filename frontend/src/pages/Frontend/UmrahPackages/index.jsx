@@ -83,10 +83,11 @@ export default function UmrahPackages({ user }) {
   const [loading, setLoading] = useState(true);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(true);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
-  const [filters, setFilters] = useState({ sectors: [], airlines: [], packageNames: [], searchKeyword: "", departDate: null });
+  const [filters, setFilters] = useState({ sectors: [], airlines: [], packageNames: [], durations: [], searchKeyword: "", departDate: null });
   const [airlines, setAirlines] = useState([]);
   const [sectors, setSectors] = useState([]);
   const [packageNames, setPackageNames] = useState([]);
+  const [durations, setDurations] = useState([]);
   const [copiedRow, setCopiedRow] = useState({});
 
   const primaryColor = theme?.colors?.primary || "#1e3a8a";
@@ -485,7 +486,7 @@ export default function UmrahPackages({ user }) {
             ? [flights[0]?.sectorFrom, ...flights.map(f => f.sectorTo)].filter(Boolean).join("-")
             : ""
         );
-        const duration =  21;
+        const duration = computePackageDuration(pkg) || pkg.packageDuration || 0;
         const hotelNights =
           pkg.nightCount ||
           pkg.hotelNights ||
@@ -518,6 +519,7 @@ export default function UmrahPackages({ user }) {
       setAirlines([...new Set(formatted.map((g) => g.airlineName))].filter(Boolean).sort());
       setSectors([...new Set(formatted.map((g) => g.sector))].filter(Boolean).sort());
       setPackageNames([...new Set(formatted.map((g) => g.packageName))].filter(Boolean).sort());
+      setDurations([...new Set(formatted.map((g) => g.packageDuration))].filter((v) => v > 0).sort((a, b) => a - b));
       setPackages(formatted);
     } catch (err) {
       console.error(err);
@@ -532,6 +534,7 @@ export default function UmrahPackages({ user }) {
     if (filters.airlines.length && !filters.airlines.includes(pkg.airlineName)) return false;
     if (filters.sectors.length && !filters.sectors.includes(normalizeSector(pkg.sector))) return false;
     if (filters.packageNames.length && !filters.packageNames.includes(pkg.packageName)) return false;
+    if (filters.durations.length && !filters.durations.includes(pkg.packageDuration)) return false;
     if (keyword && !`${pkg.packageName} ${pkg.airlineName}`.toLowerCase().includes(keyword)) return false;
     if (filters.departDate && pkg.dept_date?.toDateString() !== new Date(filters.departDate).toDateString()) return false;
     return true;
@@ -597,6 +600,27 @@ export default function UmrahPackages({ user }) {
                   ))}
                 </div>
               </div> */}
+              <div className="mb-6">
+                <h3 className="font-bold text-xs text-gray-400 uppercase mb-4 tracking-widest">Duration</h3>
+                <div className="space-y-2">
+                  {durations.map((duration) => (
+                    <label key={duration} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer hover:text-blue-600">
+                      <input
+                        type="checkbox"
+                        className="rounded text-blue-600"
+                        checked={filters.durations.includes(duration)}
+                        onChange={() => setFilters((p) => ({
+                          ...p,
+                          durations: p.durations.includes(duration)
+                            ? p.durations.filter((d) => d !== duration)
+                            : [...p.durations, duration],
+                        }))}
+                      />
+                      {duration} Days
+                    </label>
+                  ))}
+                </div>
+              </div>
               <div className="mb-6">
                 <h3 className="font-bold text-xs text-gray-400 uppercase mb-4 tracking-widest">Airlines</h3>
                 <div className="space-y-2">
