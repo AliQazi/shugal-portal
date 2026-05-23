@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { FaRegCopy, FaCheck, FaSearch, FaStar, FaPlaneDeparture, FaPlaneArrival } from "react-icons/fa";
 import { Menu, Package, Plane, Moon, Users, Calendar, ClipboardList, ArrowRight } from "lucide-react";
 import axiosInstance from "../../../api/axios";
@@ -7,6 +7,7 @@ import { toast } from "react-toastify";
 import TopBar from "../../../components/TopBar/TopBar";
 import MaskedDatePicker from "../../../components/MaskedDatePicker";
 import { theme } from "../../../theme/theme";
+import { groupTypes } from "../../../data/groupTypes";
 
 const MONTHS_TITLE = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -77,6 +78,7 @@ const ROOM_STYLES = {
 
 export default function UmrahPackages({ user }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(true);
@@ -88,6 +90,23 @@ export default function UmrahPackages({ user }) {
   const [copiedRow, setCopiedRow] = useState({});
 
   const primaryColor = theme?.colors?.primary || "#1e3a8a";
+
+  const normalizeParams = (str) => decodeURIComponent(str.replace(/\+/g, " "));
+  const isDashboardTabActive = (type) => {
+    if (!location.pathname.startsWith("/dashboard")) return false;
+    const [basePath, queryString = ""] = type.path.split("?");
+    if (basePath === "umrah-packages") {
+      return location.pathname === "/dashboard/umrah-packages";
+    }
+    return (
+      location.pathname === "/dashboard/all-groups" &&
+      normalizeParams(location.search.replace(/^\?/, "")) === normalizeParams(queryString)
+    );
+  };
+
+  const handleDashboardTabClick = (path) => {
+    navigate(`/dashboard/${path}`);
+  };
 
   const getPackageStorageKey = (pkg) => {
     const id = pkg?.package_id || pkg?.packageId || pkg?.id || pkg?._id || pkg?.flight?.id || pkg?.flight?.flight_details?.pnr || pkg?.packageName || "package";
@@ -521,6 +540,28 @@ export default function UmrahPackages({ user }) {
   return (
     <div className="min-h-screen bg-[#f1f5f9]">
       <TopBar title="Umrah Packages" icon={<Package className="text-white w-6 h-6" />} />
+
+      {location.pathname.startsWith("/dashboard") && (
+        <div className="max-w-350 mx-auto p-4">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
+            <div className="flex flex-wrap gap-2">
+              {groupTypes.map((type) => (
+                <button
+                  key={type.path}
+                  type="button"
+                  onClick={() => handleDashboardTabClick(type.path)}
+                  className={`px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-colors ${isDashboardTabActive(type)
+                    ? "bg-blue-600 text-white"
+                    : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  {type.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-350 mx-auto p-4">
         {/* Toolbar same as before */}
