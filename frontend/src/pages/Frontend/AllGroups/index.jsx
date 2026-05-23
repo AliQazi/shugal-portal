@@ -614,6 +614,10 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
           ? unifiedRes.value.data.data || []
           : [];
 
+      // Exclude Umrah package groups from the all-groups listing.
+      // Umrah packages should only appear on the dedicated Umrah packages page.
+      fetchedGroups = fetchedGroups.filter((g) => !isUmrahPackageGroup(g));
+
       // Client-side filter by group type if a specific type is selected
       if (groupType) {
         const gtEntry = groupTypes.find((g) => g.value === groupType);

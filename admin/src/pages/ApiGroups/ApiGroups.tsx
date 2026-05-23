@@ -816,6 +816,9 @@ export default function ApiGroups() {
                         {packageGroup.airline}
                       </span>
                     ) : null}
+                    <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-700 border border-blue-100">
+                      Umrah Package
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1205,7 +1208,14 @@ export default function ApiGroups() {
                                 </td>
 
                                 <td className="px-4 py-3 text-xs font-medium text-gray-700 align-top">
-                                  {group.airline?.airline_name || "—"}
+                                  <div className="flex items-center gap-2">
+                                    <span>{group.airline?.airline_name || "—"}</span>
+                                    {getCategoryFromGroup(group) === "umrah-packages" && (
+                                      <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-700 border border-blue-100">
+                                        Umrah Package
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
 
                                 <td className="px-4 py-3 text-xs font-medium text-gray-700 align-top">
