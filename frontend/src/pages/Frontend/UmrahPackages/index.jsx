@@ -76,6 +76,17 @@ const ROOM_STYLES = {
   infant: { bg: "#e0f2fe", text: "#0c4a6e", border: "#bae6fd", label: "Infant" },
 };
 
+const AVAILABLE_PACKAGE_DURATIONS = [15, 21, 28];
+
+const getDurationBucket = (duration) => {
+  const value = Number(duration);
+  if (Number.isNaN(value)) return null;
+  if (value >= 28) return 28;
+  if (value >= 21) return 21;
+  if (value >= 15) return 15;
+  return null;
+};
+
 export default function UmrahPackages({ user }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -610,6 +621,7 @@ export default function UmrahPackages({ user }) {
           rooms: rates,
           hotels,
           packageDuration: duration,
+          packageDurationGroup: getDurationBucket(duration),
           availablePackages: pkg.available_no_of_pax || pkg.availablePackages || pkg.availableSeats || 0,
           dept_date: flights[0]?.depDate || null,
         };
@@ -624,7 +636,7 @@ export default function UmrahPackages({ user }) {
       setAirlines([...new Set(formatted.map((g) => g.airlineName))].filter(Boolean).sort());
       setSectors([...new Set(formatted.map((g) => g.sector))].filter(Boolean).sort());
       setPackageNames([...new Set(formatted.map((g) => g.packageName))].filter(Boolean).sort());
-      setDurations([...new Set(formatted.map((g) => g.packageDuration))].filter((v) => v > 0).sort((a, b) => a - b));
+      setDurations(AVAILABLE_PACKAGE_DURATIONS);
       setPackages(formatted);
     } catch (err) {
       console.error(err);
@@ -639,7 +651,7 @@ export default function UmrahPackages({ user }) {
     if (filters.airlines.length && !filters.airlines.includes(pkg.airlineName)) return false;
     if (filters.sectors.length && !filters.sectors.includes(normalizeSector(pkg.sector))) return false;
     if (filters.packageNames.length && !filters.packageNames.includes(pkg.packageName)) return false;
-    if (filters.durations.length && !filters.durations.includes(pkg.packageDuration)) return false;
+    if (filters.durations.length && !filters.durations.includes(pkg.packageDurationGroup)) return false;
     if (keyword && !`${pkg.packageName} ${pkg.airlineName}`.toLowerCase().includes(keyword)) return false;
     if (filters.departDate && pkg.dept_date?.toDateString() !== new Date(filters.departDate).toDateString()) return false;
     return true;
