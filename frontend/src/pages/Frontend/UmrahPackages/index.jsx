@@ -334,15 +334,120 @@ export default function UmrahPackages({ user }) {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   };
 
-  const computePackageDuration = (pkg) => {
-    const dep = pkg.dept_date || pkg.details?.[0]?.dep_date || pkg.details?.[0]?.flight_date || pkg.details?.[0]?.date || null;
-    const arv = pkg.arv_date || pkg.details?.[pkg.details.length - 1]?.arv_date || pkg.details?.[pkg.details.length - 1]?.flight_date || pkg.details?.[pkg.details.length - 1]?.date || null;
-    const depDate = parseFlightDate(dep);
-    const arvDate = parseFlightDate(arv);
-    if (depDate && arvDate) {
-      const days = Math.round((arvDate.getTime() - depDate.getTime()) / (1000 * 60 * 60 * 24));
-      return days > 0 ? days : 0;
+  const parseNumber = (value) => {
+    if (typeof value === "number") return value;
+    if (typeof value === "string") {
+      const number = Number(value.replace(/[^0-9\.\-]+/g, ""));
+      return Number.isFinite(number) ? number : 0;
     }
+    return 0;
+  };
+
+  const sumHotelNights = (pkg) => {
+    let totalNights = 0;
+
+    const addHotelList = (hotels) => {
+      if (!Array.isArray(hotels)) return;
+      hotels.forEach((hotel) => {
+        if (!hotel) return;
+        totalNights += parseNumber(hotel.nights || hotel.night || hotel.noOfNights || hotel.nightsCount);
+      });
+    };
+
+    if (Array.isArray(pkg.hotels)) {
+      addHotelList(pkg.hotels);
+    } else if (pkg.hotels && typeof pkg.hotels === "object") {
+      Object.values(pkg.hotels).forEach((hotel) => {
+        if (hotel && typeof hotel === "object") {
+          totalNights += parseNumber(hotel.nights || hotel.night || hotel.noOfNights || hotel.nightsCount);
+        }
+      });
+    } else if (Array.isArray(pkg.hotel)) {
+      addHotelList(pkg.hotel);
+    }
+
+    return totalNights;
+  };
+
+  const computePackageDuration = (pkg) => {
+    const findDate = (values) => {
+      for (const value of values) {
+        const date = parseFlightDate(value);
+        if (date) return date;
+      }
+      return null;
+    };
+
+    const flights = buildFlightLegs(pkg);
+    const firstFlight = flights.find((flight) => flight.depDate || flight.dep_date || flight.date);
+    const lastFlight = flights.length ? flights[flights.length - 1] : null;
+
+    const depDate = firstFlight
+      ? parseFlightDate(firstFlight.depDate || firstFlight.dep_date || firstFlight.date)
+      : findDate([
+          pkg.dept_date,
+          pkg.dep_date,
+          pkg.departure_date,
+          pkg.departureDate,
+          pkg.flight?.dept_date,
+          pkg.flight?.dep_date,
+          pkg.flight?.departure_date,
+          pkg.flight?.flight_details?.departure_date,
+          pkg.flight?.flight_details?.dep_date,
+          pkg.flight?.flight_details?.flight_date,
+          pkg.flight?.time?.departure?.date,
+          pkg.details?.[0]?.dep_date,
+          pkg.details?.[0]?.depDate,
+          pkg.details?.[0]?.flight_date,
+          pkg.details?.[0]?.flightDate,
+          pkg.details?.[0]?.date,
+          pkg.umrahGroupTicket?.flights?.[0]?.depDate,
+          pkg.umrahGroupTicket?.flights?.[0]?.dep_date,
+          pkg.umrahGroupTicket?.flights?.[0]?.date,
+        ]);
+
+    const arvDate = lastFlight
+      ? parseFlightDate(lastFlight.arvDate || lastFlight.arv_date || lastFlight.arrDate || lastFlight.arr_date || lastFlight.date)
+      : findDate([
+          pkg.arv_date,
+          pkg.arr_date,
+          pkg.arrival_date,
+          pkg.arrivalDate,
+          pkg.flight?.arv_date,
+          pkg.flight?.arr_date,
+          pkg.flight?.arrival_date,
+          pkg.flight?.flight_details?.arrival_date,
+          pkg.flight?.flight_details?.arr_date,
+          pkg.flight?.time?.arrival?.date,
+          pkg.details?.[pkg.details?.length - 1]?.arv_date,
+          pkg.details?.[pkg.details?.length - 1]?.arvDate,
+          pkg.details?.[pkg.details?.length - 1]?.flight_date,
+          pkg.details?.[pkg.details?.length - 1]?.flightDate,
+          pkg.details?.[pkg.details?.length - 1]?.date,
+          pkg.umrahGroupTicket?.flights?.[pkg.umrahGroupTicket?.flights?.length - 1]?.arrDate,
+          pkg.umrahGroupTicket?.flights?.[pkg.umrahGroupTicket?.flights?.length - 1]?.arr_date,
+          pkg.umrahGroupTicket?.flights?.[pkg.umrahGroupTicket?.flights?.length - 1]?.date,
+        ]);
+
+    if (depDate && arvDate) {
+      const elapsedDays = Math.floor((arvDate.getTime() - depDate.getTime()) / (1000 * 60 * 60 * 24));
+      return Math.max(1, elapsedDays + 1);
+    }
+
+    const rawDuration = parseNumber(pkg.packageDuration || pkg.duration || pkg.package_days || pkg.packageDays || pkg.package_duration);
+    if (rawDuration > 0) {
+      return rawDuration;
+    }
+
+    const hotelNights = sumHotelNights(pkg);
+    if (hotelNights > 0) {
+      return hotelNights + 1;
+    }
+
+    if (Array.isArray(pkg.details) && pkg.details.length > 0) {
+      return pkg.details.length + 1;
+    }
+
     return 0;
   };
 
@@ -664,7 +769,7 @@ export default function UmrahPackages({ user }) {
                         📦 {pkg.packageDuration} Days
                       </div>
                       <div className="bg-white/20 backdrop-blur-sm px-4 py-1 rounded-full border border-white/30 text-[14px] font-bold flex items-center gap-1.5 uppercase">
-                        🌙 {pkg.packageDuration -1 } Nights
+                        🌙 {Math.max(pkg.packageDuration - 1, 0)} Nights
                       </div>
                       <div className="bg-white/20 backdrop-blur-sm px-4 py-1 rounded-full border border-white/30 text-[13px] font-bold flex items-center gap-1.5 uppercase">
                         👥 Seats: {pkg.availablePackages || 0}

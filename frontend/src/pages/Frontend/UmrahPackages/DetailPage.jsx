@@ -69,6 +69,49 @@ const formatDate = (dateStr) => {
 
 const formatTime = (time) => (time ? time.slice(0, 5) : "N/A");
 
+const parseFlightDate = (value) => {
+  if (!value) return null;
+  if (typeof value === "number") {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) return parsed;
+
+  const cleaned = String(value).trim().replace(/\s+/g, " ");
+  const match = cleaned.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{2,4})$/);
+  if (!match) return null;
+
+  const [_, day, month, yearRaw] = match;
+  const year = Number(yearRaw) < 100 ? 2000 + Number(yearRaw) : Number(yearRaw);
+  const date = new Date(`${day} ${month} ${year}`);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const computeDurationFromFlights = (flights = []) => {
+  if (!Array.isArray(flights) || flights.length === 0) return 0;
+  const firstLeg = flights[0];
+  const lastLeg = flights[flights.length - 1];
+  const start = parseFlightDate(firstLeg?.depDate || firstLeg?.dep_date || firstLeg?.departure_date || firstLeg?.date);
+  const end = parseFlightDate(lastLeg?.arvDate || lastLeg?.arv_date || lastLeg?.arrival_date || lastLeg?.date);
+
+  if (start && end) {
+    const diffDays = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.max(1, diffDays + 1);
+  }
+  return 0;
+};
+
+const computeHotelNights = (group) => {
+  const hotels = getHotelsArray(group.hotels);
+  const nights = hotels.reduce((sum, hotel) => {
+    const value = hotel?.nights || hotel?.night || hotel?.noOfNights || hotel?.nightsCount || 0;
+    const parsed = Number(String(value).replace(/[^0-9]+/g, ""));
+    return sum + (Number.isFinite(parsed) ? parsed : 0);
+  }, 0);
+  return nights;
+};
+
 // ─────────── HOTEL CARD ───────────
 function HotelCard({ hotel, city }) {
   if (!hotel) return null;
@@ -300,6 +343,13 @@ export default function DetailPage({ user }) {
 
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
 
+  const hotelNightsCount = computeHotelNights(group);
+  const computedFlightDuration = computeDurationFromFlights(packageFlights);
+  const packageDuration = computedFlightDuration > 0
+    ? computedFlightDuration
+    : group.packageDuration || (hotelNightsCount > 0 ? hotelNightsCount + 1 : 0);
+  const packageNights = Math.max(packageDuration - 1, 0);
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener("resize", handleResize);
@@ -413,19 +463,16 @@ export default function DetailPage({ user }) {
               className="header-ref"
               style={{ textAlign: "right", display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-end" }}
             >
-              {group.packageDuration > 0 && (
+              {packageDuration > 0 && (
                 <span style={{ background: "rgba(255,255,255,0.18)", padding: "6px 14px", borderRadius: "999px", fontSize: "0.8rem", fontWeight: 700 }}>
-                  📅 {group.packageDuration} DAYS
+                  📅 {packageDuration} DAYS
                 </span>
               )}
-              {(() => {
-                const ns = getHotelsArray(group.hotels).map((h) => h.nights || 0).filter((n) => n > 0);
-                return ns.length > 0 ? (
-                  <span style={{ background: "rgba(255,255,255,0.18)", padding: "6px 14px", borderRadius: "999px", fontSize: "0.8rem", fontWeight: 700 }}>
-                    🌙 {ns.join("+")} NIGHTS
-                  </span>
-                ) : null;
-              })()}
+              {packageNights > 0 && (
+                <span style={{ background: "rgba(255,255,255,0.18)", padding: "6px 14px", borderRadius: "999px", fontSize: "0.8rem", fontWeight: 700 }}>
+                  🌙 {packageNights} NIGHTS
+                </span>
+              )}
               {group.availableRooms > 0 && (
                 <span style={{ background: "rgba(255,255,255,0.18)", padding: "6px 14px", borderRadius: "999px", fontSize: "0.8rem", fontWeight: 700 }}>
                   👤 Seats: {group.availableRooms}
