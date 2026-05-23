@@ -82,8 +82,8 @@ const getDurationBucket = (duration) => {
   const value = Number(duration);
   if (Number.isNaN(value)) return null;
   if (value >= 28) return 28;
-  if (value >= 21) return 21;
-  if (value >= 15) return 15;
+  if (value >= 21 && value < 26) return 21;
+  if (value >= 15 && value < 19) return 15;
   return null;
 };
 
@@ -762,7 +762,12 @@ export default function UmrahPackages({ user }) {
           )}
 
           <main className="flex-1 space-y-4">
-            {filteredPackages.map((pkg, idx) => {
+            {filteredPackages.length === 0 && !loading ? (
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center text-gray-600">
+                <p className="text-sm font-semibold">No available package at this date.</p>
+                <p className="mt-2 text-xs text-gray-500">No matching packages found for the selected duration range.</p>
+              </div>
+            ) : filteredPackages.map((pkg, idx) => {
               // Access hotels with normalized keys (lowercase)
               const makkah = pkg.hotels?.makkah;
               const madinah = pkg.hotels?.madinah;
