@@ -416,35 +416,39 @@ export const printGDSBooking = (booking, showPrice = true) => {
 </body>
 </html>
 `;
-    // --- 4. The Iframe Trick ---
-    const iframe = document.createElement("iframe");
-    iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
-    iframe.style.border = "0";
+    // --- 4. In-page print (mobile-compatible, no new tab) ---
+    const printContainer = document.createElement('div');
+    printContainer.id = '__print_ticket__';
+    printContainer.innerHTML = ticketHTML;
 
-    document.body.appendChild(iframe);
+    const printStyle = document.createElement('style');
+    printStyle.id = '__print_ticket_style__';
+    printStyle.innerHTML = [
+        '@media print {',
+        '  body > *:not(#__print_ticket__) { display: none !important; }',
+        '  #__print_ticket__ { display: block !important; }',
+        '}',
+        '#__print_ticket__ { display: none; }',
+    ].join('\n');
 
-    const doc = iframe.contentWindow.document;
-    doc.open();
-    doc.write(ticketHTML);
-    doc.close();
+    document.head.appendChild(printStyle);
+    document.body.appendChild(printContainer);
 
-    iframe.onload = () => {
-        try {
-            iframe.contentWindow.focus();
-            iframe.contentWindow.print();
-        } catch (e) {
-            console.error("Print failed", e);
-        } finally {
-            // Remove iframe after delay
-            setTimeout(() => {
-                document.body.removeChild(iframe);
-            }, 1000);
+    const cleanup = () => {
+        if (document.getElementById('__print_ticket__')) {
+            document.body.removeChild(printContainer);
         }
+        if (document.getElementById('__print_ticket_style__')) {
+            document.head.removeChild(printStyle);
+        }
+        window.removeEventListener('afterprint', cleanup);
     };
+    window.addEventListener('afterprint', cleanup);
+
+    printContainer.style.display = 'block';
+    window.print();
+    // Fallback cleanup for browsers that don't fire afterprint
+    setTimeout(cleanup, 2000);
 };
 
 

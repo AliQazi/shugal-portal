@@ -414,39 +414,39 @@ export const printGDSBooking = (booking: any, showPrice = true): void => {
   </html>
   `;
 
-  // ...existing code...
-  // --- 4. The Iframe Trick ---
-  const iframe = document.createElement("iframe");
-  Object.assign(iframe.style, {
-    position: "fixed",
-    right: "0",
-    bottom: "0",
-    width: "0",
-    height: "0",
-    border: "0",
-  });
+  // --- 4. In-page print (mobile-compatible, no new tab) ---
+  const printContainer = document.createElement('div');
+  printContainer.id = '__print_ticket__';
+  printContainer.innerHTML = ticketHTML;
 
-  document.body.appendChild(iframe);
+  const printStyle = document.createElement('style');
+  printStyle.id = '__print_ticket_style__';
+  printStyle.innerHTML = [
+    '@media print {',
+    '  body > *:not(#__print_ticket__) { display: none !important; }',
+    '  #__print_ticket__ { display: block !important; }',
+    '}',
+    '#__print_ticket__ { display: none; }',
+  ].join('\n');
 
-  const iframeDoc = iframe.contentWindow?.document;
-  if (iframeDoc) {
-    iframeDoc.open();
-    iframeDoc.write(ticketHTML);
-    iframeDoc.close();
-  }
+  document.head.appendChild(printStyle);
+  document.body.appendChild(printContainer);
 
-  iframe.onload = () => {
-    try {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-    } catch (e) {
-      console.error("Print failed", e);
-    } finally {
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 1000);
+  const cleanup = () => {
+    if (document.getElementById('__print_ticket__')) {
+      document.body.removeChild(printContainer);
     }
+    if (document.getElementById('__print_ticket_style__')) {
+      document.head.removeChild(printStyle);
+    }
+    window.removeEventListener('afterprint', cleanup);
   };
+  window.addEventListener('afterprint', cleanup);
+
+  printContainer.style.display = 'block';
+  window.print();
+  // Fallback cleanup for browsers that don't fire afterprint
+  setTimeout(cleanup, 2000);
 };
 
 // --- Helper Functions ---

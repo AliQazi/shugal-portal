@@ -1,5 +1,6 @@
 import Booking from '../models/Booking.js';
 import GroupTicketing from '../models/GroupTicketing.js';
+import MarginLedger from '../models/MarginLedger.js';
 
 export const startBookingExpiryJob = () => {
     setInterval(async () => {
@@ -23,6 +24,17 @@ export const startBookingExpiryJob = () => {
                     { _id: booking.groupId },
                     { $inc: { totalSeats: seatsToReturn } }
                 );
+
+                await MarginLedger.deleteMany({
+                  entryType: 'booking_confirmed',
+                  $or: [
+                    { bookingId: booking._id },
+                    { bookingId: String(booking._id) },
+                    { bookingReference: booking.bookingReference },
+                  ],
+                }).catch((cleanupErr) => {
+                  console.error('Expiry job ledger cleanup failed:', cleanupErr.message || cleanupErr);
+                });
 
                 console.log(`⏰ Auto-cancelled booking ${booking._id}`);
             }

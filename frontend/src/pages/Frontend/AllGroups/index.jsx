@@ -107,6 +107,39 @@ const getEffectiveSector = (group = {}) => {
   return derivedStops.length > sectorStops.length ? derived : sector;
 };
 
+const PACKAGE_DURATION_BUCKETS = [15, 21, 28];
+
+const getDurationBucket = (duration) => {
+  const value = Number(duration);
+  if (Number.isNaN(value) || value <= 0) return null;
+  if (value >= 28) return 28;
+  if (value >= 21) return 21;
+  if (value >= 15) return 15;
+  return null;
+};
+
+const getGroupDuration = (group = {}) => {
+  const rawDuration = group?.days || group?.duration || group?.packageDuration;
+  const value = Number(rawDuration);
+  if (!Number.isNaN(value) && value > 0) {
+    return value;
+  }
+
+  const details = Array.isArray(group?.details) ? group.details.filter(Boolean) : [];
+  const firstRaw = details[0]?.dep_date || details[0]?.flight_date || group?.dept_date;
+  const lastRaw =
+    details[details.length - 1]?.dep_date ||
+    details[details.length - 1]?.flight_date ||
+    group?.arv_date;
+
+  if (firstRaw && lastRaw) {
+    const diff = Math.round((new Date(lastRaw) - new Date(firstRaw)) / (1000 * 60 * 60 * 24));
+    return diff > 0 ? diff : null;
+  }
+
+  return null;
+};
+
 const getCategoryFromGroup = (group = {}) => {
   const type = String(group?.type || "").toUpperCase().trim();
   return TYPE_TO_CATEGORY[type] || "";
@@ -129,8 +162,9 @@ const getDisplayDetails = (group = {}) => {
     return details;
   }
 
-  // If the provided details already match the expected number of legs, keep them.
-  if (details.length === sectorStops.length - 1) {
+  // If the provided details already match the expected number of legs, or if the group already has multiple flight details,
+  // keep the source details as the true flights rather than reconstructing legs from all sector stops.
+  if (details.length === sectorStops.length - 1 || details.length > 1) {
     return details;
   }
 
@@ -428,11 +462,14 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
   const [filters, setFilters] = useState({
     sectors: [],
     airlines: [],
+    durations: [],
     searchKeyword: "",
     departDate: null,
   });
 
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+
+  const currentGroupType = searchParams?.get("group_type") || "";
   const [airlines, setAirlines] = useState([]);
   const [sectors, setSectors] = useState([]);
 
@@ -687,6 +724,13 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         filters.airlines.includes(g.airline?.airline_name),
       );
     }
+    if (filters.durations.length > 0) {
+      filtered = filtered.filter((g) => {
+        const duration = getGroupDuration(g);
+        const bucket = getDurationBucket(duration);
+        return bucket && filters.durations.includes(bucket);
+      });
+    }
     if (filters.searchKeyword) {
       const keyword = filters.searchKeyword.toLowerCase();
       filtered = filtered.filter((g) => {
@@ -746,6 +790,13 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         airlines: prev.airlines.includes(value)
           ? prev.airlines.filter((a) => a !== value)
           : [...prev.airlines, value],
+      }));
+    } else if (filterType === "duration") {
+      setFilters((prev) => ({
+        ...prev,
+        durations: prev.durations.includes(value)
+          ? prev.durations.filter((d) => d !== value)
+          : [...prev.durations, value],
       }));
     } else {
       setFilters((prev) => ({ ...prev, [filterType]: value }));
@@ -818,6 +869,33 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
   // Shared Filter UI Component for Sidebar and Mobile Drawer
   const FilterContent = () => (
     <>
+      {currentGroupType === "Umrah Tickets" && (
+        <>
+          <h3
+            className="font-semibold text-lg mb-4"
+            style={{ color: theme.colors.textPrimary }}
+          >
+            Duration
+          </h3>
+          <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
+            {PACKAGE_DURATION_BUCKETS.map((duration) => (
+              <label
+                key={duration}
+                className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-xl transition"
+              >
+                <input
+                  type="checkbox"
+                  checked={filters.durations.includes(duration)}
+                  onChange={() => handleFilterChange("duration", duration)}
+                  className="w-4 h-4 rounded"
+                />
+                <span className="text-sm text-gray-700">{duration} Days</span>
+              </label>
+            ))}
+          </div>
+          <div className="h-px bg-gray-200 my-6" />
+        </>
+      )}
       <h3
         className="font-semibold text-lg mb-4"
         style={{ color: theme.colors.textPrimary }}

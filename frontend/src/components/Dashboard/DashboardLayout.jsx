@@ -614,7 +614,7 @@ const DashboardLayout = ({ user, handleLogout }) => {
                 zIndex: 100,
                 gap: "8px",
               }}
-            >
+            > 
               {/* Hamburger */}
               <button
                 onClick={toggleSidebar}

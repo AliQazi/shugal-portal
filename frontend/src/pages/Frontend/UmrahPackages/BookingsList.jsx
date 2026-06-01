@@ -126,6 +126,13 @@ export default function UmrahPackageBookings() {
                         <> · Infants: <strong style={{ color: "#8B5CF6" }}>{b.passengers.filter((p) => p.type === "Infant").length}</strong></>
                       )}
                     </div>
+                    {(!b.passengers || b.passengers.length === 0) && (
+                      <div style={{ marginTop: "6px" }}>
+                        <span style={{ display: "inline-block", background: "#FEF3C7", color: "#92400E", border: "1px solid #FCD34D", fontSize: "0.7rem", fontWeight: 700, padding: "2px 8px", borderRadius: "999px" }}>
+                          ⚠ Passenger Details Missing
+                        </span>
+                      </div>
+                    )}
                     {flights.length > 0 && (
                       <div style={{ marginTop: "8px", fontSize: "0.8rem", color: "#718096" }}>
                         ✈ {flights[0]?.sectorFrom} → {flights[0]?.sectorTo}

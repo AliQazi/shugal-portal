@@ -523,6 +523,7 @@ import Register from "../models/Register.js";
 import { deductSeatsFromCache } from "../utils/cacheHelpers.js";
 import { createSabaoonBooking } from "./sabaoon.controller.js";
 import { createTravelNetworkBooking } from "./travel-network.controller.js";
+import { sendBookingNotificationEmail } from "../utils/emailService.js";
 
 const HOLD_DURATION = 2 * 60 * 60 * 1000;
 // -------------------------
@@ -606,6 +607,23 @@ const adjustSeatsIfLocalGroup = async (
   console.log(`[SEAT ADJUSTMENT] GroupID: ${groupId}, Change: ${seatChange}, Success: ${result.modifiedCount > 0}`);
 };
 
+const cleanupBookingMarginLedger = async ({ bookingId, bookingReference }) => {
+  const { default: MarginLedger } = await import("../models/MarginLedger.js");
+  const filter = {
+    entryType: "booking_confirmed",
+    $or: [
+      { bookingId },
+      { bookingId: bookingId?.toString?.() },
+    ],
+  };
+
+  if (bookingReference) {
+    filter.$or.push({ bookingReference });
+  }
+
+  await MarginLedger.deleteMany(filter);
+};
+
 // -------------------------
 // CREATE BOOKING
 // -------------------------
@@ -653,7 +671,8 @@ export const createBooking = async (req, res) => {
       groupPriceDetailId,
     } = req.body;
 
-    if (passengers.length !== totalPassengers)
+    // Allow booking without passenger details (agent can fill in later)
+    if (passengers.length > 0 && passengers.length !== totalPassengers)
       throw new Error("Passenger mismatch");
 
     const calculatedTotal =
@@ -730,7 +749,7 @@ export const createBooking = async (req, res) => {
 
 
     // ─── Call Sabaoon booking API for external (Sabaoon) groups ───
-    if (isSabaoonGroup) {
+    if (isSabaoonGroup && passengers.length > 0) {
       try {
         const { transactionId } = await createSabaoonBooking({
           groupId,
@@ -757,7 +776,7 @@ export const createBooking = async (req, res) => {
     }
 
     // ─── Call Al-Haider booking API for external (Al-Haider) groups ───
-    if (bookingSource === "al-haider") {
+    if (bookingSource === "al-haider" && passengers.length > 0) {
       try {
         // Map our booking to Al-Haider API format
         const alHaiderBooking = {
@@ -797,7 +816,7 @@ export const createBooking = async (req, res) => {
     }
 
     // ─── Call Travel Network booking API for external (Travel Network) groups ───
-    if (isTravelNetworkGroup) {
+    if (isTravelNetworkGroup && passengers.length > 0) {
       try {
         const agencyGroupId = Number(process.env.id_travelnetwork?.trim());
         const tnPayload = {
@@ -847,6 +866,16 @@ export const createBooking = async (req, res) => {
       } catch (tnErr) {
         console.error("Travel Network booking API failed:", tnErr.message);
       }
+    }
+
+    try {
+      await sendBookingNotificationEmail({
+        bookingType: "Ticket",
+        booking,
+        agent: req.user,
+      });
+    } catch (emailErr) {
+      console.error("sendBookingNotificationEmail failed:", emailErr?.message || emailErr);
     }
 
     res.status(201).json({ success: true, data: booking });
@@ -1016,13 +1045,12 @@ export const updateBookingStatus = async (req, res) => {
 
     if (oldStatus !== "cancelled" && status === "cancelled") {
       await adjustSeatsIfLocalGroup(normalizeGroupId(booking.groupId), seats);
-      // Remove ledger entry when cancelled via status update
-      try {
-        const { default: MarginLedger } = await import("../models/MarginLedger.js");
-        await MarginLedger.deleteMany({ bookingId: booking._id });
-      } catch (ledgerErr) {
+      await cleanupBookingMarginLedger({
+        bookingId: booking._id,
+        bookingReference: booking.bookingReference,
+      }).catch((ledgerErr) => {
         console.error("updateBookingStatus ledger cleanup failed:", ledgerErr?.message || ledgerErr);
-      }
+      });
     }
 
     if (oldStatus === "cancelled" && status !== "cancelled") {
@@ -1102,14 +1130,12 @@ export const cancelBooking = async (req, res) => {
     await booking.save();
 
     await adjustSeatsIfLocalGroup(booking.groupId, seats);
-
-    // Remove the ledger entry for this booking
-    try {
-      const { default: MarginLedger } = await import("../models/MarginLedger.js");
-      await MarginLedger.deleteMany({ bookingId: booking._id });
-    } catch (ledgerErr) {
+    await cleanupBookingMarginLedger({
+      bookingId: booking._id,
+      bookingReference: booking.bookingReference,
+    }).catch((ledgerErr) => {
       console.error("cancelBooking ledger cleanup failed:", ledgerErr?.message || ledgerErr);
-    }
+    });
 
     res.json({ success: true, message: "Booking cancelled", data: booking });
   } catch (err) {

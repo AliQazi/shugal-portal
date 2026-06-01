@@ -449,7 +449,7 @@ const BookingsTable = memo(({ bookings, getStatusBadge, formatDate, navigate, ti
                                                             fill="none"
                                                             stroke="currentColor"
                                                             viewBox="0 0 24 24"
-                                                        >
+                                                        >  
                                                             <path
                                                                 strokeLinecap="round"
                                                                 strokeLinejoin="round"

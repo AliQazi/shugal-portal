@@ -205,6 +205,9 @@ export default function UmrahBookingPage({ user }) {
 
   const getAllPassengers = () => [...formData.adults, ...formData.children, ...formData.infants];
 
+  const allPassengersEmpty = () =>
+    getAllPassengers().every((p) => !p.givenName && !p.surName && !p.passport);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     setShowConfirmation(true);
@@ -226,11 +229,19 @@ export default function UmrahBookingPage({ user }) {
         totalAmount: totalPrice(),
       }));
       fd.append("packageData", JSON.stringify(packageData));
-      fd.append("passengers", JSON.stringify(getAllPassengers()));
+      fd.append("adultsCount", String(formData.adults.length));
+      fd.append("childrenCount", String(formData.children.length));
+      fd.append("infantsCount", String(formData.infants.length));
 
-      getAllPassengers().forEach((p, i) => {
-        if (p.passportFile) fd.append(`passportFile_${i}`, p.passportFile, `pax-${i}-${p.passportFile.name}`);
-      });
+      // If all passengers are empty, book without passenger details (fill later)
+      const passengersToSend = allPassengersEmpty() ? [] : getAllPassengers();
+      fd.append("passengers", JSON.stringify(passengersToSend));
+
+      if (!allPassengersEmpty()) {
+        getAllPassengers().forEach((p, i) => {
+          if (p.passportFile) fd.append(`passportFile_${i}`, p.passportFile, `pax-${i}-${p.passportFile.name}`);
+        });
+      }
 
       const res = await createUmrahBooking(fd);
       if (res.success) {
@@ -268,23 +279,23 @@ export default function UmrahBookingPage({ user }) {
         </div>
         <div style={s.paxGrid}>
           {[
-            { label: "Title *",       key: "title",         type: "select", opts: titleOpts },
-            { label: "Given Name *",  key: "givenName",     type: "text",   placeholder: "First name" },
-            { label: "Surname *",     key: "surName",       type: "text",   placeholder: "Last name" },
-            { label: "Passport *",    key: "passport",      type: "text",   placeholder: "AA1234567" },
-            { label: "DOB *",         key: "dateOfBirth",   type: "date" },
-            { label: "Nationality *", key: "nationality",   type: "text" },
-            { label: "Expiry *",      key: "passportExpiry",type: "date" },
+            { label: "Title",       key: "title",         type: "select", opts: titleOpts },
+            { label: "Given Name",  key: "givenName",     type: "text",   placeholder: "First name" },
+            { label: "Surname",     key: "surName",       type: "text",   placeholder: "Last name" },
+            { label: "Passport",    key: "passport",      type: "text",   placeholder: "AA1234567" },
+            { label: "DOB",         key: "dateOfBirth",   type: "date" },
+            { label: "Nationality", key: "nationality",   type: "text" },
+            { label: "Expiry",      key: "passportExpiry",type: "date" },
           ].map(({ label, key, type: inputType, opts, placeholder }) => (
             <div key={key}>
               <label style={s.label}>{label}</label>
               {inputType === "select" ? (
-                <select required value={pax[key]} onChange={(e) => changeField(listKey, i, key, e.target.value)} style={s.input}>
+                <select value={pax[key]} onChange={(e) => changeField(listKey, i, key, e.target.value)} style={s.input}>
                   {opts.map((o) => <option key={o}>{o}</option>)}
                 </select>
               ) : (
                 <input
-                  type={inputType} required value={pax[key]} placeholder={placeholder}
+                  type={inputType} value={pax[key]} placeholder={placeholder}
                   onChange={(e) => changeField(listKey, i, key, key === "passport" ? e.target.value.toUpperCase() : e.target.value)}
                   style={s.input}
                 />
@@ -579,11 +590,19 @@ export default function UmrahBookingPage({ user }) {
       {showConfirmation && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "20px" }} onClick={() => setShowConfirmation(false)}>
           <div style={{ background: "white", borderRadius: "20px", width: "100%", maxWidth: "550px", overflow: "hidden", boxShadow: "0 25px 50px rgba(0,0,0,0.3)" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ padding: "25px 30px", background: theme.colors.ublGradient, color: "white", textAlign: "center" }}>
+            <div style={{ padding: "25px 30px", background: allPassengersEmpty() ? "#92400E" : theme.colors.ublGradient, color: "white", textAlign: "center" }}>
               <CheckCircle size={48} style={{ marginBottom: "10px" }} />
-              <h3 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700 }}>Confirm Your Booking</h3>
+              <h3 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 700 }}>
+                {allPassengersEmpty() ? "Book Without Passenger Details?" : "Confirm Your Booking"}
+              </h3>
             </div>
             <div style={{ padding: "30px" }}>
+              {allPassengersEmpty() && (
+                <div style={{ background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: "10px", padding: "14px 16px", marginBottom: "20px", fontSize: "0.85rem", color: "#92400E" }}>
+                  <strong>⚠ Passenger details are incomplete.</strong>
+                  <p style={{ margin: "6px 0 0 0" }}>The booking will be created with seats reserved but no passenger information. You can fill in passenger details later from <strong>My Umrah Package Bookings</strong>.</p>
+                </div>
+              )}
               <div style={{ background: "#f8fafc", padding: "20px", borderRadius: "12px", marginBottom: "25px" }}>
                 {[
                   { label: "Package:", value: pkgName },
@@ -600,7 +619,11 @@ export default function UmrahBookingPage({ user }) {
                   <strong style={{ fontSize: "1.3rem", color: theme.colors.success, fontWeight: 800 }}>PKR {totalPrice().toLocaleString()}</strong>
                 </div>
               </div>
-              <p style={{ margin: "0 0 25px 0", fontSize: "0.9rem", color: "#718096", textAlign: "center" }}>By confirming you agree that all information provided is correct.</p>
+              <p style={{ margin: "0 0 25px 0", fontSize: "0.9rem", color: "#718096", textAlign: "center" }}>
+                {allPassengersEmpty()
+                  ? "Booking Without Details."
+                  : "By confirming you agree that all information provided is correct."}
+              </p>
               <div style={{ display: "flex", gap: "15px" }}>
                 <button onClick={() => setShowConfirmation(false)} style={{ flex: 1, padding: "12px", background: "white", color: "#4a5568", border: "2px solid #e2e8f0", borderRadius: "10px", fontWeight: 600, cursor: "pointer", fontSize: "0.95rem" }}>
                   Cancel

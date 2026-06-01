@@ -365,7 +365,7 @@ export default function BookingDetail() {
                         </div>
 
                         {/* Passenger List */}
-                        {safeBooking.passengers && safeBooking.passengers.length > 0 && (
+                        {safeBooking.passengers && safeBooking.passengers.length > 0 ? (
                             <div className="bg-white rounded-lg shadow p-6">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Passenger List</h3>
                                 <div className="overflow-x-auto">
@@ -426,6 +426,14 @@ export default function BookingDetail() {
                                             ))}
                                         </tbody>
                                     </table>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="bg-white rounded-lg shadow p-6">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Passenger List</h3>
+                                <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 text-sm text-amber-800">
+                                    <p className="font-semibold">⚠ No passenger details yet</p>
+                                    <p className="mt-1">The agent created this booking without passenger information. They can fill in the details by editing the booking from their dashboard.</p>
                                 </div>
                             </div>
                         )}

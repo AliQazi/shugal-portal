@@ -16,3 +16,10 @@ export const getUmrahBookingById = async (id) => {
   const response = await axiosInstance.get(`/umrah-package-bookings/${id}`);
   return response.data;
 };
+
+export const updateUmrahBookingPassengers = async (id, formData) => {
+  const response = await axiosInstance.put(`/umrah-package-bookings/${id}/passengers`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+};

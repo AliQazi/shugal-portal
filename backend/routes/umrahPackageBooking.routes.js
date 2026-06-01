@@ -9,6 +9,7 @@ import {
   getUmrahPackageBookingById,
   adminGetAllBookings,
   adminUpdateBookingStatus,
+  updateUmrahBookingPassengers,
 } from "../controllers/umrahPackageBooking.controller.js";
 
 const router = express.Router();
@@ -36,6 +37,7 @@ const uploadPassports = multer({
 // ── User routes ──────────────────────────────────────────
 router.post("/create", protect, uploadPassports, createUmrahPackageBooking);
 router.get("/my", protect, getMyUmrahPackageBookings);
+router.put("/:id/passengers", protect, uploadPassports, updateUmrahBookingPassengers);
 
 // ── Admin routes (must be before /:id to avoid param capture) ───────────────
 router.get("/admin/all", protect, adminGetAllBookings);

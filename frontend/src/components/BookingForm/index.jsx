@@ -124,6 +124,7 @@ export default function BookingForm({ user }) {
   // --- NEW STATE FOR MODAL ---
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [isReviewed, setIsReviewed] = useState(false);
+  const [bookingWithoutPassengers, setBookingWithoutPassengers] = useState(false);
 
   useEffect(() => {
     fetchBookingVoucher(); // always fetch seat map
@@ -247,12 +248,25 @@ export default function BookingForm({ user }) {
             documentUrl: passenger.documentUrl || "",
           })) || [];
 
+        // If booking has no passengers yet, build empty template rows from the saved counts
+        const passengersToLoad =
+          formattedPassengers.length > 0
+            ? formattedPassengers
+            : buildPassengers({
+                adults: booking.adultsCount || 0,
+                children: booking.childrenCount || 0,
+                infants: booking.infantsCount || 0,
+                existing: [],
+                allowChildren: true,
+                allowInfants: true,
+              });
+
         setFormData({
           contactPersonName: booking.contactPersonName || "N/A",
           adults: booking.adultsCount,
           children: booking.childrenCount,
           infants: booking.infantsCount,
-          passengers: formattedPassengers,
+          passengers: passengersToLoad,
         });
       }
     } catch (error) {
@@ -632,10 +646,8 @@ export default function BookingForm({ user }) {
         !passenger.nationality,
     );
 
-    if (hasEmptyFields) {
-      toast.error("Please fill in all passenger details");
-      return;
-    }
+    // Allow booking without passenger details — agent can fill them in later
+    setBookingWithoutPassengers(hasEmptyFields);
 
     // --- Show Modal instead of submitting ---
     setShowReviewModal(true);
@@ -648,8 +660,13 @@ export default function BookingForm({ user }) {
     setShowReviewModal(false); // Close modal
 
     try {
-      // Upload any locally-held documents before creating the booking
-      const passengersWithDocs = await uploadPendingDocs(formData.passengers);
+      // If all passengers have empty data, book without passenger details (fill later)
+      const allPassengersEmpty = formData.passengers.every(
+        (p) => !p.givenName && !p.surName && !p.passport,
+      );
+      const passengersWithDocs = allPassengersEmpty
+        ? []
+        : await uploadPendingDocs(formData.passengers);
 
       const bookingData = {
         groupId: groupData.id,
@@ -730,15 +747,39 @@ export default function BookingForm({ user }) {
     setIsSubmitting(true);
 
     try {
+      // Check whether the agent has started filling in passenger data
+      const hasPassengerData = formData.passengers.some(
+        (p) => p.givenName || p.surName || p.passport,
+      );
+
+      if (hasPassengerData) {
+        const hasIncomplete = formData.passengers.some(
+          (p) => !p.givenName || !p.surName || !p.passport || !p.nationality,
+        );
+        if (hasIncomplete) {
+          toast.error(
+            "Please fill in all passenger details completely before saving",
+          );
+          return; // finally block will reset isSubmitting
+        }
+      }
+
       // Upload any locally-held documents before updating the booking
-      const passengersWithDocs = await uploadPendingDocs(formData.passengers);
+      const passengersWithDocs = hasPassengerData
+        ? await uploadPendingDocs(formData.passengers)
+        : null;
 
       const updateData = {
         contactPersonName: formData.contactPersonName,
         adultsCount: parseInt(formData.adults),
         childrenCount: parseInt(formData.children),
         infantsCount: parseInt(formData.infants),
-        passengers: passengersWithDocs,
+        totalPassengers:
+          (parseInt(formData.adults) || 0) +
+          (parseInt(formData.children) || 0) +
+          (parseInt(formData.infants) || 0),
+        // Only include passengers in the update when the agent filled them in
+        ...(passengersWithDocs !== null && { passengers: passengersWithDocs }),
         pricing: {
           // Final prices including margin
           adultPrice: calculateB2BPrice(groupData?.price, groupData) || 0,
@@ -1230,7 +1271,6 @@ export default function BookingForm({ user }) {
                               e.target.value,
                             )
                           }
-                          required
                           className="w-full min-w-22.5  px-2 py-1 bg-white border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                         >
                           {passenger.type === "Adult" && (
@@ -1259,7 +1299,6 @@ export default function BookingForm({ user }) {
                               e.target.value,
                             )
                           }
-                          required
                           className="w-full min-w-30 px-2 py-1  bg-white border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Surname"
                         />
@@ -1275,7 +1314,6 @@ export default function BookingForm({ user }) {
                               e.target.value,
                             )
                           }
-                          required
                           className="w-full min-w-30  px-2 py-1 bg-white border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Given Name"
                         />
@@ -1291,7 +1329,6 @@ export default function BookingForm({ user }) {
                               e.target.value,
                             )
                           }
-                          required
                           className="w-full min-w-30 px-2 py-1 bg-white border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Passport No"
                         />
@@ -1647,7 +1684,9 @@ export default function BookingForm({ user }) {
                                 </div> */}
                 <div>
                   <h4 className="text-base sm:text-xl font-semibold! text-gray-900">
-                    Please review passenger booking data before submission
+                    {bookingWithoutPassengers
+                      ? "Book without passenger details?"
+                      : "Please review passenger booking data before submission"}
                   </h4>
                   {/* <p className="text-xs text-gray-500">Please verify all passenger information before final submission.</p> */}
                 </div>
@@ -1662,6 +1701,12 @@ export default function BookingForm({ user }) {
 
             {/* Modal Body (Scrollable) */}
             <div className="overflow-y-auto p-4 sm:p-6 flex-1">
+              {bookingWithoutPassengers && (
+                <div className="mb-4 bg-amber-50 border border-amber-300 rounded-lg p-4 text-sm text-amber-800">
+                  <p className="font-semibold mb-1">⚠ Passenger details are incomplete</p>
+                  <p>The booking will be created with <strong>{totalPassengers}</strong> seat(s) reserved but <strong>no passenger information</strong>.</p>
+                </div>
+              )}
               <div className="rounded-xl border border-gray-200 overflow-x-auto shadow-sm">
                 <div className="min-w-200">
                   <table className="w-full text-sm text-left border-collapse">
@@ -1792,9 +1837,9 @@ export default function BookingForm({ user }) {
                   />
                 </div>
                 <span className="text-xs sm:text-sm font-medium text-gray-700 group-hover:text-gray-900 select-none">
-                  {/* I confirm that all data is accurate. */}I hereby confirm
-                  that all the information I have provided in this form is
-                  accurate and complete.
+                  {bookingWithoutPassengers
+                    ? "I understand that this booking will be created without passenger details. I will fill them in later from My Bookings."
+                    : "I hereby confirm that all the information I have provided in this form is accurate and complete."}
                 </span>
               </label>
 

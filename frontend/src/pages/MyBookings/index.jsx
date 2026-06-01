@@ -410,6 +410,14 @@ export default function MyBookings() {
                               X {booking.totalPassengers || 0}
                             </div>
                           </div>
+                          {(booking.passengers?.length || 0) <
+                            (booking.totalPassengers || 0) && (
+                            <div className="mt-1">
+                              <span className="inline-block bg-amber-100 text-amber-700 border border-amber-300 text-[10px] font-semibold px-1.5 py-0.5 rounded">
+                                ⚠ Passenger Details Missing
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </td>
 
@@ -620,8 +628,18 @@ export default function MyBookings() {
                                       `/dashboard/edit-booking/${booking._id}`,
                                     )
                                   }
-                                  className="p-2.5 text-slate-600 bg-slate-100 hover:bg-slate-200 hover:text-slate-700 rounded-lg transition-all shadow-sm hover:shadow-md border border-slate-200"
-                                  title="Edit Booking"
+                                  className={`p-2.5 rounded-lg transition-all shadow-sm hover:shadow-md border ${
+                                    (booking.passengers?.length || 0) <
+                                    (booking.totalPassengers || 0)
+                                      ? "text-amber-700 bg-amber-100 hover:bg-amber-200 border-amber-300"
+                                      : "text-slate-600 bg-slate-100 hover:bg-slate-200 hover:text-slate-700 border-slate-200"
+                                  }`}
+                                  title={
+                                    (booking.passengers?.length || 0) <
+                                    (booking.totalPassengers || 0)
+                                      ? "Fill Passenger Details"
+                                      : "Edit Booking"
+                                  }
                                 >
                                   <svg
                                     className="w-4 h-4"
@@ -634,62 +652,6 @@ export default function MyBookings() {
                                       strokeLinejoin="round"
                                       strokeWidth={2}
                                       d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                    />
-                                  </svg>
-                                </button>
-                                <button
-                                  // onClick={() => {
-                                  //     if (window.confirm('Are you sure you want to delete this booking?')) {
-                                  //         // Handle delete booking
-                                  //         toast.info('Delete functionality to be implemented')
-                                  //     }
-                                  // }}
-
-                                  onClick={async () => {
-                                    const confirmDelete = window.confirm(
-                                      "Are you sure you want to delete this booking? This action cannot be undone.",
-                                    );
-                                    if (!confirmDelete) return;
-
-                                    try {
-                                      setDeletingId(booking._id);
-
-                                      await axiosInstance.delete(
-                                        `/bookings/${booking._id}`,
-                                      );
-
-                                      toast.success(
-                                        "Booking deleted successfully",
-                                      );
-                                      setBookings((prev) =>
-                                        prev.filter(
-                                          (b) => b._id !== booking._id,
-                                        ),
-                                      );
-                                    } catch (err) {
-                                      toast.error(
-                                        err.response?.data?.message ||
-                                          "Failed to delete booking",
-                                      );
-                                    } finally {
-                                      setDeletingId(null);
-                                    }
-                                  }}
-                                  disabled={deletingId === booking._id}
-                                  className="p-2.5 text-slate-600 bg-slate-100 hover:bg-slate-200 hover:text-slate-700 rounded-lg transition-all shadow-sm hover:shadow-md border border-slate-200"
-                                  title="Delete Booking"
-                                >
-                                  <svg
-                                    className="w-4 h-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                                     />
                                   </svg>
                                 </button>

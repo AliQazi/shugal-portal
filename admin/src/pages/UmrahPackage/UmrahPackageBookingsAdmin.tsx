@@ -5,6 +5,7 @@ import {
   UmrahBooking,
 } from "../../Api/umrahPackageBookingApi";
 import { toast } from "react-toastify";
+import { printUmrahPackageBooking } from "../../../../frontend/src/utils/umrahBookingPDFService";
 
 const STATUS_OPTIONS = ["pending", "confirmed", "cancelled", "completed"] as const;
 
@@ -444,7 +445,7 @@ export default function UmrahPackageBookingsAdmin() {
                         {fmtDate(b.createdAt)}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                           <button
                             onClick={() => setDetailBooking(b)}
                             className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold hover:bg-blue-100 transition-colors whitespace-nowrap"
@@ -456,6 +457,13 @@ export default function UmrahPackageBookingsAdmin() {
                             className="px-2.5 py-1 bg-green-50 text-green-700 border border-green-200 rounded-lg text-xs font-semibold hover:bg-green-100 transition-colors whitespace-nowrap"
                           >
                             Status
+                          </button>
+                          <button
+                            onClick={() => printUmrahPackageBooking(b)}
+                            className="px-2.5 py-1 bg-orange-50 text-orange-700 border border-orange-200 rounded-lg text-xs font-semibold hover:bg-orange-100 transition-colors whitespace-nowrap"
+                            title="Print Umrah Package Ticket"
+                          >
+                            Print
                           </button>
                         </div>
                       </td>

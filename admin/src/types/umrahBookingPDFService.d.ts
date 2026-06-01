@@ -1,5 +1,3 @@
-/// <reference types="vite/client" />
-
 declare module "../../../../frontend/src/utils/umrahBookingPDFService" {
   export function printUmrahPackageBooking(booking: any): void;
 }

@@ -546,6 +546,136 @@ export const sendAgentRegistrationNotificationEmail = async (payload) => {
   }
 };
 
+const getBookingNotificationHTML = ({
+  bookingType,
+  bookingReference,
+  bookingNumber,
+  pnr,
+  sector,
+  packageName,
+  groupId,
+  source,
+  status,
+  totalPassengers,
+  totalAmount,
+  agentName,
+  agentEmail,
+  agencyCode,
+  companyName,
+  createdAt,
+}) => {
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>New Booking Notification</title>
+        <style>
+          body { font-family: Arial, sans-serif; color: #333; background: #f4f4f4; margin: 0; padding: 0; }
+          .container { max-width: 700px; margin: 24px auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+          .header { background: #1f4c94; color: #fff; padding: 24px; text-align: center; }
+          .header h1 { margin: 0; font-size: 22px; }
+          .content { padding: 24px; }
+          .row { margin-bottom: 14px; }
+          .label { font-weight: 700; color: #1f4c94; margin-bottom: 6px; display: block; }
+          .value { padding: 12px 14px; background: #f8f9ff; border-radius: 6px; }
+          .footer { padding: 18px 24px; color: #777; font-size: 13px; background: #f3f6ff; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>New ${bookingType} Booking Created</h1>
+          </div>
+          <div class="content">
+            <div class="row"><span class="label">Reference</span><div class="value">${bookingReference || bookingNumber || groupId || "N/A"}</div></div>
+            <div class="row"><span class="label">PNR / Package</span><div class="value">${pnr || packageName || "N/A"}</div></div>
+            <div class="row"><span class="label">Sector / Source</span><div class="value">${sector || source || "N/A"}</div></div>
+            <div class="row"><span class="label">Status</span><div class="value">${status || "N/A"}</div></div>
+            <div class="row"><span class="label">Passengers</span><div class="value">${totalPassengers || 0}</div></div>
+            <div class="row"><span class="label">Total Amount</span><div class="value">${totalAmount ? `PKR ${Number(totalAmount).toLocaleString()}` : "N/A"}</div></div>
+            <hr />
+            <div class="row"><span class="label">Agent / Agency</span><div class="value">${agentName || "N/A"}${companyName ? ` (${companyName})` : ""}</div></div>
+            <div class="row"><span class="label">Agent Email</span><div class="value">${agentEmail || "N/A"}</div></div>
+            <div class="row"><span class="label">Agent Code</span><div class="value">${agencyCode || "N/A"}</div></div>
+            <div class="row"><span class="label">Created At</span><div class="value">${createdAt ? new Date(createdAt).toLocaleString() : new Date().toLocaleString()}</div></div>
+          </div>
+          <div class="footer">This is an automated booking notification from Shaheen Wings travel and tours.</div>
+        </div>
+      </body>
+    </html>
+  `;
+};
+
+export const sendBookingNotificationEmail = async ({ bookingType, booking, agent }) => {
+  try {
+    const internalEmail = process.env.EMAIL_USER;
+    const adminEmail = process.env.ADMIN_EMAIL?.trim();
+
+    if (!internalEmail) {
+      throw new Error("EMAIL_USER is not configured in environment variables");
+    }
+
+    const recipients = [internalEmail];
+    if (adminEmail && adminEmail !== internalEmail) {
+      recipients.push(adminEmail);
+    }
+
+    const mailOptions = {
+      from: {
+        name: process.env.EMAIL_FROM_NAME || "Shaheen Wings travel and tours   )",
+        address: process.env.EMAIL_USER,
+      },
+      to: recipients,
+      subject: `New ${bookingType} Booking: ${booking.bookingReference || booking.bookingNumber || booking._id}`,
+      html: getBookingNotificationHTML({
+        bookingType,
+        bookingReference: booking.bookingReference,
+        bookingNumber: booking.bookingNumber,
+        pnr: booking.pnr,
+        sector: booking.sector,
+        packageName: booking.packageName,
+        groupId: booking.groupId,
+        source: booking.source,
+        status: booking.status,
+        totalPassengers: (booking.adultsCount || 0) + (booking.childrenCount || 0) + (booking.infantsCount || 0),
+        totalAmount: booking.pricing?.grandTotal || booking.pricing?.totalAmount || 0,
+        agentName: agent?.name || agent?.email || "Agent",
+        agentEmail: agent?.email || "N/A",
+        agencyCode: agent?.agencyCode || "N/A",
+        companyName: agent?.companyName || "N/A",
+        createdAt: booking.createdAt,
+      }),
+      text: `A new ${bookingType} booking was created.
+
+Reference: ${booking.bookingReference || booking.bookingNumber || booking._id}
+PNR / Package: ${booking.pnr || booking.packageName || "N/A"}
+Sector / Source: ${booking.sector || booking.source || "N/A"}
+Status: ${booking.status}
+Passengers: ${(booking.adultsCount || 0) + (booking.childrenCount || 0) + (booking.infantsCount || 0)}
+Total Amount: ${booking.pricing?.grandTotal || booking.pricing?.totalAmount || 0}
+Agent: ${agent?.name || "Agent"}
+Agent Email: ${agent?.email || "N/A"}
+Agency Code: ${agent?.agencyCode || "N/A"}
+Company: ${agent?.companyName || "N/A"}
+Created At: ${booking.createdAt || new Date().toISOString()}
+`,
+    };
+
+    if (adminEmail && adminEmail !== internalEmail) {
+      mailOptions.bcc = adminEmail;
+    }
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log("✅ Booking notification email sent:", info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("❌ Error sending booking notification email:", error.message);
+    throw error;
+  }
+};
+
 // Test email configuration
 export const testEmailConfiguration = async () => {
   try {
@@ -562,5 +692,6 @@ export default {
   sendPasswordResetEmail,
   sendCredentialsEmail,
   sendAgentRegistrationNotificationEmail,
+  sendBookingNotificationEmail,
   testEmailConfiguration,
 };

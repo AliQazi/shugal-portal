@@ -25,6 +25,9 @@ const UmrahPackageBookingSchema = new mongoose.Schema(
     packageData: { type: mongoose.Schema.Types.Mixed, default: {} }, // snapshot
 
     roomType: { type: String, default: "" },
+    adultsCount: { type: Number, default: 0 },
+    childrenCount: { type: Number, default: 0 },
+    infantsCount: { type: Number, default: 0 },
     passengers: [PassengerSchema],
     specialRequests: { type: String, default: "" },
 

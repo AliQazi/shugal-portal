@@ -1,5 +1,6 @@
 import UmrahPackageBooking from "../models/UmrahPackageBooking.js";
 import { cloudinary } from "../config/cloudinary.js";
+import { sendBookingNotificationEmail } from "../utils/emailService.js";
 
 /* ────────────────────────────────────────────────────────
    CREATE BOOKING  POST /api/umrah-package-bookings/create
@@ -16,6 +17,9 @@ export const createUmrahPackageBooking = async (req, res) => {
       specialRequests,
       pricing,
       packageData,
+      adultsCount,
+      childrenCount,
+      infantsCount,
     } = req.body;
 
     let passengers = [];
@@ -90,6 +94,9 @@ export const createUmrahPackageBooking = async (req, res) => {
       packageSource: packageSource || "local",
       packageData: parsedPackageData,
       roomType,
+      adultsCount: Number(adultsCount) || 0,
+      childrenCount: Number(childrenCount) || 0,
+      infantsCount: Number(infantsCount) || 0,
       passengers,
       specialRequests,
       pricing: {
@@ -120,6 +127,16 @@ export const createUmrahPackageBooking = async (req, res) => {
       } catch (ledgerErr) {
         console.error("createUmrahPackageBooking ledger write failed:", ledgerErr?.message || ledgerErr);
       }
+    }
+
+    try {
+      await sendBookingNotificationEmail({
+        bookingType: "Umrah Package",
+        booking,
+        agent: req.user,
+      });
+    } catch (emailErr) {
+      console.error("sendBookingNotificationEmail failed:", emailErr?.message || emailErr);
     }
 
     res.status(201).json({
@@ -222,6 +239,55 @@ const prepareUmrahBookingForLedger = (booking) => {
   return ledgerBooking;
 };
 
+/* ──────────────────────────────────────────────────────────────────
+   AGENT: UPDATE PASSENGERS  PUT /api/umrah-package-bookings/:id/passengers
+──────────────────────────────────────────────────────────────────── */
+export const updateUmrahBookingPassengers = async (req, res) => {
+  try {
+    const booking = await UmrahPackageBooking.findOne({
+      _id: req.params.id,
+      user: req.user._id,
+    });
+
+    if (!booking)
+      return res.status(404).json({ success: false, message: "Booking not found" });
+
+    if (!["pending"].includes(booking.status))
+      return res.status(400).json({ success: false, message: "Can only edit pending bookings" });
+
+    let passengers = [];
+    if (req.body.passengers) {
+      if (typeof req.body.passengers === "string") {
+        try { passengers = JSON.parse(req.body.passengers); } catch { passengers = []; }
+      } else if (Array.isArray(req.body.passengers)) {
+        passengers = req.body.passengers;
+      }
+    }
+
+    // Upload any new passport files to Cloudinary
+    if (req.files) {
+      for (const [fieldName, files] of Object.entries(req.files)) {
+        const matchIdx = fieldName.match(/^passportFile_(\d+)$/);
+        if (!matchIdx) continue;
+        const idx = parseInt(matchIdx[1], 10);
+        if (!passengers[idx]) continue;
+        const file = Array.isArray(files) ? files[0] : files;
+        if (file && file.path) {
+          passengers[idx].passportFileUrl = file.path;
+        }
+      }
+    }
+
+    booking.passengers = passengers;
+    await booking.save();
+
+    res.json({ success: true, message: "Passenger details updated", data: booking });
+  } catch (err) {
+    console.error("updateUmrahBookingPassengers error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 /* ────────────────────────────────────────────────────────────────────
    ADMIN: UPDATE STATUS  PATCH /api/umrah-package-bookings/admin/:id/status
 ──────────────────────────────────────────────────────────────────── */
@@ -253,6 +319,23 @@ export const adminUpdateBookingStatus = async (req, res) => {
         }
       } catch (ledgerErr) {
         console.error("adminUpdateBookingStatus ledger write failed:", ledgerErr?.message || ledgerErr);
+      }
+    }
+
+    if (String(status).toLowerCase() === "cancelled") {
+      try {
+        const { default: MarginLedger } = await import("../models/MarginLedger.js");
+        await MarginLedger.deleteMany({
+          entryType: "booking_confirmed",
+          $or: [
+            { bookingId: booking._id },
+            { bookingId: String(booking._id) },
+            { bookingReference: booking.bookingReference },
+            { bookingReference: booking.bookingNumber },
+          ],
+        });
+      } catch (ledgerErr) {
+        console.error("adminUpdateBookingStatus ledger cleanup failed:", ledgerErr?.message || ledgerErr);
       }
     }
 

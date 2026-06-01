@@ -299,6 +299,10 @@ const getDisplayDetails = (group: ApiGroup) => {
     return details;
   }
 
+  if (details.length > 1) {
+    return details;
+  }
+
   const baseDetail = details[0] || {};
   const departureDate =
     baseDetail.dep_date || baseDetail.flight_date || group.dept_date || null;

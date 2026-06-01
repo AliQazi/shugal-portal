@@ -307,6 +307,15 @@ export const getLedgerByUser = async (req, res) => {
     const allBookings = [...userBookings, ...umrahBookings];
     const bookingIds = allBookings.map((b) => b._id);
     const bookingMap = new Map(allBookings.map((b) => [String(b._id), b]));
+    const cancelledBookingIds = new Set(
+      allBookings.filter((b) => b.status === "cancelled").map((b) => String(b._id)),
+    );
+    const cancelledBookingReferences = new Set(
+      allBookings
+        .filter((b) => b.status === "cancelled")
+        .map((b) => b.bookingReference || b.bookingNumber)
+        .filter(Boolean),
+    );
 
     // Self-heal: backfill missing booking_confirmed ledger rows on read
     const confirmedBookingIds = allBookings
@@ -371,6 +380,16 @@ export const getLedgerByUser = async (req, res) => {
       .sort({ createdAt: 1 })
       .lean();
 
+    const marginEntriesFiltered = marginEntries.filter((entry) => {
+      if (entry.bookingId && cancelledBookingIds.has(String(entry.bookingId))) {
+        return false;
+      }
+      if (entry.bookingReference && cancelledBookingReferences.has(entry.bookingReference)) {
+        return false;
+      }
+      return true;
+    });
+
     // Format ledger entries
     const paymentEntries = payments.map((payment) => {
       const pax = payment.booking?.passengers?.[0]
@@ -391,7 +410,7 @@ export const getLedgerByUser = async (req, res) => {
       };
     });
 
-    const marginLedgerEntries = marginEntries.map((entry) => {
+    const marginLedgerEntries = marginEntriesFiltered.map((entry) => {
       const mappedBooking = bookingMap.get(String(entry.bookingId || ""));
       const pax = mappedBooking?.passengers?.[0]
         ? `${mappedBooking.passengers[0].givenName || ""} ${mappedBooking.passengers[0].surName || ""}`.trim()
