@@ -285,12 +285,12 @@ export default function BookingForm({ user }) {
 
   const isChildPriceAvailable = () => {
     const price = groupData?.childPrice;
-    return price !== null && price !== undefined && price !== 0;
+    return price !== null && price !== undefined && price > 0;
   };
 
   const isInfantPriceAvailable = () => {
     const price = groupData?.infantPrice;
-    return price !== null && price !== undefined && price !== 0;
+    return price !== null && price !== undefined && price > 0;
   };
 
   useEffect(() => {
@@ -969,11 +969,12 @@ export default function BookingForm({ user }) {
                   <p className="text-xs text-gray-600 font-semibold mt-1 mb-0.5">
                     Child
                   </p>
-                  <p className="text-sm font-extrabold text-[#3d6a8f] bg-blue-50 px-2 py-1 rounded-2xl">
-                    {calculateB2BPrice(
-                      groupData?.childPrice,
-                      groupData,
-                    )?.toLocaleString() || "N/A"}
+                  <p
+                    className={`text-sm font-extrabold px-2 py-1 rounded-2xl whitespace-nowrap ${isChildPriceAvailable() ? "text-[#3d6a8f] bg-blue-50" : "text-white bg-red-600"}`}
+                  >
+                    {isChildPriceAvailable()
+                      ? `PKR ${calculateB2BPrice(groupData?.childPrice, groupData)?.toLocaleString()}`
+                      : "Price On Call"}
                   </p>
                 </div>
 
@@ -983,7 +984,7 @@ export default function BookingForm({ user }) {
                   </p>
                   <p
                     className={`text-sm font-extrabold px-2 py-1 rounded-2xl whitespace-nowrap ${isInfantPriceAvailable() ? "text-[#3d6a8f] bg-blue-50" : "text-white bg-red-600"}`}
-                  >{`${isInfantPriceAvailable() ? `PKR ${calculateB2BPrice(groupData.infantPrice, groupData)?.toLocaleString()}` : "Price On Call"}`}</p>
+                  >{`${isInfantPriceAvailable() ? `PKR ${calculateB2BPrice(groupData?.infantPrice, groupData)?.toLocaleString()}` : "Price On Call"}`}</p>
                 </div>
               </div>
             </div>
@@ -1081,23 +1082,23 @@ export default function BookingForm({ user }) {
                   <td className="px-3 py-2 text-xs font-medium border-r border-gray-200">
                     {isChildPriceAvailable() ? (
                       <span className="text-[#3d6a8f] inline-block text-xs font-extrabold px-2 py-1 rounded-2xl">
-                        PKR{" "}
-                        {calculateB2BPrice(
-                          groupData?.childPrice,
-                          groupData,
-                        )?.toLocaleString() || 0}
+                        PKR {calculateB2BPrice(groupData?.childPrice, groupData)?.toLocaleString()}
                       </span>
                     ) : (
-                      <span className="text-gray-500 font-semibold">N/A</span>
+                      <span className="text-red-500 font-semibold">Price On Call</span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-center text-xs font-bold text-gray-900 border-r border-gray-200">
                     {formData.children}
                   </td>
                   <td className="px-3 py-2 text-right text-xs font-bold text-gray-900">
-                    {isChildPriceAvailable()
-                      ? `PKR ${calculateChildTotal().toLocaleString()}`
-                      : "-"}
+                    {isChildPriceAvailable() ? (
+                      `PKR ${calculateChildTotal().toLocaleString()}`
+                    ) : formData.children ? (
+                      <span className="text-red-500 font-semibold">Price On Call</span>
+                    ) : (
+                      "-"
+                    )}
                   </td>
                 </tr>
 
@@ -1158,7 +1159,9 @@ export default function BookingForm({ user }) {
                     {totalPassengers}
                   </td>
                   <td className="px-3 py-2 text-right text-xs font-bold">
-                    {user?.priceOnCall ? (
+                    {user?.priceOnCall ||
+                    ((parseInt(formData.children) || 0) > 0 && !isChildPriceAvailable()) ||
+                    ((parseInt(formData.infants) || 0) > 0 && !isInfantPriceAvailable()) ? (
                       <span className="text-red-500 font-semibold">
                         Price on Call
                       </span>
