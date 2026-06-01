@@ -81,9 +81,9 @@ const AVAILABLE_PACKAGE_DURATIONS = [15, 21, 28];
 const getDurationBucket = (duration) => {
   const value = Number(duration);
   if (Number.isNaN(value)) return null;
-  if (value >= 28) return 28;
-  if (value >= 21 && value < 26) return 21;
-  if (value >= 15 && value < 19) return 15;
+  if (value >= 25 && value <= 30) return 28;
+  if (value >= 18 && value <= 24) return 21;
+  if (value >= 14 && value <= 17) return 15;
   return null;
 };
 
