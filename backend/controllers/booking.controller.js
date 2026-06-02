@@ -696,6 +696,17 @@ export const createBooking = async (req, res) => {
     const isTravelNetworkGroup =
       bookingSource === "travel-network" && !isLocalGroup(groupId);
 
+    const pricingData = {
+      ...pricing,
+      discountAmount: Number(pricing?.discountAmount || 0),
+      originalGrandTotal:
+        Number(pricing?.originalGrandTotal || 0) ||
+        Number(pricing?.grandTotal || 0) + Number(pricing?.discountAmount || 0),
+    };
+    if (!pricingData.originalGrandTotal) {
+      pricingData.originalGrandTotal = Number(pricingData.grandTotal || 0);
+    }
+
     // 1️⃣ Deduct from local DB (existing logic)
     // This will throw an error if not enough seats available
     await adjustSeatsIfLocalGroup(groupId, -seatCount, true);
@@ -715,7 +726,7 @@ export const createBooking = async (req, res) => {
       childrenCount,
       infantsCount,
       totalPassengers,
-      pricing,
+      pricing: pricingData,
       passengers,
       flights,
       departureDate,
@@ -1027,20 +1038,12 @@ export const updateBookingStatus = async (req, res) => {
     const oldStatus = booking.status;
     const seats = booking.adultsCount + booking.childrenCount;
 
-    // Ensure margin ledger entry exists when booking is confirmed (idempotent)
+    // Ensure margin ledger entry is refreshed when booking is confirmed
     if (status === "confirmed") {
-      const { default: MarginLedger } = await import("../models/MarginLedger.js");
-      const existingLedger = await MarginLedger.findOne({
-        entryType: "booking_confirmed",
-        bookingId: booking._id,
-      }).lean();
-
-      if (!existingLedger) {
       const { recordBookingMarginLedger } = await import("./groupMargin.controller.js");
       const { default: Margin } = await import("../models/Margin.js");
       const latestMargin = await Margin.findOne({}).sort({ createdAt: -1 }).lean();
       await recordBookingMarginLedger({ booking, globalMargin: latestMargin });
-      }
     }
 
     if (oldStatus !== "cancelled" && status === "cancelled") {
@@ -1067,6 +1070,41 @@ export const updateBookingStatus = async (req, res) => {
       status === "on hold" ? new Date(Date.now() + HOLD_DURATION) : null;
 
     await booking.save();
+
+    res.json({ success: true, data: booking });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+export const updateBookingDiscount = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) throw new Error("Booking not found");
+    if (booking.status === "cancelled")
+      throw new Error("Cannot update discount on cancelled booking");
+
+    const discountAmount = Number(req.body.discountAmount || 0);
+    if (Number.isNaN(discountAmount) || discountAmount < 0)
+      throw new Error("Invalid discount amount");
+
+    const existingDiscount = Number(booking.pricing?.discountAmount || 0);
+    const originalGrandTotal =
+      Number(booking.pricing?.originalGrandTotal || 0) ||
+      (Number(booking.pricing?.grandTotal || 0) + existingDiscount);
+
+    booking.pricing.discountAmount = discountAmount;
+    booking.pricing.originalGrandTotal = originalGrandTotal;
+    booking.pricing.grandTotal = Math.max(0, originalGrandTotal - discountAmount);
+
+    await booking.save();
+
+    if (booking.status === "confirmed") {
+      const { recordBookingMarginLedger } = await import("./groupMargin.controller.js");
+      const { default: Margin } = await import("../models/Margin.js");
+      const latestMargin = await Margin.findOne({}).sort({ createdAt: -1 }).lean();
+      await recordBookingMarginLedger({ booking, globalMargin: latestMargin });
+    }
 
     res.json({ success: true, data: booking });
   } catch (err) {

@@ -35,6 +35,8 @@ const UmrahPackageBookingSchema = new mongoose.Schema(
       pricePerPerson: { type: Number, default: 0 },
       currency: { type: String, default: "PKR" },
       totalAmount: { type: Number, default: 0 },
+      discountAmount: { type: Number, default: 0 },
+      originalTotalAmount: { type: Number, default: 0 },
     },
 
     status: {

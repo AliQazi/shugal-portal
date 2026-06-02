@@ -996,7 +996,7 @@ export default function BookingForm({ user }) {
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {/* Passengers and Pricing Table */}
         <div className="bg-white border border-gray-300 shadow-sm overflow-x-auto">
-          <div className="min-w-150">
+          <div className="min-w-150"> 
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-[#3d6a8f] text-white">

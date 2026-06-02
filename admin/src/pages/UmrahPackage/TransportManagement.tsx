@@ -11,7 +11,7 @@ interface Transport {
 const emptyForm = { route: "", transportType: "" };
 
 export default function TransportManagement() {
-  const [transports, setTransports] = useState<Transport[]>([]);
+  const [transports, setTransports] = useState<Transport[]>([]); 
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState<string | null>(null);

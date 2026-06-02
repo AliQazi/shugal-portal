@@ -31,6 +31,8 @@ interface Booking {
         infantPrice?: number
         infantBasePrice?: number
         infantTotal?: number
+        discountAmount?: number
+        originalGrandTotal?: number
         grandTotal: number
     }
     passengers?: Array<{
@@ -41,7 +43,7 @@ interface Booking {
         passport: string
         passportExpiry?: string
         dateOfBirth: string
-        documentUrl?: string
+        documentUrl?: string 
     }>
     flights?: Array<{
         flightNo: string
@@ -66,6 +68,8 @@ export default function BookingDetail() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [selectedStatus, setSelectedStatus] = useState('')
+    const [discountAmount, setDiscountAmount] = useState(0)
+    const [isSavingDiscount, setIsSavingDiscount] = useState(false)
     const [isUpdating, setIsUpdating] = useState(false)
 
     useEffect(() => {
@@ -83,6 +87,7 @@ export default function BookingDetail() {
             if (response.data.success) {
                 setBooking(response.data.data)
                 setSelectedStatus(response.data.data.status)
+                setDiscountAmount(response.data.data.pricing?.discountAmount || 0)
             } else {
                 setError('Failed to load booking details')
             }
@@ -136,6 +141,28 @@ export default function BookingDetail() {
             }
         } finally {
             setIsUpdating(false)
+        }
+    }
+
+    const handleDiscountSave = async () => {
+        if (!booking) return
+
+        try {
+            setIsSavingDiscount(true)
+            const response = await axiosInstance.patch(`/bookings/${id}/discount`, {
+                discountAmount: Number(discountAmount || 0),
+            })
+
+            if (response.data.success) {
+                setBooking(response.data.data)
+                setDiscountAmount(response.data.data.pricing?.discountAmount || 0)
+                alert('Discount saved successfully')
+            }
+        } catch (err) {
+            console.error('Error saving discount:', err)
+            alert('Failed to save discount. Please try again.')
+        } finally {
+            setIsSavingDiscount(false)
         }
     }
 
@@ -355,7 +382,30 @@ export default function BookingDetail() {
                                     </>
                                 )}
 
-                                <div className="border-t border-gray-200 pt-3 mt-3">
+                                <div className="border-t border-gray-200 pt-3 mt-3 space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-700">Discount Applied</span>
+                                        <span className="font-medium text-red-600">PKR {(safeBooking.pricing?.discountAmount || 0).toLocaleString()}</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] items-end">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Discount Amount</label>
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                value={discountAmount}
+                                                onChange={(e) => setDiscountAmount(Number(e.target.value))}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                        <button
+                                            onClick={handleDiscountSave}
+                                            disabled={isSavingDiscount}
+                                            className="h-12 px-6 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                                        >
+                                            {isSavingDiscount ? 'Saving...' : 'Save Discount'}
+                                        </button>
+                                    </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-lg font-semibold text-gray-900">Grand Total</span>
                                         <span className="text-lg font-bold text-blue-600">PKR {(safeBooking.pricing?.grandTotal || 0).toLocaleString()}</span>
@@ -492,7 +542,7 @@ export default function BookingDetail() {
                                     <div className="border-t border-gray-200 pt-4">
                                         <label className="text-gray-600">Sabaoon Status</label>
                                         <p className={`mt-1 inline-block px-2 py-1 rounded text-xs font-semibold ${safeBooking.sabaoonBookingStatus === 'success'
-                                                ? 'bg-green-100 text-green-700'
+                                                ? 'bg-green-100 text-green-700'  
                                                 : safeBooking.sabaoonBookingStatus === 'failed'
                                                     ? 'bg-red-100 text-red-700'
                                                     : 'bg-yellow-100 text-yellow-700'

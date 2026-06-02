@@ -71,7 +71,9 @@ function PassengerModal({
               ["Email", booking.user?.email || "—"],
               ["Phone", booking.user?.phone || "—"],
               ["Room Type", booking.roomType],
-              ["Total Amount", `PKR ${(booking.pricing?.totalAmount || 0).toLocaleString()}`],
+              ["Original Price", `PKR ${(booking.pricing?.originalTotalAmount || booking.pricing?.totalAmount || 0).toLocaleString()}`],
+              ["Discount", `PKR ${(booking.pricing?.discountAmount || 0).toLocaleString()}`],
+              ["Payable", `PKR ${(booking.pricing?.totalAmount || 0).toLocaleString()}`],
               ["Booked On", fmtDate(booking.createdAt)],
             ].map(([label, value]) => (
               <div key={label} className="bg-gray-50 rounded-lg p-3">
@@ -157,10 +159,16 @@ function StatusModal({
 }: {
   booking: UmrahBooking;
   onClose: () => void;
-  onSave: (id: string, status: UmrahBooking["status"], note: string) => Promise<void>;
+  onSave: (
+    id: string,
+    status: UmrahBooking["status"],
+    note: string,
+    discountAmount?: number
+  ) => Promise<void>;
 }) {
   const [status, setStatus] = useState<UmrahBooking["status"]>(booking.status);
   const [note, setNote] = useState(booking.adminNote || "");
+  const [discountAmount, setDiscountAmount] = useState<number>(booking.pricing?.discountAmount || 0);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -173,7 +181,7 @@ function StatusModal({
 
   const handleSave = async () => {
     setSaving(true);
-    await onSave(booking._id, status, note);
+    await onSave(booking._id, status, note, discountAmount);
     setSaving(false);
   };
 
@@ -214,6 +222,16 @@ function StatusModal({
                 </option>
               ))}
             </select>
+          </div>
+          <div>
+            <label className="text-sm font-semibold text-gray-700 block mb-1">Discount Amount (PKR)</label>
+            <input
+              type="number"
+              min={0}
+              value={discountAmount}
+              onChange={(e) => setDiscountAmount(Number(e.target.value))}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
           <div>
             <label className="text-sm font-semibold text-gray-700 block mb-1">
@@ -282,9 +300,14 @@ export default function UmrahPackageBookingsAdmin() {
     setPage(1);
   }, [filterStatus]);
 
-  const handleStatusSave = async (id: string, status: string, adminNote: string) => {
+  const handleStatusSave = async (
+    id: string,
+    status: string,
+    adminNote: string,
+    discountAmount?: number
+  ) => {
     try {
-      await adminUpdateUmrahBookingStatus(id, status, adminNote);
+      await adminUpdateUmrahBookingStatus(id, status, adminNote, discountAmount);
       toast.success("Status updated");
       setStatusBooking(null);
       fetchBookings();

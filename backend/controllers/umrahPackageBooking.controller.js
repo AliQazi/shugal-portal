@@ -87,6 +87,10 @@ export const createUmrahPackageBooking = async (req, res) => {
 
     const parsedPackageData = typeof packageData === "string" ? JSON.parse(packageData) : packageData;
 
+    const pricingTotal = Number(parsedPricing?.totalAmount || 0);
+    const pricingDiscount = Number(parsedPricing?.discountAmount || 0);
+    const pricingOriginal = Number(parsedPricing?.originalTotalAmount || 0) || pricingTotal + pricingDiscount;
+
     const booking = new UmrahPackageBooking({
       user: userId,
       package: packageId && packageId.length === 24 ? packageId : undefined,
@@ -102,7 +106,9 @@ export const createUmrahPackageBooking = async (req, res) => {
       pricing: {
         pricePerPerson: Number(parsedPricing?.pricePerPerson || 0),
         currency: parsedPricing?.currency || "PKR",
-        totalAmount: Number(parsedPricing?.totalAmount || 0),
+        totalAmount: Math.max(0, pricingOriginal - pricingDiscount),
+        discountAmount: pricingDiscount,
+        originalTotalAmount: pricingOriginal,
       },
     });
 
@@ -112,18 +118,11 @@ export const createUmrahPackageBooking = async (req, res) => {
     if (booking.status === "confirmed") {
       try {
         const { default: MarginLedger } = await import("../models/MarginLedger.js");
-        const existingLedger = await MarginLedger.findOne({
-          entryType: "booking_confirmed",
-          bookingId: booking._id,
-        }).lean();
-
-        if (!existingLedger) {
-          const { recordBookingMarginLedger } = await import("./groupMargin.controller.js");
-          const { default: Margin } = await import("../models/Margin.js");
-          const latestMargin = await Margin.findOne({}).sort({ createdAt: -1 }).lean();
-          const ledgerBooking = prepareUmrahBookingForLedger(booking);
-          await recordBookingMarginLedger({ booking: ledgerBooking, globalMargin: latestMargin });
-        }
+        const { recordBookingMarginLedger } = await import("./groupMargin.controller.js");
+        const { default: Margin } = await import("../models/Margin.js");
+        const latestMargin = await Margin.findOne({}).sort({ createdAt: -1 }).lean();
+        const ledgerBooking = prepareUmrahBookingForLedger(booking);
+        await recordBookingMarginLedger({ booking: ledgerBooking, globalMargin: latestMargin });
       } catch (ledgerErr) {
         console.error("createUmrahPackageBooking ledger write failed:", ledgerErr?.message || ledgerErr);
       }
@@ -293,30 +292,39 @@ export const updateUmrahBookingPassengers = async (req, res) => {
 ──────────────────────────────────────────────────────────────────── */
 export const adminUpdateBookingStatus = async (req, res) => {
   try {
-    const { status, adminNote } = req.body;
-    const booking = await UmrahPackageBooking.findByIdAndUpdate(
-      req.params.id,
-      { status, ...(adminNote !== undefined && { adminNote }) },
-      { new: true }
-    );
+    const { status, adminNote, discountAmount } = req.body;
+    const booking = await UmrahPackageBooking.findById(req.params.id);
+    if (!booking)
+      return res.status(404).json({ success: false, message: "Booking not found" });
+
+    if (discountAmount !== undefined) {
+      const discountValue = Number(discountAmount || 0);
+      if (Number.isNaN(discountValue) || discountValue < 0)
+        throw new Error("Invalid discount amount");
+
+      const existingDiscount = Number(booking.pricing?.discountAmount || 0);
+      const originalTotal =
+        Number(booking.pricing?.originalTotalAmount || 0) ||
+        Number(booking.pricing?.totalAmount || 0) + existingDiscount;
+
+      booking.pricing.discountAmount = discountValue;
+      booking.pricing.originalTotalAmount = originalTotal;
+      booking.pricing.totalAmount = Math.max(0, originalTotal - discountValue);
+    }
+
+    booking.status = status;
+    if (adminNote !== undefined) booking.adminNote = adminNote;
+    await booking.save();
     if (!booking)
       return res.status(404).json({ success: false, message: "Booking not found" });
 
     if (String(status).toLowerCase() === "confirmed") {
       try {
-        const { default: MarginLedger } = await import("../models/MarginLedger.js");
-        const existingLedger = await MarginLedger.findOne({
-          entryType: "booking_confirmed",
-          bookingId: booking._id,
-        }).lean();
-
-        if (!existingLedger) {
-          const { recordBookingMarginLedger } = await import("./groupMargin.controller.js");
-          const { default: Margin } = await import("../models/Margin.js");
-          const latestMargin = await Margin.findOne({}).sort({ createdAt: -1 }).lean();
-          const ledgerBooking = prepareUmrahBookingForLedger(booking);
-          await recordBookingMarginLedger({ booking: ledgerBooking, globalMargin: latestMargin });
-        }
+        const { recordBookingMarginLedger } = await import("./groupMargin.controller.js");
+        const { default: Margin } = await import("../models/Margin.js");
+        const latestMargin = await Margin.findOne({}).sort({ createdAt: -1 }).lean();
+        const ledgerBooking = prepareUmrahBookingForLedger(booking);
+        await recordBookingMarginLedger({ booking: ledgerBooking, globalMargin: latestMargin });
       } catch (ledgerErr) {
         console.error("adminUpdateBookingStatus ledger write failed:", ledgerErr?.message || ledgerErr);
       }

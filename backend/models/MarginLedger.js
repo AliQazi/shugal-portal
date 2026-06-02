@@ -38,6 +38,7 @@ const marginLedgerSchema = new mongoose.Schema(
     bookingReference: { type: String, default: "" },
     passengers: { type: Number, default: 0 },
     totalMarginEarned: { type: Number, default: 0 }, // marginAmount × passengers
+    discountAmount: { type: Number, default: 0 },
     totalFare: { type: Number, default: 0 }, // final booking fare (after margin/discount)
 
     note: { type: String, default: "", trim: true },

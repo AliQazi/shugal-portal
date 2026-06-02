@@ -190,7 +190,7 @@ function buildCopyText(groups: UnifiedGroup[]): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const header = `                *=====${String(today.getDate()).padStart(2, "0")} ${MONTHS_TITLE[today.getMonth()].toUpperCase()} UPDATES=====*`;
+  const header = `*=====${String(today.getDate()).padStart(2, "0")} ${MONTHS_TITLE[today.getMonth()].toUpperCase()} UPDATES=====*`;
 
   // ── Step A: Build sector-grouped map (preserving API sector order) ──
   const sectorMap = new Map<string, { group: any; date: Date; price: number; line: string }[]>();
@@ -420,9 +420,9 @@ export default function Home() {
                   d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
               Copy Sectors Data ({unifiedGroups.length})
-            </>
+            </> 
           )}
-        </button>
+        </button> 
 
         <button
           onClick={() => setIsMarginModalOpen(true)}

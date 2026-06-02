@@ -359,6 +359,7 @@ export const recordBookingMarginLedger = async ({
       bookingReference,
       passengers: pax,
       totalMarginEarned,
+      discountAmount: Number(booking.pricing?.discountAmount || 0),
       totalFare,
       note: `Booking confirmed: ${bookingReference || booking._id}`,
       userId,

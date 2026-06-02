@@ -21,7 +21,7 @@ export interface UmrahBooking {
   roomType: string;
   passengers: UmrahPassenger[];
   specialRequests?: string;
-  pricing: { pricePerPerson: number; currency: string; totalAmount: number };
+  pricing: { pricePerPerson: number; currency: string; totalAmount: number; discountAmount?: number; originalTotalAmount?: number };
   status: "pending" | "confirmed" | "cancelled" | "completed";
   adminNote?: string;
   createdAt: string;
@@ -48,9 +48,11 @@ export const adminGetAllUmrahBookings = (
 export const adminUpdateUmrahBookingStatus = (
   id: string,
   status: string,
-  adminNote?: string
+  adminNote?: string,
+  discountAmount?: number
 ) =>
   axiosInstance.patch(`/umrah-package-bookings/admin/${id}/status`, {
     status,
     adminNote,
+    discountAmount,
   });

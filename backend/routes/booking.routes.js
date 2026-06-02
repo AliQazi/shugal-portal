@@ -5,6 +5,7 @@ import {
   getBookingById,
   getBookingByReference,
   updateBookingStatus,
+  updateBookingDiscount,
   updateBooking,
   cancelBooking,
   deleteBooking,
@@ -44,6 +45,9 @@ router.get("/:id", getBookingById);
 
 // Update booking status (admin only)
 router.patch("/:id/status", updateBookingStatus);
+
+// Update booking discount
+router.patch("/:id/discount", updateBookingDiscount);
 
 // Update booking details
 router.put("/:id", updateBooking);
