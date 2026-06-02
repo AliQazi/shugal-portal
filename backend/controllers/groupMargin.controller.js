@@ -7,7 +7,8 @@ const TYPE_TO_CATEGORY = {
   "UAE ONE WAY GROUP": "uae",
   "ONE WAY GROUP": "ksa",
   "OMAN ONE WAY GROUP": "muscat",
-  "UMRAH GROUP": "umrah",
+  "UMRAH GROUP": "umrah-tickets",
+  "UMRAH GROUPS": "umrah-packages",
   "UK ONE WAY GROUP": "uk",
 };
 

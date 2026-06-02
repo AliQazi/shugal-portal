@@ -15,10 +15,10 @@ export default function TransportManagement() {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState(false); 
 
   useEffect(() => {
-    fetchTransports();
+    fetchTransports();  
   }, []);
 
   const fetchTransports = async () => {

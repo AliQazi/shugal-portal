@@ -22,7 +22,8 @@ const TYPE_TO_CATEGORY = {
   "UAE ONE WAY GROUP": "uae",
   "ONE WAY GROUP": "ksa",
   "OMAN ONE WAY GROUP": "muscat",
-  "UMRAH GROUP": "umrah",
+  "UMRAH GROUP": "umrah-tickets",
+  "UMRAH GROUPS": "umrah-tickets",
   "UK ONE WAY GROUP": "uk",
 };
 
@@ -141,6 +142,8 @@ const getGroupDuration = (group = {}) => {
 };
 
 const getCategoryFromGroup = (group = {}) => {
+  if (isUmrahPackageGroup(group)) return "umrah-packages";
+
   const type = String(group?.type || "").toUpperCase().trim();
   return TYPE_TO_CATEGORY[type] || "";
 };

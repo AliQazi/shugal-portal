@@ -22,25 +22,74 @@ export default function BookingForm({ user }) {
   const isEditMode = !!bookingId;
 
   const [dbMargin, setDbMargin] = useState(null);
+  const [groupMargins, setGroupMargins] = useState({});
 
   useEffect(() => {
-    axiosInstance
-      .get("/sector/getMargin")
-      .then((res) => {
-        if (res.data?.success) setDbMargin(res.data.data);
-      })
-      .catch(() => {});
+    const loadMargins = async () => {
+      try {
+        const [marginRes, groupMarginRes] = await Promise.allSettled([
+          axiosInstance.get("/sector/getMargin"),
+          axiosInstance.get("/group-margin/all"),
+        ]);
+
+        if (marginRes.status === "fulfilled" && marginRes.value.data?.success) {
+          setDbMargin(marginRes.value.data.data);
+        }
+
+        if (
+          groupMarginRes.status === "fulfilled" &&
+          groupMarginRes.value.data?.success
+        ) {
+          setGroupMargins(groupMarginRes.value.data.data || {});
+        }
+      } catch (err) {
+        console.error("Error loading margins:", err);
+      }
+    };
+
+    loadMargins();
   }, []);
 
-  // 3-tier margin priority :
-  // 1. Agent-specific margin (highest)
-  // 2. Individual group margin (Sabaoon API only, when no agent margin set)
-  // 3. Global/overall margin (fallback)
+  const TYPE_TO_CATEGORY = {
+    "UAE ONE WAY GROUP": "uae",
+    "ONE WAY GROUP": "ksa",
+    "OMAN ONE WAY GROUP": "muscat",
+    "UMRAH GROUP": "umrah-tickets",
+    "UMRAH GROUPS": "umrah-packages",
+    "UK ONE WAY GROUP": "uk",
+  };
+
+  const isUmrahPackageGroup = (group = {}) =>
+    Boolean(
+      group?.packageName ||
+      group?.package_name ||
+      group?.hotels ||
+      group?.hotel ||
+      group?.packageId ||
+      group?.package_id,
+    );
+
+  const normalizeSector = (sector = "") =>
+    String(sector)
+      .split("-")
+      .map((part) => part.trim().toUpperCase())
+      .filter(Boolean)
+      .join("-");
+
+  const getCategoryFromGroup = (group = {}) => {
+    if (isUmrahPackageGroup(group)) return "umrah-packages";
+    const type = String(group?.type || "").toUpperCase().trim();
+    return TYPE_TO_CATEGORY[type] || "";
+  };
+
   const calculateB2BPrice = (groupPrice, group = {}) => {
-    if (!user) return groupPrice;
+    const basePrice = Number(groupPrice);
+    const normalizedBasePrice = Number.isFinite(basePrice) && basePrice > 0 ? basePrice : 0;
+
+    if (!user) return normalizedBasePrice;
     if (user?.priceOnCall) return null;
 
-    let finalPrice = groupPrice;
+    let finalPrice = normalizedBasePrice;
 
     // =========================
     // 1. AGENT MARGIN
@@ -50,35 +99,70 @@ export default function BookingForm({ user }) {
     const marginAmount = user.flightMarginAmount;
 
     if (marginType === "Percentage" && marginPercent > 0) {
-      finalPrice = groupPrice + (groupPrice * marginPercent) / 100;
+      finalPrice = normalizedBasePrice + (normalizedBasePrice * marginPercent) / 100;
     } else if (marginType === "Amount" && marginAmount > 0) {
-      finalPrice = groupPrice + marginAmount;
+      finalPrice = normalizedBasePrice + marginAmount;
     }
 
     // =========================
-    // 2. GROUP MARGIN (fallback)
+    // 2. GROUP/CATEGORY/SECTOR OVERRIDES (fallback)
     // =========================
-    if (finalPrice === groupPrice) {
+    if (finalPrice === normalizedBasePrice && Object.keys(groupMargins).length > 0) {
+      const category = getCategoryFromGroup(group);
+      const categoryKey = category ? `group-category-${category}` : "";
+      const sectorKey = group?.sector
+        ? `sector-sector:${normalizeSector(group.sector)}`
+        : "";
+      const flightKey = group?.source && group?.id ? `${group.source}-${group.id}` : "";
+      const groupTypeFlightKey = group?.type && group?.id ? `${group.type}-${group.id}` : "";
+
+      const categoryMargin = categoryKey
+        ? groupMargins[categoryKey]?.marginAmount
+        : undefined;
+      const sectorMargin = sectorKey
+        ? groupMargins[sectorKey]?.marginAmount
+        : undefined;
+      const flightMargin = flightKey
+        ? groupMargins[flightKey]?.marginAmount
+        : undefined;
+      const fallbackMargin = groupTypeFlightKey
+        ? groupMargins[groupTypeFlightKey]?.marginAmount
+        : undefined;
+
+      if (typeof categoryMargin === "number") {
+        finalPrice = normalizedBasePrice + categoryMargin;
+      } else if (typeof sectorMargin === "number") {
+        finalPrice = normalizedBasePrice + sectorMargin;
+      } else if (typeof flightMargin === "number") {
+        finalPrice = normalizedBasePrice + flightMargin;
+      } else if (typeof fallbackMargin === "number") {
+        finalPrice = normalizedBasePrice + fallbackMargin;
+      }
+    }
+
+    // =========================
+    // 3. INDIVIDUAL GROUP MARGIN
+    // =========================
+    if (finalPrice === normalizedBasePrice) {
       const indMargin = group?.individualMargin;
-
       if (indMargin !== null && indMargin !== undefined) {
-        finalPrice = groupPrice + indMargin;
+        finalPrice = normalizedBasePrice + Number(indMargin);
       }
     }
 
     // =========================
-    // 3. GLOBAL MARGIN (fallback)
+    // 4. GLOBAL MARGIN (fallback)
     // =========================
-    if (finalPrice === groupPrice && dbMargin) {
+    if (finalPrice === normalizedBasePrice && dbMargin) {
       if (dbMargin.type === "percent" && dbMargin.value > 0) {
-        finalPrice = groupPrice + (groupPrice * dbMargin.value) / 100;
+        finalPrice = normalizedBasePrice + (normalizedBasePrice * dbMargin.value) / 100;
       } else if (dbMargin.type === "amount" && dbMargin.value > 0) {
-        finalPrice = groupPrice + dbMargin.value;
+        finalPrice = normalizedBasePrice + dbMargin.value;
       }
     }
 
     // =========================
-    // 4. DISCOUNT (LAST STEP)
+    // 5. DISCOUNT (LAST STEP)
     // =========================
     const discountType = user.discountType;
     const discountPercent = user.discountPercent;
@@ -92,7 +176,7 @@ export default function BookingForm({ user }) {
       discountValue = discountAmount;
     }
 
-    finalPrice = finalPrice - discountValue;
+    finalPrice -= discountValue;
 
     if (finalPrice < 0) finalPrice = 0;
 

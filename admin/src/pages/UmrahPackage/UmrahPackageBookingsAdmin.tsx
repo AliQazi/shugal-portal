@@ -304,7 +304,7 @@ export default function UmrahPackageBookingsAdmin() {
     id: string,
     status: string,
     adminNote: string,
-    discountAmount?: number
+    discountAmount?: number 
   ) => {
     try {
       await adminUpdateUmrahBookingStatus(id, status, adminNote, discountAmount);
