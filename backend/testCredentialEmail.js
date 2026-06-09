@@ -9,7 +9,7 @@ const testSendCredentials = async () => {
     console.log('🔧 Starting Email Configuration Test...\n');
     
     // Check environment variables
-    console.log('📋 Environment Variables:');
+    console.log('📋 Environment Variables:'); 
     console.log('  EMAIL_SERVICE:', process.env.EMAIL_SERVICE || 'gmail (default)');
     console.log('  EMAIL_USER:', process.env.EMAIL_USER || '❌ NOT SET');
     console.log('  EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? '✅ SET (hidden)' : '❌ NOT SET');

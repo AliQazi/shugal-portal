@@ -83,7 +83,7 @@ const mkAdult  = () => ({ type: "Adult",  title: "Mr",    givenName: "", surName
 const mkChild  = () => ({ type: "Child",  title: "Child", givenName: "", surName: "", passport: "", dateOfBirth: "", passportExpiry: "", nationality: "Pakistan", passportFile: null, passportFileName: "" });
 const mkInfant = () => ({ type: "Infant", title: "INF",   givenName: "", surName: "", passport: "", dateOfBirth: "", passportExpiry: "", nationality: "Pakistan", passportFile: null, passportFileName: "" });
 
-export default function UmrahBookingPage({ user }) {
+export default function UmrahBookingPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const packageData  = location.state?.packageData || getStoredBookingPackage(location.search);
@@ -221,6 +221,7 @@ export default function UmrahBookingPage({ user }) {
       fd.append("packageId", packageData?._id || packageData?.id || "");
       fd.append("packageName", packageData?.packageName || "Umrah Package");
       fd.append("packageSource", "local");
+      fd.append("pnr", packageData?.pnr || packageData?.flights?.[0]?.pnr || "");
       fd.append("roomType", selectedRoom);
       fd.append("specialRequests", formData.specialRequests);
       fd.append("pricing", JSON.stringify({

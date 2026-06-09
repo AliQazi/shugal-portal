@@ -407,7 +407,7 @@ const Login = ({ onLogin }) => {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
                     <path d="M3 21V7l9-4 9 4v14H3zm2-2h14V8.5l-7-3.1L5 8.5V19zm3-3h2v-4H8v4zm4 0h2v-4h-2v4zm4 0h2v-4h-2v4z" />
                   </svg>
-                  Shaheen Wings travel and tours   )
+                  Shaheen Wings Travel and Tours
                 </div>
                 <div className="company-detail">Licence: PR-3919</div>
               </div>

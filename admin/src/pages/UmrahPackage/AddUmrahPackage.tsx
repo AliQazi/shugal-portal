@@ -35,6 +35,7 @@ export default function AddUmrahPackage() {
   const [groups, setGroups] = useState<GroupTicket[]>([]);
 
   const [packageName, setPackageName] = useState("");
+  const [pnr, setPnr] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState("");
   const [flightLogoFile, setFlightLogoFile] = useState<File | null>(null);
@@ -74,6 +75,7 @@ export default function AddUmrahPackage() {
       if (res.data.success) {
         const p = res.data.data;
         setPackageName(p.packageName || "");
+        setPnr(p.pnr || "");
         setLogoPreview(p.logo || "");
         setFlightLogoPreview(p.flightLogo || "");
         setUmrahGroupTicket(p.umrahGroupTicket?._id || p.umrahGroupTicket || "");
@@ -157,7 +159,7 @@ export default function AddUmrahPackage() {
   const buildFormData = () => {
     const fd = new FormData();
     const body = {
-      packageName, umrahGroupTicket, availablePackages, packageDuration,
+      packageName, pnr, umrahGroupTicket, availablePackages, packageDuration,
       hotels: hotelEntries, transports: transportEntries, visa: selectedVisa,
       roomTypes, notes,
     };
@@ -208,6 +210,11 @@ export default function AddUmrahPackage() {
         <div>
           <label className={labelCls}>Package Name</label>
           <input value={packageName} onChange={(e) => setPackageName(e.target.value)} placeholder="Enter package name" className={inputCls} />
+        </div>
+
+        <div>
+          <label className={labelCls}>PNR</label>
+          <input value={pnr} onChange={(e) => setPnr(e.target.value.toUpperCase())} placeholder="Enter PNR" className={inputCls} />
         </div>
 
         {/* Logo */}

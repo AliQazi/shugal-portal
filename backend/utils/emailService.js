@@ -137,7 +137,7 @@ const getPasswordResetEmailHTML = (resetLink, userName) => {
         }
         .warning {
           background-color: #fff3cd;
-          border-left: 4px solid #ffc107;
+          border-left: 4px solid #ffc107;  
           padding: 15px;
           margin: 20px 0;
         }
@@ -165,10 +165,10 @@ const getPasswordResetEmailHTML = (resetLink, userName) => {
             </ul>
           </div>
           <p>If you have any questions or concerns, please contact our support team.</p>
-          <p>Best regards,<br><strong>Shaheen Wings travel and tours   ) Team</strong></p>
+          <p>Best regards,<br><strong>Shaheen Wings Travel and Tours Team</strong></p>
         </div>
         <div class="footer">
-          <p>&copy; ${new Date().getFullYear()} Shaheen Wings travel and tours   ). All rights reserved.</p>
+          <p>&copy; ${new Date().getFullYear()} Shaheen Wings travel and tours. All rights reserved.</p>
           <p>This is an automated message, please do not reply to this email.</p>
         </div>
       </div>
@@ -194,13 +194,13 @@ export const sendPasswordResetEmail = async (
 
     const mailOptions = {
       from: {
-        name: "Shaheen Wings travel and tours   )",
+        name: "Shaheen Wings travel and tours",
         address: process.env.EMAIL_USER,
       },
       to: email,
-      subject: "Password Reset Request - Shaheen Wings travel and tours   )",
+      subject: "Password Reset Request - Shaheen Wings travel and tours",
       html: getPasswordResetEmailHTML(resetLink, userName),
-      text: `Hello ${userName},\n\nWe received a request to reset your password.\n\nPlease click the following link to reset your password:\n${resetLink}\n\nThis link will expire in 1 hour.\n\nIf you didn't request this, please ignore this email.\n\nBest regards,\nShaheen Wings travel and tours   ) Team`,
+      text: `Hello ${userName},\n\nWe received a request to reset your password.\n\nPlease click the following link to reset your password:\n${resetLink}\n\nThis link will expire in 1 hour.\n\nIf you didn't request this, please ignore this email.\n\nBest regards,\nShaheen Wings travel and tours | Team`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -322,11 +322,11 @@ const getCredentialsEmailHTML = (
     <body>
       <div class="container">
         <div class="header">
-          <h1>🎉 Welcome to Shaheen Wings travel and tours   )!</h1>
+          <h1>🎉 Welcome to Shaheen Wings Travel and Tours!</h1>
         </div>
         <div class="content">
           <p>Hello <strong>${userName}</strong>,</p>
-          <p>Welcome to Shaheen Wings travel and tours   )! Your agency account has been created successfully.</p>
+          <p>Welcome to Shaheen Wings travel and tours! Your agency account has been created successfully.</p>
           <p><strong>Company:</strong> ${companyName}</p>
           
           <div class="credentials-box">
@@ -363,10 +363,10 @@ const getCredentialsEmailHTML = (
           </div>
 
           <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
-          <p>Best regards,<br><strong>Shaheen Wings travel and tours   ) Team</strong></p>
+          <p>Best regards,<br><strong>Shaheen Wings travel and tours | Team</strong></p>
         </div>
         <div class="footer">
-          <p>&copy; ${new Date().getFullYear()} Shaheen Wings travel and tours   ). All rights reserved.</p>
+          <p>&copy; ${new Date().getFullYear()} Shaheen Wings travel and tours. All rights reserved.</p>
           <p>This is an automated message, please do not reply to this email.</p>
         </div>
       </div>
@@ -470,11 +470,11 @@ export const sendCredentialsEmail = async (
 
     const mailOptions = {
       from: {
-        name: "Shaheen Wings travel and tours   )",
+        name: "Shaheen Wings travel and tours",
         address: process.env.EMAIL_USER,
       },
       to: email,
-      subject: "Your Agent Credentials - Shaheen Wings travel and tours   )",
+      subject: "Your Agent Credentials - Shaheen Wings travel and tours",
       html: getCredentialsEmailHTML(
         agentCode,
         email,
@@ -482,7 +482,7 @@ export const sendCredentialsEmail = async (
         userName,
         companyName,
       ),
-      text: `Hello ${userName},\n\nWelcome to Shaheen Wings travel and tours   )! Your agency account has been created successfully.\n\nCompany: ${companyName}\n\nYour Login Credentials:\nAgent Code: ${agentCode}\nEmail: ${email}\nPassword: ${password}\n\nLogin URL: ${process.env.FRONTEND_URL || "https://shaheenwingstravels.com"}/auth/login\n\nSecurity Tips:\n- Keep your credentials safe and secure\n- Do not share your password with anyone\n- We recommend changing your password after first login\n\nBest regards,\nShaheen Wings travel and tours   )`,
+      text: `Hello ${userName},\n\nWelcome to Shaheen Wings travel and tours! Your agency account has been created successfully.\n\nCompany: ${companyName}\n\nYour Login Credentials:\nAgent Code: ${agentCode}\nEmail: ${email}\nPassword: ${password}\n\nLogin URL: ${process.env.FRONTEND_URL || "https://shaheenwingstravels.com"}/auth/login\n\nSecurity Tips:\n- Keep your credentials safe and secure\n- Do not share your password with anyone\n- We recommend changing your password after first login\n\nBest regards,\nShaheen Wings travel and tours`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -524,7 +524,7 @@ export const sendAgentRegistrationNotificationEmail = async (payload) => {
 
     const mailOptions = {
       from: {
-        name: "Shaheen Wings travel and tours   )",
+        name: "Shaheen Wings travel and tours",
         address: process.env.EMAIL_USER,
       },
       to: adminEmail,
@@ -601,7 +601,7 @@ const getBookingNotificationHTML = ({
             <div class="row"><span class="label">Agent Code</span><div class="value">${agencyCode || "N/A"}</div></div>
             <div class="row"><span class="label">Created At</span><div class="value">${createdAt ? new Date(createdAt).toLocaleString() : new Date().toLocaleString()}</div></div>
           </div>
-          <div class="footer">This is an automated booking notification from Shaheen Wings travel and tours.</div>
+          <div class="footer">This is an automated booking notification from Shaheen Wings Travel and Tours.</div>
         </div>
       </body>
     </html>
@@ -610,24 +610,28 @@ const getBookingNotificationHTML = ({
 
 export const sendBookingNotificationEmail = async ({ bookingType, booking, agent }) => {
   try {
-    const internalEmail = process.env.EMAIL_USER;
-    const adminEmail = process.env.ADMIN_EMAIL?.trim();
+    const recipients = [
+      process.env.EMAIL_USER,
+      process.env.ADMIN_EMAIL,
+      process.env.INTERNAL_ALERT_EMAIL,
+      process.env.SHAHEENWINGS_GMAIL,
+    ]
+      .flatMap((value) => String(value || "").split(","))
+      .map((value) => value.trim())
+      .filter(Boolean);
 
-    if (!internalEmail) {
+    const uniqueRecipients = [...new Set(recipients)];
+
+    if (!uniqueRecipients.length) {
       throw new Error("EMAIL_USER is not configured in environment variables");
-    }
-
-    const recipients = [internalEmail];
-    if (adminEmail && adminEmail !== internalEmail) {
-      recipients.push(adminEmail);
     }
 
     const mailOptions = {
       from: {
-        name: process.env.EMAIL_FROM_NAME || "Shaheen Wings travel and tours   )",
+        name: process.env.EMAIL_FROM_NAME || "Shaheen Wings travel and tours",
         address: process.env.EMAIL_USER,
       },
-      to: recipients,
+      to: uniqueRecipients,
       subject: `New ${bookingType} Booking: ${booking.bookingReference || booking.bookingNumber || booking._id}`,
       html: getBookingNotificationHTML({
         bookingType,
@@ -662,10 +666,6 @@ Company: ${agent?.companyName || "N/A"}
 Created At: ${booking.createdAt || new Date().toISOString()}
 `,
     };
-
-    if (adminEmail && adminEmail !== internalEmail) {
-      mailOptions.bcc = adminEmail;
-    }
 
     const info = await transporter.sendMail(mailOptions);
     console.log("✅ Booking notification email sent:", info.messageId);

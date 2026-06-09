@@ -33,6 +33,7 @@ const UmrahPackageSchema = new mongoose.Schema(
       required: [true, "Package name is required"],
       trim: true,
     },
+    pnr: { type: String, trim: true, default: "" },
     logo: { type: String, default: "" },
     flightLogo: { type: String, default: "" },
     umrahGroupTicket: {

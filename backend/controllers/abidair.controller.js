@@ -94,10 +94,10 @@ const normalizeAbidAirType = (value, group = {}) => {
     }
     return "UMRAH GROUP";
   }
-if (/UMRAH|MAKKAH|MADINA|HARAM/.test(rawType)) return "UMRAH GROUP";
-if (/UAE/.test(rawType)) return "UAE ONE WAY GROUP";
-if (/KSA/.test(rawType)) return "ONE WAY GROUP";
-if (/UK/.test(rawType)) return "UK ONE WAY GROUP";
+  if (/UMRAH|MAKKAH|MADINA|HARAM/.test(rawType)) return "UMRAH GROUP";
+  if (/UAE/.test(rawType)) return "UAE ONE WAY GROUP";
+  if (/KSA/.test(rawType)) return "ONE WAY GROUP";
+  if (/UK/.test(rawType)) return "UK ONE WAY GROUP";
 
   return rawType;
 };
@@ -205,14 +205,14 @@ const normalizeAbidAirGroup = (group) => {
 
     available_no_of_pax: Number(
       group?.available_no_of_pax ??
-        fd?.available_no_of_pax ??
-        fd?.remain_seats ??
-        fd?.availableSeats ??
-        fd?.available_seats ??
-        group?.availableSeats ??
-        group?.seats ??
-        group?.available_seats ??
-        1
+      fd?.available_no_of_pax ??
+      fd?.remain_seats ??
+      fd?.availableSeats ??
+      fd?.available_seats ??
+      group?.availableSeats ??
+      group?.seats ??
+      group?.available_seats ??
+      1
     ),
 
     showSeat: true,
@@ -273,10 +273,10 @@ export const fetchNormalisedAbidAirGroups = async () => {
         const rawGroups = Array.isArray(resultData)
           ? resultData
           : resultData?.data ||
-            resultData?.flights ||
-            resultData?.groups ||
-            resultData?.result ||
-            resultData?.items || [];
+          resultData?.flights ||
+          resultData?.groups ||
+          resultData?.result ||
+          resultData?.items || [];
 
         if (Array.isArray(rawGroups) && rawGroups.length > 0) {
           rawGroupArrays.push(...rawGroups);

@@ -20,16 +20,17 @@ export const printUmrahPackageBooking = (booking) => {
 
     const getAgencyName = (booking) => {
         if (typeof booking.userId === "object" && booking.userId?.companyName) return booking.userId.companyName;
+        if (typeof booking.user === "object" && booking.user?.companyName) return booking.user.companyName;
+        if (typeof booking.user === "object" && booking.user?.name) return booking.user.name;
         if (booking.agencyName) return booking.agencyName;
         if (booking.contactPersonName) return booking.contactPersonName;
         return "SHAHEEN WINGS TRAVELS";
     };
 
     const getAgencyPhone = (booking) => {
-        if (typeof booking.userId === "object" && booking.userId?.phone) return booking.userId.phone;
-        if (booking.phone) return booking.phone;
-        if (booking.contactPhone) return booking.contactPhone;
-        if (booking.contactNumber) return booking.contactNumber;
+        if (booking.shaheenWingsContact?.phone) return booking.shaheenWingsContact.phone;
+        if (booking.shaheenWingsPhone) return booking.shaheenWingsPhone;
+        if (booking.adminPhone) return booking.adminPhone;
         return "N/A";
     };
 
@@ -46,14 +47,29 @@ export const printUmrahPackageBooking = (booking) => {
         return "";
     };
 
+    const getHotelsArray = (hotelsValue) => {
+        if (Array.isArray(hotelsValue)) return hotelsValue.filter(Boolean);
+        if (hotelsValue && typeof hotelsValue === "object") return Object.values(hotelsValue).filter(Boolean);
+        return [];
+    };
+
+    const getHotelName = (hotel) => {
+        if (!hotel) return "";
+        if (typeof hotel === "string") return hotel;
+        if (typeof hotel.hotel === "object") {
+            return hotel.hotelName || hotel.hotel.name || hotel.hotel.title || "";
+        }
+        return hotel.hotelName || hotel.name || hotel.title || hotel.hotel || "";
+    };
+
     // Logic for hotels
-    const hotels = Array.isArray(packageData.hotels) && packageData.hotels.length ? packageData.hotels : [];
-    const hotelDisplay = hotels.length > 0 
+    const hotels = getHotelsArray(packageData.hotels);
+    const hotelDisplay = hotels.length > 0
         ? hotels.map((h) => {
             const icon = getHotelIcon(h);
-            return `<div style="display:flex;align-items:center;gap:6px;">${icon ? `<img src=\"${icon}\" alt=\"hotel icon\" style=\"width:18px;height:18px;object-fit:contain;\" />` : ""}<span>${h.hotelName || h.name || "HOTEL"}</span></div>`;
+            return `<div style="display:flex;align-items:center;gap:6px;">${icon ? `<img src="${icon}" alt="hotel icon" style="width:18px;height:18px;object-fit:contain;" />` : ""}<span>${safeValue(getHotelName(h), "HOTEL")}</span></div>`;
         }).join('')
-        : `<div>${safeValue(packageData.hotelName || packageData.hotel, "HOTEL")}</div>`;
+        : `<div>${safeValue(getHotelName(packageData.hotel) || packageData.hotelName, "HOTEL")}</div>`;
 
     const duration = safeValue(packageData.packageDuration || packageData.duration || packageData.packageDays || packageData.days, "N/A");
     const roomType = safeValue(booking.roomType || packageData.roomType, "SHARING");
@@ -63,15 +79,15 @@ export const printUmrahPackageBooking = (booking) => {
             : packageData.transport || booking.transport,
         "SHARING",
     );
-    
+
     const ticketNumber = safeValue(booking.bookingNumber || booking._id || booking.bookingReference, "N/A");
     const bookingReference = safeValue(booking.bookingReference || booking.bookingNumber || booking._id, "N/A");
     const issuedOn = new Date(booking.createdAt || Date.now());
-    
-    const bookedBy = safeValue(getAgencyName(booking), "SHAHEEN WINGS TRAVELS").toUpperCase();
-    const contact = safeValue(getAgencyPhone(booking), "N/A");
+
+    const bookedBy = "SHAHEEN WINGS TRAVELS";
+    const contact = "03099802154";
     const statusText = safeValue(booking.status?.toUpperCase() || "HOLD", "HOLD");
-    
+
     const passengers = Array.isArray(booking.passengers) && booking.passengers.length ? booking.passengers : [
         { title: "MR", givenName: "N/A", surName: "N/A", passport: "N/A" },
     ];
@@ -82,6 +98,7 @@ export const printUmrahPackageBooking = (booking) => {
             ? booking.flights
             : [];
     const flight = itinerary[0] || {};
+    const pnr = safeValue(booking.pnr || packageData.pnr || flight.pnr, "N/A");
 
     const companyLogoUrl = companyLogo;
     const airlineName = safeValue(
@@ -192,8 +209,8 @@ export const printUmrahPackageBooking = (booking) => {
                     <span>${ticketNumber}</span>
                 </div>
                 <div class="ref-row">
-                    <span>Booking Reference:</span>
-                    <span>${bookingReference}</span>
+                    <span>PNR:</span>
+                    <span>${pnr}</span>
                 </div>
             </div>
         </div>
@@ -210,9 +227,6 @@ export const printUmrahPackageBooking = (booking) => {
             <div class="meta-col">
                 <span class="label">RESERVED ON:</span>
                 <span class="value">${formatPrintDate(issuedOn)} | ${formatPrintTime(issuedOn)}</span>
-                <br><br>
-                <span class="label">TICKED ON:</span>
-                <span class="value">--</span>
             </div>
             <div class="meta-col">
                 <div class="barcode-box">
@@ -271,14 +285,13 @@ export const printUmrahPackageBooking = (booking) => {
         </table>
 
         <div class="section-header">Travel Itinerary</div>
-        ${itinerary.map((seg, idx) => {
-            const isReturn = idx > 0;
-            const origin = safeValue(seg.sectorFrom || seg.origin, "N/A").toUpperCase();
-            const destination = safeValue(seg.sectorTo || seg.destination, "N/A").toUpperCase();
-            return `
+        ${itinerary.map((seg) => {
+        const origin = safeValue(seg.sectorFrom || seg.origin, "N/A").toUpperCase();
+        const destination = safeValue(seg.sectorTo || seg.destination, "N/A").toUpperCase();
+        return `
                 <div class="itinerary-sub">${origin} ✈ ${destination}</div>
                 <table class="data-table">
-                    <thead>
+                    <thead>  
                         <tr>
                             <th>DATE</th>
                             <th>TIMES</th>
@@ -286,23 +299,21 @@ export const printUmrahPackageBooking = (booking) => {
                             <th>FLIGHT #</th>
                             <th>MEAL</th>
                             <th>BAGGAGE</th>
-                            <th>STATUS</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td style="font-weight: bold;">${formatPrintDate(seg.depDate || seg.flightDate)}</td>
-                            <td style="font-weight: bold;">${safeValue(seg.depTime, "N/A")} <br> ${safeValue(seg.arrTime, "N/A")}</td>
+                            <td style="font-weight: bold;">${safeValue(seg.depTime, "N/A")}</td>
                             <td style="font-weight: bold;">${origin}<br>${destination}</td>
                             <td style="font-weight: bold;">${safeValue(seg.flightNo || seg.flightNumber, "PA 472")}<br>ECONOMY</td>
                             <td style="font-weight: bold;">${safeValue(seg.meal, "YES")}</td>
                             <td style="font-weight: bold;">${safeValue(seg.baggage, "20+7 KG")}</td>
-                            <td style="font-weight: bold; color: #1a4da1;">${statusText}</td>
                         </tr>
                     </tbody>
                 </table>
             `;
-        }).join('')}
+    }).join('')}
 
         <div class="terms">
             <div class="terms-title">Terms & Conditions</div>
@@ -363,5 +374,5 @@ export const printUmrahPackageBooking = (booking) => {
                     img.onload = img.onerror = () => resolve();
                 }),
         ),
-    ).then(triggerPrint);
+    ).then(triggerPrint);   
 };

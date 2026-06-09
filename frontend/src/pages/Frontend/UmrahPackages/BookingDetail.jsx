@@ -174,7 +174,7 @@ export default function UmrahPackageBookingDetail() {
       ...Array(infantsCount).fill(null).map(() => mkTemplate("Infant")),
     ];
     setEditPassengers(templates);
-    setEditMode(true);
+    setEditMode(true); 
   };
 
   return (

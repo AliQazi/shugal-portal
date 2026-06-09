@@ -1,4 +1,5 @@
 import UmrahPackageBooking from "../models/UmrahPackageBooking.js";
+import Register from "../models/Register.js";
 import { cloudinary } from "../config/cloudinary.js";
 import { sendBookingNotificationEmail } from "../utils/emailService.js";
 
@@ -13,6 +14,7 @@ export const createUmrahPackageBooking = async (req, res) => {
       packageId,
       packageName,
       packageSource,
+      pnr,
       roomType,
       specialRequests,
       pricing,
@@ -96,6 +98,7 @@ export const createUmrahPackageBooking = async (req, res) => {
       package: packageId && packageId.length === 24 ? packageId : undefined,
       packageName,
       packageSource: packageSource || "local",
+      pnr: pnr || parsedPackageData?.pnr || "",
       packageData: parsedPackageData,
       roomType,
       adultsCount: Number(adultsCount) || 0,
@@ -157,7 +160,7 @@ export const getMyUmrahPackageBookings = async (req, res) => {
     const bookings = await UmrahPackageBooking.find({ user: req.user._id })
       .sort({ createdAt: -1 })
       .lean();
-    res.json({ success: true, data: bookings });
+    res.json({ success: true, data: await attachShaheenWingsContact(bookings) });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -171,10 +174,11 @@ export const getUmrahPackageBookingById = async (req, res) => {
     const booking = await UmrahPackageBooking.findOne({
       _id: req.params.id,
       user: req.user._id,
-    }).lean();
+    }).populate("user", "name email phone companyName agencyCode").lean();
     if (!booking)
       return res.status(404).json({ success: false, message: "Booking not found" });
-    res.json({ success: true, data: booking });
+    const [bookingWithContact] = await attachShaheenWingsContact([booking]);
+    res.json({ success: true, data: bookingWithContact });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -191,16 +195,52 @@ export const adminGetAllBookings = async (req, res) => {
 
     const total = await UmrahPackageBooking.countDocuments(filter);
     const bookings = await UmrahPackageBooking.find(filter)
-      .populate("user", "name email phone")
+      .populate("user", "name email phone companyName agencyCode")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit))
       .lean();
 
-    res.json({ success: true, data: bookings, total, page: Number(page), pages: Math.ceil(total / limit) });
+    res.json({ success: true, data: await attachShaheenWingsContact(bookings), total, page: Number(page), pages: Math.ceil(total / limit) });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
+};
+
+const getShaheenWingsAdminContact = async () => {
+  const configuredPhone =
+    process.env.SHAHEENWINGS_PHONE ||
+    process.env.ADMIN_PHONE ||
+    process.env.CONTACT_PHONE ||
+    "";
+
+  if (configuredPhone) {
+    return {
+      name: process.env.SHAHEENWINGS_NAME || "Shaheen Wings Travels",
+      phone: configuredPhone,
+    };
+  }
+
+  const admin = await Register.findOne({ role: "Admin" })
+    .sort({ updatedAt: -1 })
+    .select("name phone companyName")
+    .lean();
+
+  return {
+    name: admin?.companyName || admin?.name || "Shaheen Wings Travels",
+    phone: admin?.phone || "",
+  };
+};
+
+const attachShaheenWingsContact = async (bookings) => {
+  const contact = await getShaheenWingsAdminContact();
+  return bookings.map((booking) => {
+    const bookingData = typeof booking.toObject === "function" ? booking.toObject() : booking;
+    return {
+      ...bookingData,
+      shaheenWingsContact: contact,
+    };
+  });
 };
 
 const prepareUmrahBookingForLedger = (booking) => {
@@ -280,7 +320,8 @@ export const updateUmrahBookingPassengers = async (req, res) => {
     booking.passengers = passengers;
     await booking.save();
 
-    res.json({ success: true, message: "Passenger details updated", data: booking });
+    const [bookingWithContact] = await attachShaheenWingsContact([booking]);
+    res.json({ success: true, message: "Passenger details updated", data: bookingWithContact });
   } catch (err) {
     console.error("updateUmrahBookingPassengers error:", err);
     res.status(500).json({ success: false, message: err.message });
@@ -347,7 +388,8 @@ export const adminUpdateBookingStatus = async (req, res) => {
       }
     }
 
-    res.json({ success: true, data: booking });
+    const [bookingWithContact] = await attachShaheenWingsContact([booking]);
+    res.json({ success: true, data: bookingWithContact });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

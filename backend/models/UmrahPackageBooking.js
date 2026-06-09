@@ -22,6 +22,7 @@ const UmrahPackageBookingSchema = new mongoose.Schema(
     package: { type: mongoose.Schema.Types.ObjectId, ref: "UmrahPackage", default: null },
     packageName: { type: String, default: "" },
     packageSource: { type: String, default: "local" },
+    pnr: { type: String, trim: true, default: "" },
     packageData: { type: mongoose.Schema.Types.Mixed, default: {} }, // snapshot
 
     roomType: { type: String, default: "" },

@@ -337,13 +337,13 @@ export default function BookingForm({ user }) {
           formattedPassengers.length > 0
             ? formattedPassengers
             : buildPassengers({
-                adults: booking.adultsCount || 0,
-                children: booking.childrenCount || 0,
-                infants: booking.infantsCount || 0,
-                existing: [],
-                allowChildren: true,
-                allowInfants: true,
-              });
+              adults: booking.adultsCount || 0,
+              children: booking.childrenCount || 0,
+              infants: booking.infantsCount || 0,
+              existing: [],
+              allowChildren: true,
+              allowInfants: true,
+            });
 
         setFormData({
           contactPersonName: booking.contactPersonName || "N/A",
@@ -699,11 +699,10 @@ export default function BookingForm({ user }) {
     let booked = 0;
     let key = "";
     if (flight) {
-      key = `${normalizeFlightNo(flight.flight_no)}_${
-        new Date(flight.dep_date || flight.flight_date)
-          .toISOString()
-          .split("T")[0]
-      }`;
+      key = `${normalizeFlightNo(flight.flight_no)}_${new Date(flight.dep_date || flight.flight_date)
+        .toISOString()
+        .split("T")[0]
+        }`;
       booked = bookedSeatsMap[key] || 0;
     }
 
@@ -1027,8 +1026,8 @@ export default function BookingForm({ user }) {
 
                       const currentBookingPassengers = isEditMode
                         ? (parseInt(formData.adults) || 0) +
-                          (parseInt(formData.children) || 0) +
-                          (parseInt(formData.infants) || 0)
+                        (parseInt(formData.children) || 0) +
+                        (parseInt(formData.infants) || 0)
                         : 0;
 
                       return total - booked + currentBookingPassengers;
@@ -1080,7 +1079,7 @@ export default function BookingForm({ user }) {
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {/* Passengers and Pricing Table */}
         <div className="bg-white border border-gray-300 shadow-sm overflow-x-auto">
-          <div className="min-w-150"> 
+          <div className="min-w-150">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-[#3d6a8f] text-white">
@@ -1244,8 +1243,8 @@ export default function BookingForm({ user }) {
                   </td>
                   <td className="px-3 py-2 text-right text-xs font-bold">
                     {user?.priceOnCall ||
-                    ((parseInt(formData.children) || 0) > 0 && !isChildPriceAvailable()) ||
-                    ((parseInt(formData.infants) || 0) > 0 && !isInfantPriceAvailable()) ? (
+                      ((parseInt(formData.children) || 0) > 0 && !isChildPriceAvailable()) ||
+                      ((parseInt(formData.infants) || 0) > 0 && !isInfantPriceAvailable()) ? (
                       <span className="text-red-500 font-semibold">
                         Price on Call
                       </span>
@@ -1471,7 +1470,7 @@ export default function BookingForm({ user }) {
                               {pendingDocs[index] ? (
                                 // Local file preview (not yet uploaded)
                                 pendingDocs[index].type ===
-                                "application/pdf" ? (
+                                  "application/pdf" ? (
                                   <span className="text-[10px] text-amber-600 font-semibold border border-amber-300 bg-amber-50 px-1.5 py-0.5 rounded">
                                     PDF ready
                                   </span>
@@ -1486,8 +1485,8 @@ export default function BookingForm({ user }) {
                                   />
                                 )
                               ) : passenger.documentUrl.match(
-                                  /\.(jpg|jpeg|png|webp)/i,
-                                ) ? (
+                                /\.(jpg|jpeg|png|webp)/i,
+                              ) ? (
                                 <a
                                   href={passenger.documentUrl}
                                   target="_blank"
@@ -1746,11 +1745,10 @@ export default function BookingForm({ user }) {
                 type="button"
                 onClick={handleMrzParse}
                 disabled={!mrzInput.trim()}
-                className={`px-6 py-2 text-sm font-bold rounded-lg transition-all ${
-                  mrzInput.trim()
-                    ? "bg-[#3d6a8f] text-white hover:bg-[#2d5a8f] shadow-sm hover:shadow-md"
-                    : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                }`}
+                className={`px-6 py-2 text-sm font-bold rounded-lg transition-all ${mrzInput.trim()
+                  ? "bg-[#3d6a8f] text-white hover:bg-[#2d5a8f] shadow-sm hover:shadow-md"
+                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  }`}
               >
                 Scan
               </button>
@@ -1945,11 +1943,10 @@ export default function BookingForm({ user }) {
                   onClick={handleFinalSubmit}
                   disabled={!isReviewed || isSubmitting}
                   className={`flex-1 sm:flex-none px-8 py-2.5 rounded-lg text-sm font-bold shadow-md flex items-center justify-center gap-2 transition-all transform active:scale-95
-                                        ${
-                                          isReviewed && !isSubmitting
-                                            ? "bg-[#3d6a8f] text-white hover:bg-[#2d5a8f] hover:shadow-lg"
-                                            : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                                        }`}
+                                        ${isReviewed && !isSubmitting
+                      ? "bg-[#3d6a8f] text-white hover:bg-[#2d5a8f] hover:shadow-lg"
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    }`}
                 >
                   {isSubmitting ? <>Loading...</> : <>Submit</>}
                 </button>
