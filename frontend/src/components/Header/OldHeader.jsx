@@ -99,7 +99,9 @@ export default function OldHeader({ user, handleLogout }) {
           <div className="flex items-center gap-3">
             {/* PROFILE */}
             {user && (
-              <div ref={profileRef} className="relative hidden md:block">
+              <div ref={profileRef} className="relative hidden md:flex items-center gap-2">
+               
+
                 <button
                   onClick={() => setProfileOpen(!profileOpen)}
                   className="flex items-center gap-2 px-2 py-1 rounded-full border"
@@ -147,13 +149,7 @@ export default function OldHeader({ user, handleLogout }) {
                         Admin Portal
                       </button>
                     )}
-
-                    <button
-                      onClick={() => navigate("/dashboard")}
-                      className="w-full text-left px-4 py-2 hover:bg-gray-50"
-                    >
-                      Agent Dashboard
-                    </button>
+                    
 
                     <button
                       onClick={handleLogout}
@@ -165,6 +161,13 @@ export default function OldHeader({ user, handleLogout }) {
                 )}
               </div>
             )}
+            <button
+                  onClick={() => navigate("/dashboard")}
+                  className="hidden lg:inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
+                  style={{ background: theme.colors.ublGradient }}
+                >
+                  Agent Dashboard
+                </button> 
 
             {/* MOBILE ICON */}
             {user && (

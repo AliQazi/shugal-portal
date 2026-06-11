@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { FaRegCopy, FaCheck, FaSearch, FaStar, FaPlaneDeparture, FaPlaneArrival } from "react-icons/fa";
-import { Menu, Package, Plane, Moon, Users, Calendar, ClipboardList, ArrowRight } from "lucide-react";
+import { Menu, Package, Plane, Moon, Users, Calendar, ClipboardList, ArrowRight, Download } from "lucide-react";
+import jsPDF from "jspdf";
 import axiosInstance from "../../../api/axios";
 import { toast } from "react-toastify";
 import TopBar from "../../../components/TopBar/TopBar";
 import MaskedDatePicker from "../../../components/MaskedDatePicker";
 import { theme } from "../../../theme/theme";
 import { groupTypes } from "../../../data/groupTypes";
+import companyLogo from "../../../assets/images/logo2.png";
 
 const MONTHS_TITLE = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -81,9 +83,9 @@ const AVAILABLE_PACKAGE_DURATIONS = [15, 21, 28];
 const getDurationBucket = (duration) => {
   const value = Number(duration);
   if (Number.isNaN(value)) return null;
-  if (value >= 25 && value <= 30) return 28;
-  if (value >= 18 && value <= 24) return 21;
-  if (value >= 14 && value <= 17) return 15;
+  if (value >= 26 && value <= 29) return 28;
+  if (value >= 19 && value <= 22) return 21;
+  if (value >= 13 && value <= 15) return 15;
   return null;
 };
 
@@ -100,6 +102,7 @@ export default function UmrahPackages({ user }) {
   const [packageNames, setPackageNames] = useState([]);
   const [durations, setDurations] = useState([]);
   const [copiedRow, setCopiedRow] = useState({});
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const primaryColor = theme?.colors?.primary || "#1e3a8a";
 
@@ -657,6 +660,154 @@ export default function UmrahPackages({ user }) {
     return true;
   });
 
+  const formatPdfDate = (date) => {
+    if (!date) return "-";
+    const parsed = date instanceof Date ? date : new Date(date);
+    if (Number.isNaN(parsed.getTime())) return "-";
+    return parsed.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  };
+
+  const loadPdfLogo = () =>
+    new Promise((resolve) => {
+      const image = new Image();
+      image.crossOrigin = "anonymous";
+      image.onload = () => resolve(image);
+      image.onerror = () => resolve(null);
+      image.src = companyLogo;
+    });
+
+  const hexToRgb = (hex) => {
+    const normalized = hex.replace("#", "");
+    return [
+      parseInt(normalized.slice(0, 2), 16),
+      parseInt(normalized.slice(2, 4), 16),
+      parseInt(normalized.slice(4, 6), 16),
+    ];
+  };
+
+  const setPdfColor = (pdf, hex, type = "text") => {
+    const [r, g, b] = hexToRgb(hex);
+    if (type === "fill") pdf.setFillColor(r, g, b);
+    else if (type === "draw") pdf.setDrawColor(r, g, b);
+    else pdf.setTextColor(r, g, b);
+  };
+
+  const pdfText = (value, fallback = "-") => String(value || fallback).replace(/\s+/g, " ").trim();
+
+  const drawFittedText = (pdf, value, x, y, maxWidth, options = {}) => {
+    const text = pdfText(value, options.fallback);
+    pdf.text(pdf.splitTextToSize(text, maxWidth).slice(0, options.lines || 1), x, y);
+  };
+
+  const drawPdfHeader = (pdf, logoImage, totalPackages) => {
+    setPdfColor(pdf, "#21397C", "fill");
+    pdf.rect(0, 0, 210, 12, "F");
+    if (logoImage) pdf.addImage(logoImage, "PNG", 14, 17, 22, 15);
+    setPdfColor(pdf, "#21397C");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(18);
+    pdf.text("SHAHEEN WINGS", 40, 24);
+    setPdfColor(pdf, "#64748b");
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    pdf.text("Umrah package offers", 40, 30);
+    setPdfColor(pdf, "#0f766e");
+    pdf.setFont("helvetica", "bold");
+    pdf.text(`Total Packages: ${totalPackages}`, 160, 24, { align: "right" });
+    setPdfColor(pdf, "#64748b");
+    pdf.setFont("helvetica", "normal");
+    pdf.text(`Date: ${new Date().toLocaleDateString("en-GB")}`, 160, 30, { align: "right" });
+  };
+
+  const drawPackageCard = (pdf, pkg, index, y) => {
+    const x = 12;
+    const width = 186;
+    const height = 74;
+    const makkah = pkg.hotels?.makkah;
+    const madinah = pkg.hotels?.madinah;
+    const flights = pkg.flights?.length ? pkg.flights.slice(0, 2) : [];
+
+    setPdfColor(pdf, "#dbe3ef", "draw");
+    pdf.roundedRect(x, y, width, height, 2, 2);
+    setPdfColor(pdf, "#21397C", "fill");
+    pdf.rect(x, y, width, 12, "F");
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    pdf.setTextColor(255, 255, 255);
+    drawFittedText(pdf, `${index + 1}. ${pkg.packageName || "Umrah Package"}`, x + 4, y + 8, 92);
+    pdf.setFontSize(7);
+    pdf.text(`Available: ${pkg.availablePackages || 0}`, x + 132, y + 5);
+    pdf.text(`${pkg.packageDuration || "-"} Days / ${Math.max((pkg.packageDuration || 1) - 1, 0)} Nights`, x + 132, y + 9);
+
+    setPdfColor(pdf, "#0f172a");
+    pdf.setFontSize(7);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Flights", x + 4, y + 18);
+    pdf.text("Hotels", x + 95, y + 18);
+
+    setPdfColor(pdf, "#334155");
+    pdf.setFont("helvetica", "normal");
+    flights.forEach((flight, flightIndex) => {
+      const rowY = y + 24 + flightIndex * 8;
+      drawFittedText(pdf, `${flight.flightNo || "-"}  ${flight.sectorFrom || "-"}-${flight.sectorTo || "-"}`, x + 4, rowY, 58);
+      pdf.text(formatPdfDate(flight.depDate), x + 65, rowY);
+    });
+    if (!flights.length) pdf.text("No flight details available", x + 4, y + 24);
+
+    drawFittedText(pdf, `${makkah?.hotelName || "Makkah Hotel"} | Makkah | ${makkah?.distance || "-"} Mtr`, x + 95, y + 24, 86);
+    drawFittedText(pdf, `${madinah?.hotelName || "Madinah Hotel"} | Madinah | ${madinah?.distance || "-"} Mtr`, x + 95, y + 32, 86);
+
+    const roomEntries = Object.entries(ROOM_STYLES).filter(([key]) => pkg.rooms?.[key]).slice(0, 5);
+    roomEntries.forEach(([key, style], roomIndex) => {
+      const roomX = x + 4 + roomIndex * 35.5;
+      const roomY = y + 46;
+      setPdfColor(pdf, style.bg, "fill");
+      setPdfColor(pdf, style.border, "draw");
+      pdf.roundedRect(roomX, roomY, 32, 14, 1.5, 1.5, "FD");
+      setPdfColor(pdf, style.text);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(5.5);
+      pdf.text(style.label.toUpperCase(), roomX + 2, roomY + 5);
+      pdf.setFontSize(7);
+      pdf.text(Number(pkg.rooms[key]).toLocaleString(), roomX + 2, roomY + 11);
+    });
+
+    if (pkg.notes) {
+      setPdfColor(pdf, "#9a3412");
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(6);
+      drawFittedText(pdf, `Note: ${pkg.notes}`, x + 4, y + 68, 176);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!filteredPackages.length) {
+      toast.info("No packages available to download");
+      return;
+    }
+
+    setIsDownloadingPdf(true);
+    try {
+      const pdf = new jsPDF("p", "mm", "a4");
+      pdf.setProperties({ title: "Shaheen Wings Umrah Packages" });
+      const logoImage = await loadPdfLogo();
+
+      filteredPackages.forEach((pkg, index) => {
+        if (index > 0 && index % 3 === 0) pdf.addPage();
+        if (index % 3 === 0) drawPdfHeader(pdf, logoImage, filteredPackages.length);
+        drawPackageCard(pdf, pkg, index, 42 + (index % 3) * 80);
+      });
+
+      pdf.save(`shaheen-wings-umrah-packages-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (error) {
+      console.error("Failed to generate package PDF", error);
+      toast.error("Failed to download PDF");
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#f1f5f9]">
       <TopBar title="Umrah Packages" icon={<Package className="text-white w-6 h-6" />} />
@@ -696,6 +847,15 @@ export default function UmrahPackages({ user }) {
             </label>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={isDownloadingPdf || !filteredPackages.length}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-red-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 whitespace-nowrap"
+            >
+              <Download size={16} />
+              <span className="whitespace-nowrap">{isDownloadingPdf ? "Preparing..." : "Download PDF"}</span>
+            </button>
             <MaskedDatePicker value={filters.departDate} onChange={(date) => setFilters(p => ({ ...p, departDate: date }))} placeholderText="Departure Date" />
             <div className="relative">
               <input type="text" placeholder="Search..." className="w-full lg:w-64 pl-4 pr-10 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" onChange={(e) => setFilters(p => ({ ...p, searchKeyword: e.target.value }))} />

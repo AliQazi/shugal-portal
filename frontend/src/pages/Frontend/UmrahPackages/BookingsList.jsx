@@ -88,7 +88,7 @@ export default function UmrahPackageBookings() {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           {bookings.map((b) => {
-            const statusStyle = STATUS_COLORS[b.status] || { bg: "#f3f4f6", text: "#374151" };
+            const statusStyle = STATUS_COLORS[b.status] || { bg: "#f3f4f6", text: "#374151" }; 
             const flights = b.packageData?.flights || [];
             return (
               <div

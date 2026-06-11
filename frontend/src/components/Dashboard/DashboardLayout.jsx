@@ -644,7 +644,7 @@ const DashboardLayout = ({ user, handleLogout }) => {
 
               <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "8px" : "12px" }}>
                 {/* Bell */}
-                <button
+                {/* <button
                   style={{
                     background: "#f8f9fc",
                     border: "1.5px solid #e8eaf0",
@@ -668,7 +668,7 @@ const DashboardLayout = ({ user, handleLogout }) => {
                       border: "2px solid #fff",
                     }}
                   />
-                </button>
+                </button> */}
 
                 {/* User Dropdown */}
                 <div ref={dropdownRef} style={{ position: "relative" }}>

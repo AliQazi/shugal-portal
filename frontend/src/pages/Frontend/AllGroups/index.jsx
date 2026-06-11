@@ -113,9 +113,9 @@ const PACKAGE_DURATION_BUCKETS = [15, 21, 28];
 const getDurationBucket = (duration) => {
   const value = Number(duration);
   if (Number.isNaN(value) || value <= 0) return null;
-  if (value >= 28) return 28;
-  if (value >= 21) return 21;
-  if (value >= 15) return 15;
+  if (value >= 26 && value <= 29) return 28;
+  if (value >= 19 && value <= 22) return 21;
+  if (value >= 13 && value <= 15) return 15;
   return null;
 };
 

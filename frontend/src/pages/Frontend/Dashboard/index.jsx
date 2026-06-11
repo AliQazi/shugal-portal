@@ -179,7 +179,7 @@ const Dashboard = () => {
 
         <div className="flex flex-col lg:flex-row gap-8">
           <div className="flex-1">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
               {groupTypes.map((group) => (
                 <div
                   key={group.value}
