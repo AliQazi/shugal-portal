@@ -26,6 +26,25 @@ const TransportEntrySchema = new mongoose.Schema(
   { _id: false }
 );
 
+const FlightEntrySchema = new mongoose.Schema(
+  {
+    airline: { type: String, default: "" },
+    flightNo: { type: String, default: "" },
+    depDate: { type: Date, default: null },
+    depTime: { type: String, default: "" },
+    arrDate: { type: Date, default: null },
+    arrTime: { type: String, default: "" },
+    sectorFrom: { type: String, default: "" },
+    sectorTo: { type: String, default: "" },
+    fromTerminal: { type: String, default: "" },
+    toTerminal: { type: String, default: "" },
+    flightClass: { type: String, default: "" },
+    baggage: { type: String, default: "" },
+    meal: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
 const UmrahPackageSchema = new mongoose.Schema(
   {
     packageName: {
@@ -34,6 +53,9 @@ const UmrahPackageSchema = new mongoose.Schema(
       trim: true,
     },
     pnr: { type: String, trim: true, default: "" },
+    sector: { type: String, trim: true, default: "" },
+    airline: { type: String, trim: true, default: "" },
+    groupName: { type: String, trim: true, default: "" },
     logo: { type: String, default: "" },
     flightLogo: { type: String, default: "" },
     umrahGroupTicket: {
@@ -43,6 +65,7 @@ const UmrahPackageSchema = new mongoose.Schema(
     },
     availablePackages: { type: Number, default: 0 },
     packageDuration: { type: Number, default: 0 },
+    flights: [FlightEntrySchema],
     hotels: [HotelEntrySchema],
     transports: [TransportEntrySchema],
     visa: { type: mongoose.Schema.Types.ObjectId, ref: "Visa", default: null },

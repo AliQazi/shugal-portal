@@ -93,13 +93,46 @@ const computeDurationFromFlights = (flights = []) => {
   const firstLeg = flights[0];
   const lastLeg = flights[flights.length - 1];
   const start = parseFlightDate(firstLeg?.depDate || firstLeg?.dep_date || firstLeg?.departure_date || firstLeg?.date);
-  const end = parseFlightDate(lastLeg?.arvDate || lastLeg?.arv_date || lastLeg?.arrival_date || lastLeg?.date);
+  const end = parseFlightDate(lastLeg?.arrDate || lastLeg?.arvDate || lastLeg?.arv_date || lastLeg?.arrival_date || lastLeg?.date);
 
   if (start && end) {
     const diffDays = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
     return Math.max(1, diffDays + 1);
   }
   return 0;
+};
+
+const parseNumber = (value) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "string") {
+    const number = Number(value.replace(/[^0-9.-]+/g, ""));
+    return Number.isFinite(number) ? number : 0;
+  }
+  return 0;
+};
+
+const normalizeFlightLeg = (detail = {}, group = {}) => {
+  const groupTicket = group.umrahGroupTicket || {};
+  const depDate = detail.depDate || detail.dep_date || detail.departure_date || detail.flight_date || detail.date || null;
+  const arrDate = detail.arrDate || detail.arvDate || detail.arv_date || detail.arr_date || detail.arrival_date || null;
+
+  return {
+    ...detail,
+    flightNo: detail.flightNo || detail.flight_no || detail.flight_number || "",
+    airline: detail.airline || groupTicket.airline || group.airline?.airline_name || group.airline?.short_name || "",
+    pnr: detail.pnr || groupTicket.pnr || group.pnr || "",
+    sale_price: Number(group.price || group.flightPrice || groupTicket.price?.total || detail.sale_price || 0),
+    sectorFrom: detail.sectorFrom || detail.origin || detail.from || "",
+    sectorTo: detail.sectorTo || detail.destination || detail.to || "",
+    depDate: depDate ? new Date(depDate) : null,
+    depTime: detail.depTime || detail.dept_time || detail.dep_time || detail.departure_time || "",
+    arrDate: arrDate ? new Date(arrDate) : null,
+    arrTime: detail.arrTime || detail.arvTime || detail.arv_time || detail.arr_time || detail.arrival_time || "",
+    baggage: detail.baggage || detail.baggage_allowance || group.baggage || "",
+    meal: detail.meal || detail.meals || group.meal || "",
+    origin: detail.origin || detail.sectorFrom || detail.from || "",
+    destination: detail.destination || detail.sectorTo || detail.to || "",
+  };
 };
 
 const computeHotelNights = (group) => {
@@ -304,50 +337,21 @@ export default function DetailPage({ user }) {
   });
 
   const packageFlights = group?.flights?.length > 0
-    ? group.flights
+    ? group.flights.map((detail) => normalizeFlightLeg(detail, group))
     : Array.isArray(group?.details)
-      ? group.details.map((detail) => ({
-          flightNo: detail.flight_no || detail.flightNo || detail.flight_number || "",
-          airline: group.airline?.airline_name || group.airline?.short_name || detail.airline || "",
-          pnr: group.pnr || detail.pnr || "",
-          sale_price: Number(group.price || group.flightPrice || detail.sale_price || 0),
-          sectorFrom: detail.origin || detail.from || "",
-          sectorTo: detail.destination || detail.to || "",
-          depDate: detail.dep_date || detail.flight_date || detail.date ? new Date(detail.dep_date || detail.flight_date || detail.date) : null,
-          depTime: detail.dept_time || detail.dep_time || detail.departure_time || "",
-          arrDate: detail.arv_date || detail.arr_date || detail.arrival_date ? new Date(detail.arv_date || detail.arr_date || detail.arrival_date) : null,
-          arrTime: detail.arv_time || detail.arr_time || detail.arrival_time || "",
-          baggage: detail.baggage || detail.baggage_allowance || group.baggage || "",
-          meal: detail.meal || detail.meals || group.meal || "",
-          origin: detail.origin || detail.from || "",
-          destination: detail.destination || detail.to || "",
-        }))
+      ? group.details.map((detail) => normalizeFlightLeg(detail, group))
       : Array.isArray(group?.umrahGroupTicket?.flights)
-        ? group.umrahGroupTicket.flights.map((detail) => ({
-            flightNo: detail.flightNo || detail.flight_no || detail.flight_number || "",
-            airline: detail.airline || group.umrahGroupTicket?.airline || group.airline?.airline_name || group.airline?.short_name || "",
-            pnr: group.umrahGroupTicket?.pnr || group.pnr || "",
-            sale_price: Number(group.price || group.flightPrice || group.umrahGroupTicket?.price?.total || 0),
-            sectorFrom: detail.sectorFrom || detail.origin || detail.from || "",
-            sectorTo: detail.sectorTo || detail.destination || detail.to || "",
-            depDate: detail.depDate || detail.dep_date || detail.flight_date || detail.date ? new Date(detail.depDate || detail.dep_date || detail.flight_date || detail.date) : null,
-            depTime: detail.depTime || detail.dept_time || detail.dep_time || detail.departure_time || "",
-            arrDate: detail.arrDate || detail.arv_date || detail.arr_date || detail.arrival_date ? new Date(detail.arrDate || detail.arv_date || detail.arr_date || detail.arrival_date) : null,
-            arrTime: detail.arrTime || detail.arv_time || detail.arr_time || detail.arrival_time || "",
-            baggage: detail.baggage || detail.baggage_allowance || group.baggage || "",
-            meal: detail.meal || detail.meals || group.meal || "",
-            origin: detail.sectorFrom || detail.origin || detail.from || "",
-            destination: detail.sectorTo || detail.destination || detail.to || "",
-          }))
+        ? group.umrahGroupTicket.flights.map((detail) => normalizeFlightLeg(detail, group))
         : [];
 
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
 
   const hotelNightsCount = computeHotelNights(group);
+  const enteredPackageDuration = parseNumber(group.packageDuration || group.duration || group.package_days || group.packageDays || group.package_duration);
   const computedFlightDuration = computeDurationFromFlights(packageFlights);
-  const packageDuration = computedFlightDuration > 0
-    ? computedFlightDuration
-    : group.packageDuration || (hotelNightsCount > 0 ? hotelNightsCount + 1 : 0);
+  const packageDuration = enteredPackageDuration > 0
+    ? enteredPackageDuration
+    : computedFlightDuration || (hotelNightsCount > 0 ? hotelNightsCount + 1 : 0);
   const packageNights = Math.max(packageDuration - 1, 0);
 
   useEffect(() => {

@@ -1,5 +1,32 @@
 import UmrahPackage from "../models/UmrahPackage.js";
+import GroupTicketing from "../models/GroupTicketing.js";
 import { cloudinary } from "../config/cloudinary.js";
+
+const buildPackageFlightData = (body) => {
+  const group = body.umrahGroupTicketData || {};
+  const airline = group.airline || body.airline || group.flights?.[0]?.airline || "";
+  const flights = (group.flights || body.flights || []).map((flight) => ({
+    ...flight,
+    airline: flight.airline || airline,
+  }));
+
+  return {
+    sector: group.sector || body.sector || "",
+    airline,
+    groupName: group.groupName || body.groupName || "",
+    pnr: group.pnr || body.pnr || "",
+    flights,
+  };
+};
+
+const hideLinkedGroupTicket = async (groupId) => {
+  if (!groupId) return;
+  try {
+    await GroupTicketing.findByIdAndUpdate(groupId, { internalStatus: "Private" });
+  } catch (error) {
+    console.error("Failed to hide linked Umrah package group ticket:", error.message);
+  }
+};
 
 export const getUmrahPackages = async (req, res) => {
   try {
@@ -28,6 +55,9 @@ export const getUmrahPackageById = async (req, res) => {
 export const createUmrahPackage = async (req, res) => {
   try {
     const body = typeof req.body.data === "string" ? JSON.parse(req.body.data) : req.body;
+    const packageFlightData = buildPackageFlightData(body);
+    delete body.umrahGroupTicketData;
+    delete body.umrahGroupTicket;
 
     let logoUrl = body.logo || "";
     let flightLogoUrl = body.flightLogo || "";
@@ -43,6 +73,8 @@ export const createUmrahPackage = async (req, res) => {
 
     const pkg = await UmrahPackage.create({
       ...body,
+      ...packageFlightData,
+      umrahGroupTicket: null,
       logo: logoUrl,
       flightLogo: flightLogoUrl,
     });
@@ -56,8 +88,12 @@ export const updateUmrahPackage = async (req, res) => {
   try {
     const { id } = req.params;
     const body = typeof req.body.data === "string" ? JSON.parse(req.body.data) : req.body;
+    const packageFlightData = buildPackageFlightData(body);
+    await hideLinkedGroupTicket(body.umrahGroupTicket || body.umrahGroupTicketData?._id);
+    delete body.umrahGroupTicketData;
+    delete body.umrahGroupTicket;
 
-    let updateData = { ...body };
+    let updateData = { ...body, ...packageFlightData, umrahGroupTicket: null };
 
     if (req.files) {
       if (req.files.logo && req.files.logo[0]) {

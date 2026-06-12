@@ -384,6 +384,11 @@ export default function UmrahPackages({ user }) {
   };
 
   const computePackageDuration = (pkg) => {
+    const rawDuration = parseNumber(pkg.packageDuration || pkg.duration || pkg.package_days || pkg.packageDays || pkg.package_duration);
+    if (rawDuration > 0) {
+      return rawDuration;
+    }
+
     const findDate = (values) => {
       for (const value of values) {
         const date = parseFlightDate(value);
@@ -448,11 +453,6 @@ export default function UmrahPackages({ user }) {
       return Math.max(1, elapsedDays + 1);
     }
 
-    const rawDuration = parseNumber(pkg.packageDuration || pkg.duration || pkg.package_days || pkg.packageDays || pkg.package_duration);
-    if (rawDuration > 0) {
-      return rawDuration;
-    }
-
     const hotelNights = sumHotelNights(pkg);
     if (hotelNights > 0) {
       return hotelNights + 1;
@@ -466,6 +466,26 @@ export default function UmrahPackages({ user }) {
   };
 
   const buildFlightLegs = (pkg) => {
+    const packageFlights = Array.isArray(pkg.flights) && pkg.flights.length > 0 ? pkg.flights : null;
+    if (packageFlights) {
+      return packageFlights.map((detail) => ({
+        flightNo: detail.flightNo || detail.flight_no || detail.flight_number || "",
+        airline: detail.airline || (typeof pkg.airline === "string" ? pkg.airline : "") || pkg.airline?.airline_name || pkg.airline?.short_name || "",
+        pnr: pkg.pnr || detail.pnr || "",
+        sale_price: Number(pkg.price || pkg.flightPrice || detail.sale_price || 0),
+        sectorFrom: detail.sectorFrom || detail.origin || detail.from || "",
+        sectorTo: detail.sectorTo || detail.destination || detail.to || "",
+        depDate: parseFlightDate(detail.depDate || detail.dep_date || detail.flight_date || detail.date) || null,
+        depTime: detail.depTime || detail.dept_time || detail.dep_time || detail.departure_time || "",
+        arvDate: parseFlightDate(detail.arrDate || detail.arvDate || detail.arv_date || detail.arr_date || detail.arrival_date || null) || null,
+        arvTime: detail.arrTime || detail.arvTime || detail.arv_time || detail.arr_time || detail.arrival_time || "",
+        baggage: detail.baggage || detail.baggage_allowance || pkg.baggage || "",
+        meal: detail.meal || detail.meals || pkg.meal || "",
+        origin: detail.sectorFrom || detail.origin || detail.from || "",
+        destination: detail.sectorTo || detail.destination || detail.to || "",
+      }));
+    }
+
     const details = Array.isArray(pkg.details) && pkg.details.length > 0 ? pkg.details : null;
     if (details) {
       return details.map((detail) => ({
@@ -595,7 +615,13 @@ export default function UmrahPackages({ user }) {
 
       const formatted = Array.from(uniquePackages.values()).map((pkg) => {
         const packageName = pkg.package_name || pkg.packageName || pkg.groupName || pkg.umrahGroupTicket?.groupName || pkg.flight?.type || "Umrah Package";
-        const rawAirlineName = pkg.flight?.flight_details?.airline || pkg.umrahGroupTicket?.airline || pkg.airline?.airline_name || pkg.airline?.short_name || "Airline";
+        const rawAirlineName =
+          pkg.flight?.flight_details?.airline ||
+          (typeof pkg.airline === "string" ? pkg.airline : "") ||
+          pkg.umrahGroupTicket?.airline ||
+          pkg.airline?.airline_name ||
+          pkg.airline?.short_name ||
+          "Airline";
         const airlineName = normalizeAirline(rawAirlineName);
         const hotels = parsePackageHotels(pkg);
         const rates = parsePackageRates(pkg);
