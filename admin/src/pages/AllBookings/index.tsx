@@ -79,9 +79,9 @@ const BookingsTable = memo(({ bookings, getStatusBadge, formatDate, navigate, ti
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white border-r border-[#3d6fa8]">
                         <span>Status</span>
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-white border-r border-[#3d6fa8]">
+                    {/* <th className="px-4 py-3 text-center text-xs font-semibold text-white border-r border-[#3d6fa8]">
                         <span>Al-Haider Hitting</span>
-                    </th>
+                    </th> */}
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white">
                         Action
                     </th>
@@ -266,7 +266,7 @@ const BookingsTable = memo(({ bookings, getStatusBadge, formatDate, navigate, ti
                                 </td>
 
                                 {/* Sabaoon Status */}
-                                {booking.sabaoonBookingStatus && booking.sabaoonBookingStatus !== 'not_applicable' ? (
+                                {/* {booking.sabaoonBookingStatus && booking.sabaoonBookingStatus !== 'not_applicable' ? (
                                     <td className="px-3 py-4 align-top text-center border-r border-gray-300">
                                         <div className="flex flex-col items-center gap-1">
                                             <span className={`inline-block px-2 py-1 rounded text-[10px] font-semibold ${booking.sabaoonBookingStatus === 'success'
@@ -288,7 +288,7 @@ const BookingsTable = memo(({ bookings, getStatusBadge, formatDate, navigate, ti
                                             Own
                                         </span>
                                     </td>
-                                }
+                                } */}
 
                                 {/* Action */}
                                 <td className="py-4 align-middle text-center">

@@ -1099,6 +1099,11 @@ export default function ApiGroups() {
                               AbidAir Travels
                             </span>
                           )}
+                          {sources.includes("sabaoon") && (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full tracking-wide border bg-sky-100 text-sky-700 border-sky-200">
+                             AL-SABOOR
+                            </span>
+                          )}
                         </div>
                       );
                     })()}

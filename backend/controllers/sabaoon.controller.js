@@ -15,6 +15,106 @@ const formatDate = (value) => {
   return d.toISOString().slice(0, 10);
 };
 
+const getSabaoonBaseURL = () => {
+  const baseURL =
+    process.env.sabbor_Base_URI?.trim() ||
+    process.env.saboor_Base_URI?.trim() ||
+    process.env.SABAOON_API_URL?.trim();
+
+  if (!baseURL) {
+    throw new Error("Sabaoon/Saboor API base URL is not configured");
+  }
+
+  return baseURL.replace(/\/+$/, "");
+};
+
+const getConfiguredSabaoonToken = () =>
+  process.env.sabbor_Token?.trim() ||
+  process.env.saboor_Token?.trim() ||
+  process.env.SABAOON_TOKEN?.trim() ||
+  "";
+
+const getConfiguredSabaoonAgentCode = () =>
+  process.env.saboor_AgentCode?.trim() ||
+  process.env.sabbor_AgentCode?.trim() ||
+  process.env.SABAOON_AGENT_CODE?.trim() ||
+  "";
+
+const getSabaoonBookingEndpoint = () => {
+  const path =
+    process.env.saboor_Booking_Path?.trim() ||
+    process.env.sabbor_Booking_Path?.trim() ||
+    process.env.SABAOON_BOOKING_PATH?.trim() ||
+    "/bookig";
+
+  return path.startsWith("/") ? path : `/${path}`;
+};
+
+const normalizeSabaoonType = (value) =>
+  String(value || "")
+    .toUpperCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const normalizeSabaoonGroup = (group) => {
+  const details = Array.isArray(group?.details) ? group.details : [];
+  const deptDate = formatDate(group?.dept_date || group?.dep_date || details[0]?.flight_date);
+  const airlineObj = Array.isArray(group?.airline) ? group.airline[0] : group?.airline;
+  const firstDetail = details[0] || {};
+  const lastDetail = details[details.length - 1] || {};
+  const LOGO_BASE = "https://alsaboorportal.com/assets/img/airline-logo/";
+
+  const logoUrl = airlineObj?.logo_url
+    ? airlineObj.logo_url.startsWith("http")
+      ? airlineObj.logo_url
+      : `${LOGO_BASE}${encodeURIComponent(airlineObj.logo_url)}`
+    : null;
+
+  const normalizedDetails = details.map((detail) => {
+    const depDate = formatDate(detail?.flight_date || detail?.dep_date || deptDate);
+
+    return {
+      ...detail,
+      sr: detail?.sr || null,
+      flight_no: detail?.flight_no || "",
+      dep_date: depDate,
+      flight_date: depDate,
+      origin: detail?.origin || "",
+      destination: detail?.destination || "",
+      baggage: detail?.baggage || group?.baggage || "",
+      dept_time: detail?.dept_time || "",
+      arv_time: detail?.arv_time || "",
+      arv_date: formatDate(detail?.arv_date || detail?.arr_date),
+      meal: group?.meal || detail?.meal || "",
+    };
+  });
+
+  return {
+    ...group,
+    id: String(group?.id || group?.group_id || ""),
+    source: "sabaoon",
+    isOwnGroup: false,
+    groupName: group?.groupName || group?.group_name || null,
+    sector:
+      firstDetail?.origin && firstDetail?.destination
+        ? `${firstDetail.origin}-${firstDetail.destination}`
+        : group?.sector || "",
+    type: normalizeSabaoonType(group?.type),
+    available_no_of_pax: Number(group?.available_no_of_pax || 0),
+    showSeat: true,
+    price: Number(group?.price || group?.adult_pkr || 0),
+    childPrice: Number(group?.price_child || group?.child_pkr || 0),
+    infantPrice: Number(group?.price_infants || group?.infant_pkr || 0),
+    pnr: group?.pnr || "",
+    dept_date: deptDate,
+    arv_date: formatDate(group?.arv_date || lastDetail?.flight_date),
+    group_price_detail_id: group?.group_price_detail_id ?? null,
+    details: normalizedDetails,
+    airline: airlineObj ? { ...airlineObj, logo_url: logoUrl } : null,
+  };
+};
+
 // ─────────────────────────────────────────────────────────
 // SHARED HELPER
 // ─────────────────────────────────────────────────────────
@@ -24,44 +124,34 @@ const formatDate = (value) => {
  * Throws on token or network failure.
  */
 export const fetchNormalisedSabaoonGroups = async (type) => {
-  let tokenRecord;
-  try {
-    tokenRecord = await getValidSabaoonToken();
-  } catch (refreshErr) {
-    console.error("Failed to obtain a valid Sabaoon token:", refreshErr.message);
-    throw new Error("Unable to authenticate with Sabaoon. Please try again later.");
+  const configuredToken = getConfiguredSabaoonToken();
+  let token = configuredToken;
+
+  if (!token) {
+    try {
+      const tokenRecord = await getValidSabaoonToken();
+      token = tokenRecord.token;
+    } catch (refreshErr) {
+      console.error("Failed to obtain a valid Sabaoon token:", refreshErr.message);
+      throw new Error("Unable to authenticate with Sabaoon. Please try again later.");
+    }
   }
 
-  const params = { token: tokenRecord.token };
+  const params = { token };
   if (type) params.type = type;
 
-  const response = await axios.get(`${process.env.SABAOON_API_URL}/groups`, { params });
-  const rawGroups = response.data?.groups || [];
-  const LOGO_BASE = "https://sabaoon.com/assets/img/airline-logo/";
+  const response = await axios.get(`${getSabaoonBaseURL()}/groups`, {
+    params,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  const payload = response.data;
+  const rawGroups = Array.isArray(payload)
+    ? payload
+    : payload?.groups || payload?.data || payload?.result || [];
 
   return rawGroups
-    .filter((g) => Number(g.available_no_of_pax) > 0)
-    .map((g) => {
-      const firstDetail = g.details?.[0] || {};
-      const airlineObj = Array.isArray(g.airline) ? g.airline[0] : g.airline;
-
-      const logoUrl = airlineObj?.logo_url
-        ? airlineObj.logo_url.startsWith("http")
-          ? airlineObj.logo_url
-          : `${LOGO_BASE}${encodeURIComponent(airlineObj.logo_url)}`
-        : null;
-
-      return {
-        ...g,
-        price: Number(g.price) || 0,
-        sector:
-          firstDetail.origin && firstDetail.destination
-            ? `${firstDetail.origin}-${firstDetail.destination}`
-            : g.sector,
-        airline: airlineObj ? { ...airlineObj, logo_url: logoUrl } : null,
-        details: (g.details || []).map((d) => ({ ...d, meal: g.meal })),
-      };
-    });
+    .map(normalizeSabaoonGroup)
+    .filter((group) => group.id && group.available_no_of_pax > 0);
 };
 
 // ─────────────────────────────────────────────────────────
@@ -179,8 +269,7 @@ export const createSabaoonBooking = async ({
   passengers,
   pricing,
 }) => {
-  const tokenRecord = await getValidSabaoonToken();
-  const token = tokenRecord.token;
+  const token = getConfiguredSabaoonToken() || (await getValidSabaoonToken()).token;
 
   if (!token) {
     throw new Error("No valid Sabaoon token available");
@@ -200,7 +289,7 @@ export const createSabaoonBooking = async ({
   const form = new FormData();
 
   form.append("token", token);
-  form.append("agent_id", process.env.SABAOON_AGENT_CODE || "");
+  form.append("agent_id", getConfiguredSabaoonAgentCode());
   form.append("roe", bookingReference);
   form.append("no_of_seat", String(totalSeats));
   form.append("group_id", String(groupId));
@@ -240,7 +329,7 @@ export const createSabaoonBooking = async ({
     form.append("infant_price[]", String(sabaoonInfantPrice));
 
   const response = await axios.post(
-    `${process.env.SABAOON_API_URL}/booking`,
+    `${getSabaoonBaseURL()}${getSabaoonBookingEndpoint()}`,
     form,
     {
       headers: {
@@ -252,11 +341,11 @@ export const createSabaoonBooking = async ({
 
   console.log("[Sabaoon] Booking response:", JSON.stringify(response.data));
 
-  const { status, message, transaction_id } = response.data;
+  const { status, message, transaction_id, booking_id, id } = response.data;
 
-  if (status !== "success") {
+  if (status && String(status).toLowerCase() !== "success") {
     throw new Error(message || "Sabaoon booking API returned a failure status");
   }
 
-  return { transactionId: transaction_id };
+  return { transactionId: transaction_id ?? booking_id ?? id ?? null };
 };

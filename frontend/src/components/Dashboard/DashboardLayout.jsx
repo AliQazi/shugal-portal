@@ -18,10 +18,13 @@ import {
   Bell,
   Home,
   Package,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import logo from "../../assets/images/logo2-.png";
+import axiosInstance from "../../Api/axios";
 
-/* ─── Ripple ─────────────────────────────────────────────── */
+/* ─── Ripple Button Component ─────────────────────────────── */
 const RippleButton = ({ children, style, onClick, className, to }) => {
   const [ripples, setRipples] = useState([]);
 
@@ -82,56 +85,76 @@ const RippleButton = ({ children, style, onClick, className, to }) => {
   );
 };
 
-/* ─── Layout ─────────────────────────────────────────────── */
+/* ─── Layout Context ──────────────────────────────────────── */
 export const DashboardUIContext = createContext();
 
 const DashboardLayout = ({ user, handleLogout }) => {
+  // ── UI States ──
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [bookingsExpanded, setBookingsExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isMobile, setIsMobile] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  
+  // ── Special Offers Slider States ──
+  const [showOfferPopup, setShowOfferPopup] = useState(false);
+  const [allOffers, setAllOffers] = useState([]);
+  const [currentSlide, setCurrentSlide] = useState(0);
+
   const dropdownRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
 
+  // ── Fetch Special Offers ──
   useEffect(() => {
-    const handleResize = () => {
-      const mobile = window.innerWidth < 769; // 768px se thoda upar
-      setIsMobile(mobile);
-
-      if (mobile) {
-        setSidebarOpen(false); // mobile pe hamesha closed start
-      } else {
-        setSidebarOpen(true); // desktop pe by default open
+    const fetchOffers = async () => {
+      try {
+        const response = await axiosInstance.get("/specialOffer/getSpecialOffers");
+        if (response.data.success && response.data.data.length > 0) {
+          setAllOffers(response.data.data);
+          setShowOfferPopup(true);
+        }
+      } catch (error) {
+        console.error("Failed to fetch special offers", error);
       }
     };
+    fetchOffers();
+  }, []);
 
+  // ── Slider Navigation Logic ──
+  const nextSlide = (e) => {
+    e?.stopPropagation();
+    setCurrentSlide((prev) => (prev === allOffers.length - 1 ? 0 : prev + 1));
+  };
+  const prevSlide = (e) => {
+    e?.stopPropagation();
+    setCurrentSlide((prev) => (prev === 0 ? allOffers.length - 1 : prev - 1));
+  };
+
+  // ── Layout Effects ──
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 769;
+      setIsMobile(mobile);
+      if (mobile) setSidebarOpen(false);
+      else setSidebarOpen(true);
+    };
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Close sidebar on Escape key (mobile)
   useEffect(() => {
     const handleEsc = (e) => {
-      if (e.key === "Escape" && sidebarOpen && isMobile) {
-        setSidebarOpen(false);
+      if (e.key === "Escape") {
+        if (showOfferPopup) setShowOfferPopup(false);
+        else if (sidebarOpen && isMobile) setSidebarOpen(false);
       }
     };
-
     document.addEventListener("keydown", handleEsc);
     return () => document.removeEventListener("keydown", handleEsc);
-  }, [sidebarOpen, isMobile]);
+  }, [sidebarOpen, isMobile, showOfferPopup]);
 
-  // Clear search when mobile sidebar closes
-  useEffect(() => {
-    if (isMobile && !sidebarOpen) {
-      setSearchQuery("");
-    }
-  }, [sidebarOpen, isMobile]);
-
-  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -143,28 +166,13 @@ const DashboardLayout = ({ user, handleLogout }) => {
   }, []);
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+  const handleMenuClick = () => { if (isMobile) setSidebarOpen(false); };
 
-  const handleMenuClick = () => {
-    if (isMobile) setSidebarOpen(false);
-  };
-
+  // ── Navigation Menu Config ──
   const menuItems = [
-    {
-      path: "/",
-      label: "Home",
-      icon: <Home size={18} />,
-    },
-    {
-      path: "/dashboard",
-      label: "Dashboard",
-      icon: <LayoutDashboard size={18} />,
-      exact: true,
-    },
-    {
-      path: "/dashboard/all-groups",
-      label: "All Groups",
-      icon: <Users size={18} />,
-    },
+    { path: "/", label: "Home", icon: <Home size={18} /> },
+    { path: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} />, exact: true },
+    { path: "/dashboard/all-groups", label: "All Groups", icon: <Users size={18} /> },
     {
       label: "My Bookings",
       icon: <CalendarCheck size={18} />,
@@ -178,45 +186,20 @@ const DashboardLayout = ({ user, handleLogout }) => {
       ],
     },
     { path: "/dashboard/banks", label: "Bank", icon: <Building2 size={18} /> },
-    {
-      path: "/dashboard/payment",
-      label: "Payment",
-      icon: <CreditCard size={18} />,
-    },
-    {
-      path: "/dashboard/ledger",
-      label: "Ledger",
-      icon: <FileText size={18} />,
-    },
-    {
-      path: "/dashboard/profile",
-      label: "My Profile",
-      icon: <UserCircle size={18} />,
-    },
-    {
-      path: "/dashboard/team-contacts",
-      label: "Team Contacts",
-      icon: <Users size={18} />,
-    },
-    {
-      path: "/dashboard/umrah-package-bookings",
-      label: "Umrah Pkg Bookings",
-      icon: <Package size={18} />,
-    },
-    {
-      path: "/dashboard/change-password",
-      label: "Change Password",
-      icon: <Lock size={18} />,
-    },
+    { path: "/dashboard/payment", label: "Payment", icon: <CreditCard size={18} /> },
+    { path: "/dashboard/ledger", label: "Ledger", icon: <FileText size={18} /> },
+    { path: "/dashboard/profile", label: "My Profile", icon: <UserCircle size={18} /> },
+    { path: "/dashboard/team-contacts", label: "Team Contacts", icon: <Users size={18} /> },
+    { path: "/dashboard/umrah-package-bookings", label: "Umrah Pkg Bookings", icon: <Package size={18} /> },
+    { path: "/dashboard/change-password", label: "Change Password", icon: <Lock size={18} /> },
   ];
 
   const filteredMenu = useMemo(() => {
     if (!searchQuery.trim()) return menuItems;
     const q = searchQuery.toLowerCase();
-    return menuItems.filter(
-      (item) =>
-        item.label.toLowerCase().includes(q) ||
-        item.subItems?.some((s) => s.label.toLowerCase().includes(q)),
+    return menuItems.filter(item => 
+      item.label.toLowerCase().includes(q) || 
+      item.subItems?.some(s => s.label.toLowerCase().includes(q))
     );
   }, [searchQuery]);
 
@@ -225,313 +208,103 @@ const DashboardLayout = ({ user, handleLogout }) => {
   return (
     <DashboardUIContext.Provider value={{ sidebarOpen, setSidebarOpen, bookingsExpanded, setBookingsExpanded, setSearchQuery }}>
       <>
-        {/* ── Keyframes injected once ── */}
+        {/* ── Global Dashboard Styles ── */}
         <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
-
         * { box-sizing: border-box; }
-
-        @keyframes ripple-animation {
-          to { transform: scale(4); opacity: 0; }
-        }
-
-        @keyframes dropdownReveal {
-          from { opacity: 0; transform: translateY(-8px) scale(0.97); }
-          to   { opacity: 1; transform: translateY(0)  scale(1);    }
-        }
-
-        @keyframes subMenuSlide {
-          from { opacity: 0; transform: translateY(-6px); }
-          to   { opacity: 1; transform: translateY(0); }
+        @keyframes ripple-animation { to { transform: scale(4); opacity: 0; } }
+        @keyframes dropdownReveal { from { opacity: 0; transform: translateY(-8px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes subMenuSlide { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+        
+        @keyframes modalShow {
+          from { opacity: 0; transform: scale(0.9) translateY(40px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
         }
 
         .db-layout * { font-family: 'Plus Jakarta Sans', sans-serif; }
-
-        /* Sidebar nav scroll */
         .sidebar-nav { overflow-y: auto; flex: 1; padding: 8px 12px; }
         .sidebar-nav::-webkit-scrollbar { width: 4px; }
-        .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
         .sidebar-nav::-webkit-scrollbar-thumb { background: #e0e0e0; border-radius: 99px; }
-
-        /* Hover on plain links */
         .menu-link:hover { background: #f4f6fb !important; }
-
-        /* Search focus ring */
+        .db-sidebar { transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: fixed !important; top: 0; left: 0; height: 100vh; z-index: 200; }
+        
         .db-search:focus { border-color: #21397C !important; box-shadow: 0 0 0 3px rgba(33,57,124,0.1); }
-
-        /* Dropdown items */
-        .dd-item { transition: background 0.15s ease, color 0.15s ease; }
         .dd-item:hover { background: #f4f6fb !important; }
         .dd-item-danger:hover { background: #fff1f2 !important; color: #be123c !important; }
 
-        /* Sidebar transition */
-        .db-sidebar {
-          transition: width 0.3s cubic-bezier(0.4,0,0.2,1);
-          will-change: width;
-          position: fixed !important;
-          top: 0;
-          left: 0;
-          height: 100vh;
-          z-index: 200;
+        /* Slider Custom Styles */
+        .offers-slider-track {
+          display: flex;
+          transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+          height: 100%;
+          width: 100%;
         }
-
-        /* Active sub-item dot */
-        .sub-active-dot {
-          width: 6px; height: 6px;
-          background: #fff; border-radius: 50%;
-          flex-shrink: 0;
+        .offer-slide {
+          min-width: 100%;
+          height: 100%;
+          position: relative;
+          overflow: hidden;
         }
 
         @media (max-width: 768px) {
-          .db-main   { margin-left: 0 !important; }
-          .sidebar-close-btn { display: flex !important; }
+          .db-main { margin-left: 0 !important; }
         }
       `}</style>
 
-        <div
-          className="db-layout"
-          style={{ display: "flex", minHeight: "100vh", background: "#f0f2f7" }}
-        >
-          {/* Mobile overlay */}
+        <div className="db-layout" style={{ display: "flex", minHeight: "100vh", background: "#f0f2f7" }}>
+          {/* Mobile Background Overlay */}
           {sidebarOpen && isMobile && (
-            <div
-              onClick={toggleSidebar}
-              style={{
-                position: "fixed",
-                inset: 0,
-                background: "rgba(0,0,0,0.5)",
-                zIndex: 998, // ← Sidebar se neeche
-                backdropFilter: "blur(3px)",
-                touchAction: "none", // mobile touch ke liye better
-              }}
-            />
+            <div onClick={toggleSidebar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 998, backdropFilter: "blur(3px)" }} />
           )}
 
           {/* ── Sidebar ── */}
-          <aside
-            className="db-sidebar"
-            style={{
-              width: isMobile ? "280px" : sidebarOpen ? "272px" : "72px",
-              background: "#fff",
-              borderRight: isMobile ? "none" : "1px solid #e8eaf0",
-              display: "flex",
-              flexDirection: "column",
-              flexShrink: 0,
-              boxShadow: isMobile
-                ? "8px 0 40px rgba(0, 0, 0, 0.3)"
-                : "4px 0 24px rgba(33,57,124,0.06)",
-
-              overflow: "hidden",
-
-              // ← Yeh important changes
-              position: "fixed",
-              top: 0,
-              left: 0,
-              height: "100vh",
-              zIndex: 999, // ← Overlay se upar
-
-              transform:
-                isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)",
-
-              transition: isMobile
-                ? "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)"
-                : "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-            }}
-          >
-            {/* Logo */}
-            <div
-              style={{
-                padding: "20px 16px 16px",
-                borderBottom: "1px solid #f0f2f7",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <div
-                onClick={() => navigate("/")}
-                style={{
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  justifyContent: "center",
-                  overflow: "hidden",
-                }}
-              >
-                <img
-                  src={user?.logo || logo}
-                  alt="Logo"
-                  style={{
-                    width: sidebarOpen ? "100px" : "36px",
-                    height: "100px",
-                    objectFit: "contain",
-                    transition: "width 0.3s cubic-bezier(0.4,0,0.2,1)",
-                    flexShrink: 0,
-                  }}
-                />
+          <aside className="db-sidebar" style={{
+            width: isMobile ? "280px" : sidebarOpen ? "272px" : "72px",
+            background: "#fff",
+            borderRight: isMobile ? "none" : "1px solid #e8eaf0",
+            display: "flex", flexDirection: "column", flexShrink: 0,
+            boxShadow: isMobile ? "8px 0 40px rgba(0, 0, 0, 0.3)" : "4px 0 24px rgba(33,57,124,0.06)",
+            zIndex: 999,
+            transform: isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)",
+            transition: isMobile ? "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)" : "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          }}>
+            {/* Logo Section */}
+            <div style={{ padding: "20px 16px 16px", borderBottom: "1px solid #f0f2f7", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div onClick={() => navigate("/")} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", justifyContent: "center" }}>
+                <img src={user?.logo || logo} alt="Logo" style={{ width: sidebarOpen ? "100px" : "36px", height: "100px", objectFit: "contain", transition: "width 0.3s" }} />
               </div>
-              {sidebarOpen && isMobile && (
-                <button
-                  className="sidebar-close-btn"
-                  onClick={toggleSidebar}
-                  style={{
-                    background: "#f4f6fb",
-                    border: "1px solid #e8eaf0",
-                    borderRadius: "8px",
-                    padding: "6px",
-                    cursor: "pointer",
-                    display: "flex",
-                  }}
-                >
-                  <X size={16} color="#555" />
-                </button>
-              )}
             </div>
 
-            {/* Search */}
+            {/* Sidebar Search */}
             {sidebarOpen && (
               <div style={{ padding: "14px 16px 8px" }}>
                 <div style={{ position: "relative" }}>
-                  <Search
-                    size={14}
-                    style={{
-                      position: "absolute",
-                      left: "10px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      color: "#aaa",
-                    }}
-                  />
-                  <input
-                    className="db-search"
-                    type="text"
-                    placeholder="Search menu…"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "8px 10px 8px 32px",
-                      border: "1.5px solid #e8eaf0",
-                      borderRadius: "8px",
-                      fontSize: "13px",
-                      color: "#444",
-                      background: "#f8f9fc",
-                      outline: "none",
-                      transition: "border-color 0.2s, box-shadow 0.2s",
-                    }}
-                  />
+                  <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#aaa" }} />
+                  <input className="db-search" type="text" placeholder="Search menu…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{ width: "100%", padding: "8px 10px 8px 32px", border: "1.5px solid #e8eaf0", borderRadius: "8px", fontSize: "13px", background: "#f8f9fc", outline: "none" }} />
                 </div>
               </div>
             )}
 
-            {/* Nav */}
+            {/* Navigation Sidebar List */}
             <nav className="sidebar-nav">
-              <ul
-                style={{
-                  listStyle: "none",
-                  padding: 0,
-                  margin: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "2px",
-                }}
-              >
+              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "2px" }}>
                 {filteredMenu.map((item, index) => (
                   <li key={index}>
                     {item.hasSubMenu ? (
                       <>
-                        <RippleButton
-                          onClick={() =>
-                            sidebarOpen && setBookingsExpanded(!bookingsExpanded)
-                          }
-                          className="menu-link"
-                          style={{
-                            alignItems: "center",
-                            gap: "12px",
-                            padding: sidebarOpen ? "11px 14px" : "11px 0",
-                            justifyContent: sidebarOpen ? "flex-start" : "center",
-                            borderRadius: "10px",
-                            color: "#555",
-                            fontWeight: "500",
-                            fontSize: "14px",
-                            cursor: "pointer",
-                            textDecoration: "none",
-                            transition: "background 0.15s",
-                          }}
-                        >
-                          <span style={{ flexShrink: 0, color: "#7a8aaa" }}>
-                            {item.icon}
-                          </span>
-                          {sidebarOpen && (
-                            <>
-                              <span style={{ flex: 1 }}>{item.label}</span>
-                              <span
-                                style={{
-                                  transform: bookingsExpanded
-                                    ? "rotate(180deg)"
-                                    : "rotate(0deg)",
-                                  transition:
-                                    "transform 0.25s cubic-bezier(0.4,0,0.2,1)",
-                                  color: "#aaa",
-                                }}
-                              >
-                                <ChevronDown size={15} />
-                              </span>
-                            </>
-                          )}
+                        <RippleButton onClick={() => sidebarOpen && setBookingsExpanded(!bookingsExpanded)} className="menu-link" style={{ alignItems: "center", gap: "12px", padding: sidebarOpen ? "11px 14px" : "11px 0", justifyContent: sidebarOpen ? "flex-start" : "center", borderRadius: "10px", color: "#555", fontWeight: "500", fontSize: "14px", cursor: "pointer" }}>
+                          <span style={{ color: "#7a8aaa" }}>{item.icon}</span>
+                          {sidebarOpen && <><span style={{ flex: 1 }}>{item.label}</span><ChevronDown size={15} style={{ transform: bookingsExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "0.25s" }} /></>}
                         </RippleButton>
-
-                        {/* Submenu with smooth animation */}
-                        <div
-                          style={{
-                            maxHeight:
-                              sidebarOpen && (bookingsExpanded || (searchQuery.trim() && item.subItems?.some(s => s.label.toLowerCase().includes(searchQuery.toLowerCase()))))
-                                ? "300px"
-                                : "0px",
-                            overflow: "hidden",
-                            transition:
-                              "max-height 0.3s cubic-bezier(0.4,0,0.2,1)",
-                          }}
-                        >
-                          <ul
-                            style={{
-                              listStyle: "none",
-                              padding: "4px 0 4px 12px",
-                              margin: 0,
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: "2px",
-                            }}
-                          >
+                        <div style={{ maxHeight: sidebarOpen && (bookingsExpanded || (searchQuery.trim() && item.subItems?.some(s => s.label.toLowerCase().includes(searchQuery.toLowerCase())))) ? "300px" : "0px", overflow: "hidden", transition: "max-height 0.3s" }}>
+                          <ul style={{ listStyle: "none", padding: "4px 0 4px 12px", margin: 0, display: "flex", flexDirection: "column", gap: "2px" }}>
                             {item.subItems.map((sub, sIdx) => {
                               const active = isActive(sub.path);
                               return (
                                 <li key={sIdx}>
-                                  <RippleButton
-                                    to={sub.path}
-                                    onClick={handleMenuClick}
-                                    className={active ? "" : "menu-link"}
-                                    style={{
-                                      padding: "9px 14px 9px 16px",
-                                      borderRadius: "8px",
-                                      fontSize: "13px",
-                                      fontWeight: active ? "600" : "400",
-                                      alignItems: "center",
-                                      gap: "8px",
-                                      background: active
-                                        ? "linear-gradient(90deg,#21397C,#2CA3B4)"
-                                        : "transparent",
-                                      color: active ? "#fff" : "#666",
-                                      textDecoration: "none",
-                                      animation: bookingsExpanded
-                                        ? `subMenuSlide 0.2s ease ${sIdx * 40}ms both`
-                                        : "none",
-                                    }}
-                                  >
-                                    {active && (
-                                      <span className="sub-active-dot" />
-                                    )}
+                                  <RippleButton to={sub.path} onClick={handleMenuClick} className={active ? "" : "menu-link"} style={{ padding: "9px 14px 9px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: active ? "600" : "400", alignItems: "center", gap: "8px", background: active ? "linear-gradient(90deg,#21397C,#2CA3B4)" : "transparent", color: active ? "#fff" : "#666", textDecoration: "none" }}>
+                                    {active && <span className="sub-active-dot" style={{ width: 6, height: 6, background: '#fff', borderRadius: '50%' }} />}
                                     {sub.label}
                                   </RippleButton>
                                 </li>
@@ -544,36 +317,8 @@ const DashboardLayout = ({ user, handleLogout }) => {
                       (() => {
                         const active = isActive(item.path);
                         return (
-                          <RippleButton
-                            to={item.path}
-                            onClick={handleMenuClick}
-                            className={active ? "" : "menu-link"}
-                            style={{
-                              alignItems: "center",
-                              gap: "12px",
-                              padding: sidebarOpen ? "11px 14px" : "11px 0",
-                              justifyContent: sidebarOpen
-                                ? "flex-start"
-                                : "center",
-                              borderRadius: "10px",
-                              background: active
-                                ? "linear-gradient(90deg,#21397C 0%,#2CA3B4 100%)"
-                                : "transparent",
-                              color: active ? "#fff" : "#555",
-                              fontWeight: active ? "600" : "500",
-                              fontSize: "14px",
-                              textDecoration: "none",
-                              transition: "background 0.15s",
-                            }}
-                          >
-                            <span
-                              style={{
-                                flexShrink: 0,
-                                color: active ? "#fff" : "#7a8aaa",
-                              }}
-                            >
-                              {item.icon}
-                            </span>
+                          <RippleButton to={item.path} onClick={handleMenuClick} className={active ? "" : "menu-link"} style={{ alignItems: "center", gap: "12px", padding: sidebarOpen ? "11px 14px" : "11px 0", justifyContent: sidebarOpen ? "flex-start" : "center", borderRadius: "10px", background: active ? "linear-gradient(90deg,#21397C 0%,#2CA3B4 100%)" : "transparent", color: active ? "#fff" : "#555", fontWeight: active ? "600" : "500", fontSize: "14px", textDecoration: "none" }}>
+                            <span style={{ color: active ? "#fff" : "#7a8aaa" }}>{item.icon}</span>
                             {sidebarOpen && <span>{item.label}</span>}
                           </RippleButton>
                         );
@@ -585,314 +330,149 @@ const DashboardLayout = ({ user, handleLogout }) => {
             </nav>
           </aside>
 
-          {/* ── Main ── */}
-          <div
-            className="db-main"
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              minWidth: 0,
-              // Mobile pe kabhi margin mat do jab sidebar closed ho
-              marginLeft: isMobile ? 0 : sidebarOpen ? "272px" : "72px",
-              transition: "margin-left 0.3s cubic-bezier(0.4,0,0.2,1)",
-            }}
-          >
-            {/* Header */}
-            <header
-              style={{
-                background: "#fff",
-                padding: isMobile ? "0 12px" : "0 24px",
-                height: "64px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                borderBottom: "1px solid #e8eaf0",
-                boxShadow: "0 2px 12px rgba(33,57,124,0.05)",
-                position: "sticky",
-                top: 0,
-                zIndex: 100,
-                gap: "8px",
-              }}
-            > 
-              {/* Hamburger */}
-              <button
-                onClick={toggleSidebar}
-                style={{
-                  cursor: "pointer",
-                  border: "1.5px solid #e8eaf0",
-                  background: "#f8f9fc",
-                  borderRadius: "9px",
-                  padding: "8px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  transition: "background 0.15s, box-shadow 0.15s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "#eef0f8";
-                  e.currentTarget.style.boxShadow =
-                    "0 2px 8px rgba(33,57,124,0.1)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "#f8f9fc";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-              >
+          {/* ── Main Content Area ── */}
+          <div className="db-main" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, marginLeft: isMobile ? 0 : sidebarOpen ? "272px" : "72px", transition: "margin-left 0.3s" }}>
+            <header style={{ background: "#fff", padding: isMobile ? "0 12px" : "0 24px", height: "64px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e8eaf0", position: "sticky", top: 0, zIndex: 100 }}>
+              <button onClick={toggleSidebar} style={{ cursor: "pointer", border: "1.5px solid #e8eaf0", background: "#f8f9fc", borderRadius: "9px", padding: "8px", display: "flex" }}>
                 <Menu size={19} color="#444" />
               </button>
 
-              <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "8px" : "12px" }}>
-                {/* Bell */}
-                {/* <button
-                  style={{
-                    background: "#f8f9fc",
-                    border: "1.5px solid #e8eaf0",
-                    borderRadius: "9px",
-                    padding: "8px",
-                    display: "flex",
-                    cursor: "pointer",
-                    position: "relative",
-                  }}
-                >
-                  <Bell size={18} color="#7a8aaa" />
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: "6px",
-                      right: "6px",
-                      width: "8px",
-                      height: "8px",
-                      background: "#ef4444",
-                      borderRadius: "50%",
-                      border: "2px solid #fff",
-                    }}
-                  />
-                </button> */}
+              <div ref={dropdownRef} style={{ position: "relative" }}>
+                <button onClick={() => setUserDropdownOpen(!userDropdownOpen)} style={{ display: "flex", alignItems: "center", gap: "8px", background: "#f8f9fc", border: "1.5px solid #e8eaf0", padding: "6px 8px", borderRadius: "10px", cursor: "pointer" }}>
+                  <div style={{ width: "34px", height: "34px", borderRadius: "8px", background: "linear-gradient(135deg,#21397C 0%,#2CA3B4 100%)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: "700" }}>
+                    {user?.name?.[0]?.toUpperCase() || "U"}
+                  </div>
+                  <div style={{ textAlign: "left", display: isMobile ? "none" : "block" }}>
+                    <div style={{ fontSize: "13px", fontWeight: "600", color: "#222" }}>{user?.name || "User"}</div>
+                    <div style={{ fontSize: "11px", color: "#aaa" }}>{user?.email || ""}</div>
+                  </div>
+                  <ChevronDown size={15} color="#999" />
+                </button>
 
-                {/* User Dropdown */}
-                <div ref={dropdownRef} style={{ position: "relative" }}>
-                  <button
-                    onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      background: userDropdownOpen ? "#f0f2f7" : "#f8f9fc",
-                      border: "1.5px solid #e8eaf0",
-                      padding: "6px 8px 6px 6px",
-                      borderRadius: "10px",
-                      cursor: "pointer",
-                      transition: "background 0.2s, box-shadow 0.2s",
-                      boxShadow: userDropdownOpen
-                        ? "0 2px 12px rgba(33,57,124,0.12)"
-                        : "none",
-                      maxWidth: isMobile ? "160px" : "none",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!userDropdownOpen)
-                        e.currentTarget.style.background = "#eef0f8";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!userDropdownOpen)
-                        e.currentTarget.style.background = "#f8f9fc";
-                    }}
-                  >
-                    {/* Avatar */}
-                    <div
-                      style={{
-                        width: "34px",
-                        height: "34px",
-                        borderRadius: "8px",
-                        background: user?.logo
-                          ? `url(${user.logo}) center/cover`
-                          : "linear-gradient(135deg,#21397C 0%,#2CA3B4 100%)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#fff",
-                        fontWeight: "700",
-                        fontSize: "14px",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {!user?.logo && (user?.name?.[0]?.toUpperCase() || "U")}
+                {userDropdownOpen && (
+                  <div style={{ position: "absolute", top: "calc(100% + 10px)", right: 0, background: "#fff", border: "1.5px solid #e8eaf0", borderRadius: "14px", minWidth: "200px", boxShadow: "0 10px 30px rgba(0,0,0,0.1)", zIndex: 1000, animation: "dropdownReveal 0.2s ease" }}>
+                    <div style={{ padding: "12px", borderBottom: "1px solid #f0f2f7" }}>
+                      <div style={{ fontSize: "13px", fontWeight: "700" }}>{user?.name}</div>
+                      <div style={{ fontSize: "11px", color: "#999" }}>{user?.email}</div>
                     </div>
-
-                    <div style={{ textAlign: "left", lineHeight: 1.3, overflow: "hidden", display: isMobile ? "none" : "block", minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: "13px",
-                          fontWeight: "600",
-                          color: "#222",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          maxWidth: "120px",
-                        }}
-                      >
-                        {user?.name || "User"}
-                      </div>
-                      <div style={{ fontSize: "11px", color: "#aaa", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "120px" }}>
-                        {user?.email || ""}
-                      </div>
+                    <div style={{ padding: '6px' }}>
+                      <Link to="/dashboard/profile" onClick={() => setUserDropdownOpen(false)} className="dd-item" style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", textDecoration: "none", color: "#333", borderRadius: "8px", fontSize: "13px" }}>
+                        <UserCircle size={16} /> My Profile
+                      </Link>
+                      <button onClick={() => { handleLogout(); navigate("/"); }} style={{ width: "100%", padding: "10px 12px", textAlign: "left", background: "none", border: "none", cursor: "pointer", color: "#e11d48", fontSize: "13px", display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <LogOut size={16} /> Logout
+                      </button>
                     </div>
-
-                    <ChevronDown
-                      size={15}
-                      style={{
-                        color: "#999",
-                        transition: "transform 0.25s cubic-bezier(0.4,0,0.2,1)",
-                        transform: userDropdownOpen
-                          ? "rotate(180deg)"
-                          : "rotate(0deg)",
-                        flexShrink: 0,
-                        display: isMobile ? "none" : "block",
-                      }}
-                    />
-                  </button>
-
-                  {/* ── Dropdown Panel ── */}
-                  {userDropdownOpen && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "calc(100% + 10px)",
-                        right: 0,
-                        background: "#fff",
-                        border: "1.5px solid #e8eaf0",
-                        borderRadius: "14px",
-                        minWidth: "200px",
-                        maxWidth: "calc(100vw - 24px)",
-                        boxShadow:
-                          "0 16px 48px rgba(33,57,124,0.15), 0 4px 16px rgba(0,0,0,0.06)",
-                        zIndex: 1000,
-                        overflow: "hidden",
-                        animation:
-                          "dropdownReveal 0.2s cubic-bezier(0.34,1.56,0.64,1) both",
-                        transformOrigin: "top right",
-                      }}
-                    >
-                      {/* User info header */}
-                      <div
-                        style={{
-                          padding: "14px 16px",
-                          borderBottom: "1px solid #f0f2f7",
-                          background:
-                            "linear-gradient(135deg, #f8f9fc 0%, #eef0f8 100%)",
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontSize: "13px",
-                            fontWeight: "700",
-                            color: "#222",
-                          }}
-                        >
-                          {user?.name || "User"}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: "11px",
-                            color: "#999",
-                            marginTop: "2px",
-                          }}
-                        >
-                          {user?.email || ""}
-                        </div>
-                      </div>
-
-                      <div style={{ padding: "6px" }}>
-                        <Link
-                          to="/dashboard/profile"
-                          onClick={() => setUserDropdownOpen(false)}
-                          className="dd-item"
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "10px",
-                            padding: "10px 12px",
-                            textDecoration: "none",
-                            color: "#333",
-                            borderRadius: "8px",
-                            fontSize: "13px",
-                            fontWeight: "500",
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: "32px",
-                              height: "32px",
-                              borderRadius: "8px",
-                              background: "#f0f2f7",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <UserCircle size={16} color="#21397C" />
-                          </div>
-                          My Profile
-                        </Link>
-
-                        <div
-                          style={{
-                            height: "1px",
-                            background: "#f0f2f7",
-                            margin: "4px 0",
-                          }}
-                        />
-
-                        <button
-                          className="dd-item dd-item-danger"
-                          onClick={() => {
-                            setUserDropdownOpen(false);
-                            handleLogout();
-                            navigate("/");
-                          }}
-                          style={{
-                            width: "100%",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "10px",
-                            padding: "10px 12px",
-                            background: "transparent",
-                            border: "none",
-                            textAlign: "left",
-                            cursor: "pointer",
-                            color: "#e11d48",
-                            borderRadius: "8px",
-                            fontSize: "13px",
-                            fontWeight: "500",
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: "32px",
-                              height: "32px",
-                              borderRadius: "8px",
-                              background: "#fff1f2",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <LogOut size={16} color="#e11d48" />
-                          </div>
-                          Logout
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </header>
 
-            <main style={{ padding: isMobile ? "12px" : "24px", flex: 1, minWidth: 0 }}>
+            <main style={{ padding: isMobile ? "12px" : "24px", flex: 1 }}>
               <Outlet />
             </main>
           </div>
         </div>
+
+        {/* ── MASSIVE SPECIAL OFFERS SLIDER POPUP ── */}
+        {showOfferPopup && allOffers.length > 0 && (
+          <div style={{
+            position: "fixed", inset: 0, zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(15, 23, 42, 0.9)", backdropFilter: "blur(12px)", padding: "20px"
+          }} onClick={() => setShowOfferPopup(false)}>
+            
+            <div style={{
+              background: "#fff", width: "95%", maxWidth: "1200px", borderRadius: "40px", 
+              height: "85vh", overflow: "hidden", position: "relative",
+              boxShadow: "0 60px 120px -20px rgba(0,0,0,0.6)",
+              animation: "modalShow 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
+            }} onClick={e => e.stopPropagation()}>
+              
+              {/* EXTRA LARGE CLOSE BUTTON */}
+              <button onClick={() => setShowOfferPopup(false)} style={{
+                position: "absolute", top: "30px", right: "30px", zIndex: 110, background: "#fff",
+                border: "none", borderRadius: "50%", width: "64px", height: "64px", cursor: "pointer", 
+                boxShadow: "0 10px 30px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center"
+              }}>
+                <X size={38} color="#1e293b" strokeWidth={2.5} />
+              </button>
+
+              {/* SLIDER NAVIGATION ARROWS */}
+              <button onClick={prevSlide} style={{
+                position: "absolute", left: "30px", top: "50%", transform: "translateY(-50%)", zIndex: 100,
+                background: "rgba(255,255,255,0.95)", border: "none", borderRadius: "50%", width: "70px", height: "70px",
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 15px 35px rgba(0,0,0,0.15)"
+              }}>
+                <ChevronLeft size={48} color="#21397C" strokeWidth={3} />
+              </button>
+
+              <button onClick={nextSlide} style={{
+                position: "absolute", right: "30px", top: "50%", transform: "translateY(-50%)", zIndex: 100,
+                background: "rgba(255,255,255,0.95)", border: "none", borderRadius: "50%", width: "70px", height: "70px",
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 15px 35px rgba(0,0,0,0.15)"
+              }}>
+                <ChevronRight size={48} color="#21397C" strokeWidth={3} />
+              </button>
+
+              {/* SLIDER TRACK */}
+              <div className="offers-slider-track" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
+                {allOffers.map((offer, idx) => (
+                  <div key={idx} className="offer-slide">
+                    <img src={offer.image} alt={offer.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    
+                    {/* OVERLAY TEXT */}
+                    <div style={{
+                      position: "absolute", inset: 0,
+                      background: "linear-gradient(to top, rgba(15, 23, 42, 0.95) 10%, rgba(15, 23, 42, 0.4) 50%, transparent 100%)",
+                      display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "80px 100px"
+                    }}>
+                      <div style={{ maxWidth: "800px" }}>
+                        <span style={{ 
+                          background: "#2CA3B4", padding: "8px 24px", borderRadius: "99px", 
+                          fontSize: "14px", fontWeight: "800", textTransform: "uppercase", letterSpacing: "1.5px", color: '#fff'
+                        }}>
+                          Exclusive Deal
+                        </span>
+                        <h2 style={{ fontSize: "56px", fontWeight: "900", color: "#fff", marginTop: "20px", lineHeight: 1.1, letterSpacing: "-2px" }}>
+                          {offer.title}
+                        </h2>
+                        <p style={{ color: "rgba(255,255,255,0.8)", fontSize: "20px", marginTop: "15px", maxWidth: "600px" }}>
+                          Grab this limited time offer now before it's gone!
+                        </p>
+                        {/* <div style={{ display: 'flex', gap: '15px', marginTop: '35px' }}>
+                          <button onClick={() => setShowOfferPopup(false)} style={{
+                            padding: "18px 45px", borderRadius: "16px", background: "#fff", color: "#21397C",
+                            fontWeight: "800", fontSize: "18px", border: "none", cursor: "pointer", boxShadow: "0 20px 40px rgba(0,0,0,0.3)"
+                          }}>
+                            Book Now
+                          </button>
+                        </div> */}  
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* PAGINATION DOTS */}
+              <div style={{
+                position: "absolute", bottom: "40px", left: "50%", transform: "translateX(-50%)",
+                display: "flex", gap: "12px", zIndex: 105
+              }}>
+                {allOffers.map((_, idx) => (
+                  <button 
+                    key={idx} 
+                    onClick={() => setCurrentSlide(idx)}
+                    style={{
+                      width: currentSlide === idx ? "45px" : "12px", height: "12px", borderRadius: "10px",
+                      background: currentSlide === idx ? "#fff" : "rgba(255,255,255,0.3)",
+                      border: 'none', cursor: "pointer", transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)"
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </>
     </DashboardUIContext.Provider>
   );

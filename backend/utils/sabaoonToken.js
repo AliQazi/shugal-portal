@@ -33,13 +33,28 @@ export const isTokenValid = async () => {
 
 // Hits the Sabaoon login API, stores the returned token, and returns it.
 export const refreshSabaoonToken = async () => {
-    const { SABAOON_API_URL, SABAOON_EMAIL, SABAOON_PASSWORD, SABAOON_AGENT_CODE } = process.env;
+    const SABAOON_API_URL =
+        process.env.sabbor_Base_URI?.trim() ||
+        process.env.saboor_Base_URI?.trim() ||
+        process.env.SABAOON_API_URL?.trim();
+    const SABAOON_EMAIL =
+        process.env.sabbor_email?.trim() ||
+        process.env.saboor_email?.trim() ||
+        process.env.SABAOON_EMAIL?.trim();
+    const SABAOON_PASSWORD =
+        process.env.saboor_password?.trim() ||
+        process.env.sabbor_password?.trim() ||
+        process.env.SABAOON_PASSWORD?.trim();
+    const SABAOON_AGENT_CODE =
+        process.env.saboor_AgentCode?.trim() ||
+        process.env.sabbor_AgentCode?.trim() ||
+        process.env.SABAOON_AGENT_CODE?.trim();
 
-    if (!SABAOON_EMAIL || !SABAOON_PASSWORD || !SABAOON_AGENT_CODE) {
-        throw new Error("Sabaoon login credentials are not set in environment variables (SABAOON_EMAIL, SABAOON_PASSWORD, SABAOON_AGENT_CODE)");
+    if (!SABAOON_API_URL || !SABAOON_EMAIL || !SABAOON_PASSWORD || !SABAOON_AGENT_CODE) {
+        throw new Error("Sabaoon login credentials are not set in environment variables");
     }
 
-    const loginUrl = `${SABAOON_API_URL}/login`;
+    const loginUrl = `${SABAOON_API_URL.replace(/\/+$/, "")}/login`;
 
     const form = new FormData();
     form.append("email", SABAOON_EMAIL);

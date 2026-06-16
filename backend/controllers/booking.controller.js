@@ -550,7 +550,7 @@ const normalizeExternalSource = ({ source, groupId, groupPriceDetailId }) => {
     return "al-haider";
   }
 
-  if (["sabaoon", "saboon"].includes(normalizedRaw)) {
+  if (["sabaoon", "saboon", "saboor", "alsaboor", "al-saboor"].includes(normalizedRaw)) {
     return "sabaoon";
   }
 
@@ -773,7 +773,10 @@ export const createBooking = async (req, res) => {
           pricing,
         });
 
-        booking.sabaoonTransactionId = transactionId;
+        const numericTransactionId = Number(transactionId);
+        booking.sabaoonTransactionId = Number.isFinite(numericTransactionId)
+          ? numericTransactionId
+          : null;
         booking.sabaoonBookingStatus = "success";
         await booking.save();
         console.log(`Sabaoon booking created — transaction_id: ${transactionId}`);
