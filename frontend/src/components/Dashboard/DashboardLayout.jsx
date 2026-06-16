@@ -22,7 +22,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import logo from "../../assets/images/logo2-.png";
-import axiosInstance from "../../Api/axios";
+// import axiosInstance from "../../Api/axios";
+import axiosInstance from "../../api/axios"
 
 /* ─── Ripple Button Component ─────────────────────────────── */
 const RippleButton = ({ children, style, onClick, className, to }) => {
