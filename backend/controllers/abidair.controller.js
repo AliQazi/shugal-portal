@@ -212,7 +212,7 @@ const normalizeAbidAirGroup = (group) => {
       group?.availableSeats ??
       group?.seats ??
       group?.available_seats ??
-      1
+      0
     ),
 
     showSeat: true,
