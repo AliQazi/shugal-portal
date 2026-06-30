@@ -1,3 +1,7 @@
+// ============================================================
+// printGDSBooking – Mobile‑friendly print function
+// ============================================================
+
 export const printGDSBooking = (booking, showPrice = true) => {
     // --- 1. Helper Functions ---
     const formatFullDate = (dateStr) => {
@@ -10,19 +14,16 @@ export const printGDSBooking = (booking, showPrice = true) => {
         });
     };
 
-    // --- 2. Data Preparation (Preserving your logic + adding PDF specific helpers) ---
+    // --- 2. Data Preparation (Preserving your logic) ---
     const flight = booking.flights?.[0] || {};
 
-    // Helper
     const safeUpper = (value) => (value ? String(value).toUpperCase() : "");
     const safeValue = (value, fallback = "N/A") =>
         value !== undefined && value !== null && value !== "" ? String(value) : fallback;
 
-    // Booking Status
     const bookingStatusRaw = booking.status || booking.bookingStatus || "N/A";
     const bookingStatus = bookingStatusRaw.toUpperCase();
 
-    // Airline & Logos
     const airlineName = (
         booking.airline?.name ||
         flight.airlineName ||
@@ -30,11 +31,9 @@ export const printGDSBooking = (booking, showPrice = true) => {
     ).toUpperCase();
     const airlineLogo = booking.airline?.logoUrl || flight.airlineLogo || "";
 
-    // Booking Refs
     const pnr = booking.pnr || booking.bookingReference || "N/A";
     const bookingRef = booking.bookingReference || pnr;
 
-    // Flight-level fallback fields
     const flightNum =
         booking.flightNumber || flight.flightNo || flight.flightNumber || "XX000";
     const depTime = flight.depTime || booking.depTime || "00:00";
@@ -43,7 +42,6 @@ export const printGDSBooking = (booking, showPrice = true) => {
     const arrDate = formatFullDate(booking.arrivalDate || booking.departureDate);
     const baggage = booking.baggageWeight || flight.baggage || "20KG";
 
-    // Try multiple sources for IATA / airport codes
     let originCode = safeUpper(
         booking.originCode ||
         flight.originCode ||
@@ -77,7 +75,6 @@ export const printGDSBooking = (booking, showPrice = true) => {
     originCode = originCode || "N/A";
     destCode = destCode || "N/A";
 
-    // Build full route from flights when available
     const segments =
         Array.isArray(booking.flights) && booking.flights.length > 0
             ? booking.flights.map((fl) => ({
@@ -118,7 +115,6 @@ export const printGDSBooking = (booking, showPrice = true) => {
             ? routePoints.join(" - ")
             : booking.sector || `${originCode} - ${destCode}`;
 
-    // Passenger pricing summary
     const adultCount = booking.adultsCount ?? booking.passengers?.filter((p) => String(p.type).toLowerCase() === "adult").length ?? 0;
     const childCount = booking.childrenCount ?? booking.passengers?.filter((p) => String(p.type).toLowerCase() === "child").length ?? 0;
     const infantCount = booking.infantsCount ?? booking.passengers?.filter((p) => String(p.type).toLowerCase() === "infant").length ?? 0;
@@ -143,7 +139,6 @@ export const printGDSBooking = (booking, showPrice = true) => {
 
     const formatFare = (amount) => `PKR ${Number(amount).toLocaleString()}`;
 
-    // Passengers (Logic adapted to handle array like the PDF, defaulting to your single passenger extract if needed)
     const passengers =
         booking.passengers && booking.passengers.length > 0
             ? booking.passengers
@@ -157,7 +152,6 @@ export const printGDSBooking = (booking, showPrice = true) => {
                 },
             ];
 
-    // Frontend user fallback (safe parse)
     const storedFrontendUser = (() => {
         try {
             return JSON.parse(sessionStorage.getItem("frontend_user") || "{}");
@@ -166,7 +160,6 @@ export const printGDSBooking = (booking, showPrice = true) => {
         }
     })();
 
-    // Dynamic fields (never static)
     const issuedBy =
         booking.issuedBy ||
         storedFrontendUser.companyName ||
@@ -185,8 +178,7 @@ export const printGDSBooking = (booking, showPrice = true) => {
         storedFrontendUser.phone ||
         "N/A";
 
-    // --- 3. Construct the HTML String (PDF Design -> Black & White) ---
-    // Only show PNR if booking status does not contain 'HOLD' (case-insensitive)
+    // --- 3. Build the HTML Ticket String ---
     const showPNR = !/hold/i.test(bookingStatusRaw);
 
     const pnrHTML = showPNR ? `<div class="sum-card">
@@ -214,7 +206,6 @@ export const printGDSBooking = (booking, showPrice = true) => {
             padding: 40px;
         }
 
-        /* 1. Header Section */
         .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; }
         .brand { display: flex; align-items: center; gap: 12px; }
         .brand img { height: 40px; }
@@ -225,7 +216,6 @@ export const printGDSBooking = (booking, showPrice = true) => {
         .ref-label { font-size: 15px; font-weight: bold; color: #8c8c8c; }
         .ref-value { font-size: 17px; font-weight: bold; color: #505050; margin-top: -2px; }
 
-        /* 2. Top Summary Boxes */
         .summary-row { display: grid; grid-template-columns: repeat(${3 + (showPNR ? 1 : 0)}, 1fr); gap: 15px; margin-bottom: 30px; }
         .sum-card { 
             border: 1px solid #f0f0f0; 
@@ -236,7 +226,6 @@ export const printGDSBooking = (booking, showPrice = true) => {
         .sum-label { font-size: 10px; font-weight: bold; color: #b0b0b0; text-transform: uppercase; margin-bottom: 4px; }
         .sum-val { font-size: 15px; font-weight: bold; color: #333; }
 
-        /* 3. Section Styling */
         .section-title { 
             font-size: 12px; 
             font-weight: 800; 
@@ -247,7 +236,6 @@ export const printGDSBooking = (booking, showPrice = true) => {
             padding-bottom: 5px;
         }
 
-        /* 4. Table Design (Clean - No Vertical Lines) */
         table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
         th { 
             text-align: left; 
@@ -260,17 +248,14 @@ export const printGDSBooking = (booking, showPrice = true) => {
         td { padding: 12px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px; color: #444; }
         .bold-td { font-weight: bold; color: #000; }
 
-        /* 5. Details Section */
         .info-block { margin-bottom: 20px; }
         .info-title { font-weight: bold; font-size: 13px; margin-bottom: 8px; color: #333; }
         .info-row { font-size: 14px; margin-bottom: 6px; }
         .info-row span { font-weight: bold; }
 
-        /* Important list dots */
         .imp-list { padding-left: 18px; margin: 5px 0; }
         .imp-list li { font-size: 12px; color: #555; margin-bottom: 4px; }
 
-        /* 6. Location Pill at Bottom */
         .pill-address {
             display: inline-flex;
             align-items: center;
@@ -416,59 +401,50 @@ export const printGDSBooking = (booking, showPrice = true) => {
 </body>
 </html>
 `;
-    // --- 4. In-page print (mobile-compatible, no new tab) ---
-    const printContainer = document.createElement('div');
-    printContainer.id = '__print_ticket__';
-    printContainer.innerHTML = ticketHTML;
 
-    const printStyle = document.createElement('style');
-    printStyle.id = '__print_ticket_style__';
-    printStyle.innerHTML = [
-        '@media print {',
-        '  body > *:not(#__print_ticket__) { display: none !important; }',
-        '  #__print_ticket__ { display: block !important; }',
-        '}',
-        '#__print_ticket__ { display: none; }',
-    ].join('\n');
+    // ------------------------------------------------------------
+    // 4. Print using an IFrame (replaces the old DOM-based print)
+    // ------------------------------------------------------------
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    iframe.style.visibility = 'hidden'; // still renders but hidden
+    document.body.appendChild(iframe);
 
-    document.head.appendChild(printStyle);
-    document.body.appendChild(printContainer);
+    const iframeDoc = iframe.contentWindow.document;
+    iframeDoc.open();
+    iframeDoc.write(ticketHTML);
+    iframeDoc.close();
 
+    // When the iframe has loaded, trigger print
+    iframe.onload = function() {
+        // Small delay to let styles apply
+        setTimeout(() => {
+            iframe.contentWindow.focus(); // important for some mobile browsers
+            iframe.contentWindow.print();
+        }, 300);
+    };
+
+    // Cleanup after printing
     const cleanup = () => {
-        if (document.getElementById('__print_ticket__')) {
-            document.body.removeChild(printContainer);
-        }
-        if (document.getElementById('__print_ticket_style__')) {
-            document.head.removeChild(printStyle);
+        if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
         }
         window.removeEventListener('afterprint', cleanup);
     };
+
     window.addEventListener('afterprint', cleanup);
-
-    printContainer.style.display = 'block';
-    window.print();
-    // Fallback cleanup for browsers that don't fire afterprint
-    setTimeout(cleanup, 2000);
+    // Fallback: if afterprint never fires (e.g., on mobile), remove after 5 seconds
+    setTimeout(cleanup, 5000);
 };
 
-
-
-
-const getAgencyName = (booking) => {
-    const storedFrontendUser = getStoredFrontendUser();
-
-    if (typeof booking.userId === "object" && booking.userId?.companyName) {
-        return booking.userId.companyName;
-    }
-    if (booking.agencyName) {
-        return booking.agencyName;
-    }
-    if (storedFrontendUser.companyName) {
-        return storedFrontendUser.companyName;
-    }
-    return "SUPRA TRAVEL & TOURS";
-};
-
+// ============================================================
+// Helper functions used inside the HTML template
+// ============================================================
 
 const getStoredFrontendUser = () => {
     try {
@@ -477,7 +453,6 @@ const getStoredFrontendUser = () => {
         return {};
     }
 };
-
 
 const getName = (booking) => {
     const storedFrontendUser = getStoredFrontendUser();
