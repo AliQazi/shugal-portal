@@ -76,6 +76,14 @@ const AIRLINE_NAME_MAPPING = {
   "salam air lhe-mct-jed": "Salam Air",
   "salam air pew-mct-jed": "Salam Air",
   "salam air isb-mct-jed": "Salam Air",
+
+  // PIA variations
+  "pia": "PIA",
+  "pakistan international airlines": "PIA",
+  "pia mux-jed": "PIA",
+  "pia lhe-jed": "PIA",
+  "pia pew-jed": "PIA",
+  "pia isb-jed": "PIA",
 };
 
 // ─── ADDED: Standardise airline name helper ──────────────────────────────────────────
@@ -160,7 +168,7 @@ const normalizeSector = (sector = "") => {
     .split("-")
     .map((part) => part.trim().toUpperCase())
     .filter(Boolean);
-  
+
   return parts
     .map((part) => CITY_TO_AIRPORT[part] || part)
     .join("-");
@@ -689,6 +697,34 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     return Math.round(priceAfterMargin);
   };
 
+  // ─── ADDED: Helper to compute effective available seats ─────────────────────────
+  const getEffectiveSeats = (group) => {
+    // For own groups, use available_no_of_pax directly
+    if (group.isOwnGroup) {
+      return Number(group.available_no_of_pax) || 0;
+    }
+
+    // For other groups, subtract booked seats for the first flight (or minimum over all legs)
+    const details = Array.isArray(group?.details) ? group.details.filter(Boolean) : [];
+    if (details.length === 0) {
+      return Number(group.available_no_of_pax) || 0;
+    }
+
+    let minAvailable = Infinity;
+    for (const flight of details) {
+      const flightNo = flight.flight_no || flight.flightNo;
+      const date = flight.dep_date || flight.flight_date || group.dept_date;
+      if (!flightNo || !date) continue;
+      const key = `${flightNo}_${new Date(date).toISOString().split("T")[0]}`;
+      const booked = bookedSeatsMap[key] || 0;
+      const available = (Number(group.available_no_of_pax) || 0) - booked;
+      minAvailable = Math.min(minAvailable, available);
+    }
+
+    // If no valid flight found, fallback to available_no_of_pax
+    return Number.isFinite(minAvailable) ? Math.max(minAvailable, 0) : Number(group.available_no_of_pax) || 0;
+  };
+
   useEffect(() => {
     window.scrollTo(0, 0);
     fetchGroups();
@@ -716,10 +752,9 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
       });
     });
 
-    // console.log("FINAL MAP:", map); // 👈 DEBUG THIS
     setBookedSeatsMap(map);
   };
-  // console.log(bookings, "hello2222")
+
   const fetchGroups = async () => {
     try {
       setLoading(true);
@@ -888,8 +923,20 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
       });
     }
 
+    // ─── ADDED: Filter out groups with zero available seats ────────────────────────
+    filtered = filtered.filter((g) => {
+      const seats = getEffectiveSeats(g);
+      return seats > 0;
+    });
+
     setGroups(filtered);
   };
+
+  // ─── MODIFIED: Depend on bookedSeatsMap so seat availability is recalculated ────
+  useEffect(() => {
+    applyFilters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, allGroups, bookedSeatsMap]);
 
   // ─── MODIFIED: Standardise airline value before adding to filters ──────────────
   const handleFilterChange = (filterType, value) => {
@@ -923,11 +970,6 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
   const handleBookNow = (group) => {
     navigate("/dashboard/booking", { state: { groupData: group } });
   };
-
-  useEffect(() => {
-    applyFilters();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, allGroups]);
 
   const LoadingSkeleton = () => (
     <div className="space-y-6 p-4">
@@ -1359,7 +1401,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                 <tr
                                   key={group.id}
                                   className="border-b border-gray-500 bg-white hover:bg-blue-50/30 transition-colors"
-                                >   
+                                >
                                   {/* Date */}
                                   <td className="px-4 py-3 text-xs font-medium text-gray-600 whitespace-nowrap align-top">
                                     {isMultiLeg ? (
@@ -1367,7 +1409,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                         {displayDetails.map((d, i) => {
                                           const rawDate = d.dep_date || d.flight_date;
                                           return (
-                                            <div key={i} style={{color: 'black', fontFamily:'sans-serif'}} className={`font-black text-sm flex flex-col ${i > 0 ? "pt-2" : "pb-2"}`}>
+                                            <div key={i} style={{ color: 'black', fontFamily: 'sans-serif' }} className={`font-black text-sm flex flex-col ${i > 0 ? "pt-2" : "pb-2"}`}>
                                               {/* <span className={`text-[9px] font-bold uppercase tracking-wider mb-0.5 ${i === 0 ? "text-blue-500" : "text-orange-400"}`}>
                                                 {legLabels[i] || `Leg ${i + 1}`}
                                               </span> */}
@@ -1408,7 +1450,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                           </div>
                                         ))}
                                       </div>
-                                    ) : ( 
+                                    ) : (
                                       <div className="flex items-center gap-1.5">
                                         <FaPlane className="text-xs shrink-0" style={{ color: theme.colors.ublGradientStart }} />
                                         <div className="flex flex-col">
@@ -1530,7 +1572,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                         if (!isMultiLeg) {
                                           return <span className="text-gray-400 text-xs">—</span>;
                                         }
-                                        
+
                                         let days = group.days;
                                         if (displayDetails.length > 1) {
                                           const firstRaw = displayDetails[0].dep_date || displayDetails[0].flight_date;
@@ -1556,22 +1598,15 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                     {group.isOwnGroup ? (
                                       group.showSeat ? (
                                         <span className="text-sm font-bold" style={{ color: theme.colors.ublGradientStart }}>
-                                          {group.available_no_of_pax}
+                                          {getEffectiveSeats(group)}
                                         </span>
                                       ) : (
                                         <span className="text-gray-400 text-xs">—</span>
                                       )
                                     ) : (
-                                      (() => {
-                                        if (!flight) return <span className="text-sm font-bold" style={{ color: theme.colors.ublGradientStart }}>{group.available_no_of_pax}</span>;
-                                        const key = `${flight.flight_no}_${new Date(flight.dep_date || flight.flight_date).toISOString().split("T")[0]}`;
-                                        const booked = bookedSeatsMap[key] || 0;
-                                        return (
-                                          <span className="text-sm font-bold" style={{ color: theme.colors.ublGradientStart }}>
-                                            {group.available_no_of_pax - booked}
-                                          </span>
-                                        );
-                                      })()
+                                      <span className="text-sm font-bold" style={{ color: theme.colors.ublGradientStart }}>
+                                        {getEffectiveSeats(group)}
+                                      </span>
                                     )}
                                   </td>
 
@@ -1580,7 +1615,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                     {user?.priceOnCall ? (
                                       <span className="text-sm font-bold text-red-500">On Call</span>
                                     ) : (
-                                      <div className="text-lg font-black" style={{ color: theme.colors.ublGradientStart , fontFamily: 'sans-serif' }}>
+                                      <div className="text-lg font-black" style={{ color: theme.colors.ublGradientStart, fontFamily: 'sans-serif' }}>
                                         PKR {calculatePriceAfterMargin(group.price, group)?.toLocaleString()}
                                       </div>
                                     )}
