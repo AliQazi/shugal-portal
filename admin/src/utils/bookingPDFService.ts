@@ -10,10 +10,9 @@ export const printGDSBooking = (booking: any, showPrice = true): void => {
     });
   };
 
-  // --- 2. Data Preparation ---
+  // --- 2. Data Preparation (unchanged) ---
   const flight = booking.flights?.[0] || {};
 
-  // Booking Status
   const bookingStatusRaw = booking.status || booking.bookingStatus || "N/A";
   const bookingStatus = bookingStatusRaw.toUpperCase();
 
@@ -23,20 +22,12 @@ export const printGDSBooking = (booking: any, showPrice = true): void => {
     "AIRLINE"
   ).toUpperCase();
 
-  // const agencyLogo = "assets/images/logo.webp";
   const airlineLogo = booking.airline?.logoUrl || flight.airlineLogo || "";
 
   const pnr = booking.pnr || booking.bookingReference || "N/A";
   const bookingRef = booking.bookingReference || pnr;
 
   const flightNum = booking.flightNumber || flight.flightNo || "XX000";
-
-  // const origin = (
-  //   booking.origin ||
-  //   booking.originCity ||
-  //   flight.origin ||
-  //   ""
-  // ).toUpperCase();
 
   let originCode = (
     booking.originCode ||
@@ -45,13 +36,6 @@ export const printGDSBooking = (booking: any, showPrice = true): void => {
     flight.sectorFrom ||
     ""
   ).toUpperCase();
-
-  // const dest = (
-  //   booking.destination ||
-  //   booking.destinationCity ||
-  //   flight.destination ||
-  //   ""
-  // ).toUpperCase();
 
   let destCode = (
     booking.destinationCode ||
@@ -103,7 +87,7 @@ export const printGDSBooking = (booking: any, showPrice = true): void => {
       : [
           {
             airline: airlineName,
-            flight,
+            flightNo: flightNum, // FIXED: was 'flight' (incorrect)
             origin: originCode,
             destination: destCode,
             depDate,
@@ -155,16 +139,7 @@ export const printGDSBooking = (booking: any, showPrice = true): void => {
           },
         ];
 
-  // const storedFrontendUser = (() => {
-  //   try {
-  //     return JSON.parse(localStorage.getItem("frontend_user") || "{}");
-  //   } catch (e) {
-  //     return {};
-  //   }
-  // })();
-
-  // --- 3. Construct the HTML String (PDF Design -> Black & White) ---
-  // Only show PNR if booking status does not contain 'HOLD' (case-insensitive)
+  // --- 3. Build the HTML Ticket String (unchanged) ---
   const showPNR = !/hold/i.test(bookingStatusRaw);
 
   const priceAmount = booking.pricing?.grandTotal || booking.price || booking.amount || 0;
@@ -175,7 +150,6 @@ export const printGDSBooking = (booking: any, showPrice = true): void => {
     </div>`
     : "";
 
-  // Only render PNR box if not HOLD
   const pnrHTML = showPNR
     ? `<div class="sum-card">
       <div class="sum-label">PNR</div>
@@ -203,7 +177,6 @@ export const printGDSBooking = (booking: any, showPrice = true): void => {
         padding: 40px;
       }
 
-      /* 1. Header Section */
       .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; }
       .brand { display: flex; align-items: center; gap: 12px; }
       .brand img { height: 40px; }
@@ -214,7 +187,6 @@ export const printGDSBooking = (booking: any, showPrice = true): void => {
       .ref-label { font-size: 15px; font-weight: bold; color: #8c8c8c; }
       .ref-value { font-size: 17px; font-weight: bold; color: #505050; margin-top: -2px; }
 
-      /* 2. Top Summary Boxes */
       .summary-row { display: grid; grid-template-columns: repeat(${3 + (showPNR ? 1 : 0) + (showPrice ? 1 : 0)}, 1fr); gap: 15px; margin-bottom: 30px; }
       .sum-card { 
         border: 1px solid #f0f0f0; 
@@ -225,7 +197,6 @@ export const printGDSBooking = (booking: any, showPrice = true): void => {
       .sum-label { font-size: 10px; font-weight: bold; color: #b0b0b0; text-transform: uppercase; margin-bottom: 4px; }
       .sum-val { font-size: 15px; font-weight: bold; color: #333; }
 
-      /* 3. Section Styling */
       .section-title { 
         font-size: 12px; 
         font-weight: 800; 
@@ -236,7 +207,6 @@ export const printGDSBooking = (booking: any, showPrice = true): void => {
         padding-bottom: 5px;
       }
 
-      /* 4. Table Design (Clean - No Vertical Lines) */
       table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
       th { 
         text-align: left; 
@@ -249,17 +219,14 @@ export const printGDSBooking = (booking: any, showPrice = true): void => {
       td { padding: 12px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px; color: #444; }
       .bold-td { font-weight: bold; color: #000; }
 
-      /* 5. Details Section */
       .info-block { margin-bottom: 20px; }
       .info-title { font-weight: bold; font-size: 13px; margin-bottom: 8px; color: #333; }
       .info-row { font-size: 14px; margin-bottom: 6px; }
       .info-row span { font-weight: bold; }
 
-      /* Important list dots */
       .imp-list { padding-left: 18px; margin: 5px 0; }
       .imp-list li { font-size: 12px; color: #555; margin-bottom: 4px; }
 
-      /* 6. Location Pill at Bottom */
       .pill-address {
         display: inline-flex;
         align-items: center;
@@ -414,49 +381,58 @@ export const printGDSBooking = (booking: any, showPrice = true): void => {
   </html>
   `;
 
-  // --- 4. In-page print (mobile-compatible, no new tab) ---
-  const printContainer = document.createElement('div');
-  printContainer.id = '__print_ticket__';
-  printContainer.innerHTML = ticketHTML;
+  // --- 4. Print using an IFrame (with null-safe contentWindow) ---
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = 'none';
+  iframe.style.visibility = 'hidden';
+  document.body.appendChild(iframe);
 
-  const printStyle = document.createElement('style');
-  printStyle.id = '__print_ticket_style__';
-  printStyle.innerHTML = [
-    '@media print {',
-    '  body > *:not(#__print_ticket__) { display: none !important; }',
-    '  #__print_ticket__ { display: block !important; }',
-    '}',
-    '#__print_ticket__ { display: none; }',
-  ].join('\n');
+  const iframeDoc = iframe.contentWindow?.document;
+  if (iframeDoc) {
+    iframeDoc.open();
+    iframeDoc.write(ticketHTML);
+    iframeDoc.close();
+  } else {
+    // Fallback: clean up and exit if iframe document not available
+    document.body.removeChild(iframe);
+    console.error('Unable to access iframe document for printing.');
+    return;
+  }
 
-  document.head.appendChild(printStyle);
-  document.body.appendChild(printContainer);
-
-  const cleanup = () => {
-    if (document.getElementById('__print_ticket__')) {
-      document.body.removeChild(printContainer);
+  // When the iframe has loaded, trigger print
+  iframe.onload = function() {
+    const win = iframe.contentWindow;
+    if (!win) {
+      // If contentWindow is null, we cannot print; clean up
+      cleanup();
+      return;
     }
-    if (document.getElementById('__print_ticket_style__')) {
-      document.head.removeChild(printStyle);
+    // Small delay to let styles apply
+    setTimeout(() => {
+      win.focus();
+      win.print();
+    }, 300);
+  };
+
+  // Cleanup after printing
+  const cleanup = () => {
+    if (document.body.contains(iframe)) {
+      document.body.removeChild(iframe);
     }
     window.removeEventListener('afterprint', cleanup);
   };
+
   window.addEventListener('afterprint', cleanup);
-
-printContainer.style.display = 'block';
-
-// --- FIX: Force reflow + small delay for mobile rendering ---
-printContainer.offsetHeight; // forces layout
-setTimeout(() => {
-  window.print();
-}, 100);
-// ---------------------------------------------------------
-
-// Fallback cleanup for browsers that don't fire afterprint
-setTimeout(cleanup, 2000);
+  // Fallback: if afterprint never fires, remove after 5 seconds
+  setTimeout(cleanup, 5000);
 };
 
-// --- Helper Functions ---
+// --- Helper Functions (unchanged) ---
 const getStoredFrontendUser = (): Record<string, string> => {
   try {
     return JSON.parse(localStorage.getItem("frontend_user") || "{}");
