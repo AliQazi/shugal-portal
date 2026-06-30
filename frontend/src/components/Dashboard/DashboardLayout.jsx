@@ -96,7 +96,7 @@ const DashboardLayout = ({ user, handleLogout }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isMobile, setIsMobile] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-  
+
   // ── Special Offers Slider States ──
   const [showOfferPopup, setShowOfferPopup] = useState(false);
   const [allOffers, setAllOffers] = useState([]);
@@ -198,8 +198,8 @@ const DashboardLayout = ({ user, handleLogout }) => {
   const filteredMenu = useMemo(() => {
     if (!searchQuery.trim()) return menuItems;
     const q = searchQuery.toLowerCase();
-    return menuItems.filter(item => 
-      item.label.toLowerCase().includes(q) || 
+    return menuItems.filter(item =>
+      item.label.toLowerCase().includes(q) ||
       item.subItems?.some(s => s.label.toLowerCase().includes(q))
     );
   }, [searchQuery]);
@@ -381,24 +381,24 @@ const DashboardLayout = ({ user, handleLogout }) => {
             position: "fixed", inset: 0, zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center",
             background: "rgba(15, 23, 42, 0.9)", backdropFilter: "blur(12px)", padding: "20px"
           }} onClick={() => setShowOfferPopup(false)}>
-            
+
             <div style={{
-              background: "#fff", width: "95%", maxWidth: "1200px", borderRadius: "40px", 
+              background: "#fff", width: "95%", maxWidth: "1200px", borderRadius: "40px",
               height: "85vh", overflow: "hidden", position: "relative",
               boxShadow: "0 60px 120px -20px rgba(0,0,0,0.6)",
               animation: "modalShow 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
             }} onClick={e => e.stopPropagation()}>
-              
-              {/* EXTRA LARGE CLOSE BUTTON */}
+
+              {/* CLOSE BUTTON */}
               <button onClick={() => setShowOfferPopup(false)} style={{
                 position: "absolute", top: "30px", right: "30px", zIndex: 110, background: "#fff",
-                border: "none", borderRadius: "50%", width: "64px", height: "64px", cursor: "pointer", 
+                border: "none", borderRadius: "50%", width: "64px", height: "64px", cursor: "pointer",
                 boxShadow: "0 10px 30px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center"
               }}>
                 <X size={38} color="#1e293b" strokeWidth={2.5} />
               </button>
 
-              {/* SLIDER NAVIGATION ARROWS */}
+              {/* SLIDER NAVIGATION */}
               <button onClick={prevSlide} style={{
                 position: "absolute", left: "30px", top: "50%", transform: "translateY(-50%)", zIndex: 100,
                 background: "rgba(255,255,255,0.95)", border: "none", borderRadius: "50%", width: "70px", height: "70px",
@@ -418,36 +418,56 @@ const DashboardLayout = ({ user, handleLogout }) => {
               {/* SLIDER TRACK */}
               <div className="offers-slider-track" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
                 {allOffers.map((offer, idx) => (
-                  <div key={idx} className="offer-slide">
-                    <img src={offer.image} alt={offer.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    
+                  <div key={idx} className="offer-slide" style={{
+                    position: 'relative',
+                    width: '100%',
+                    height: '100%',
+                    background: offer.image ? 'transparent' : 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)'
+                  }}>
+                    {/* Image only if exists */}
+                    {offer.image && (
+                      <img
+                        src={offer.image}
+                        alt=""
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    )}
+
                     {/* OVERLAY TEXT */}
                     <div style={{
                       position: "absolute", inset: 0,
-                      background: "linear-gradient(to top, rgba(15, 23, 42, 0.95) 10%, rgba(15, 23, 42, 0.4) 50%, transparent 100%)",
-                      display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "80px 100px"
+                      background: offer.image
+                        ? "linear-gradient(to top, rgba(15, 23, 42, 0.95) 10%, rgba(15, 23, 42, 0.4) 50%, transparent 100%)"
+                        : "linear-gradient(to bottom, rgba(15, 23, 42, 0.2), rgba(15, 23, 42, 0.6))",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: offer.image ? "flex-end" : "flex-start",
+                      padding: offer.image ? "80px 100px" : "60px 80px",
                     }}>
                       <div style={{ maxWidth: "800px" }}>
-                        <span style={{ 
-                          background: "#2CA3B4", padding: "8px 24px", borderRadius: "99px", 
-                          fontSize: "14px", fontWeight: "800", textTransform: "uppercase", letterSpacing: "1.5px", color: '#fff'
+                        <span style={{
+                          background: "#2CA3B4", padding: "8px 24px", borderRadius: "99px",
+                          fontSize: "14px", fontWeight: "800", textTransform: "uppercase", letterSpacing: "1.5px", color: '#fff', ...(offer.image ? {} : { marginLeft: "50px" })
                         }}>
                           Exclusive Deal
                         </span>
-                        <h2 style={{ fontSize: "56px", fontWeight: "900", color: "#fff", marginTop: "20px", lineHeight: 1.1, letterSpacing: "-2px" }}>
+                        <h2 style={{
+                          fontSize: "36px",
+                          fontWeight: "900",
+                          color: "#fff", 
+                          marginTop: "20px",
+                          lineHeight: 1.1,
+                          letterSpacing: "-2px",
+                          // 👇 Only apply marginLeft when NO image
+                          ...(offer.image ? {} : { marginLeft: "50px" })
+                        }}>
                           {offer.title}
                         </h2>
-                        <p style={{ color: "rgba(255,255,255,0.8)", fontSize: "20px", marginTop: "15px", maxWidth: "600px" }}>
+                        <p style={{ color: "rgba(255,255,255,0.8)", fontSize: "20px", marginTop: "15px", maxWidth: "600px", ...(offer.image ? {} : { marginLeft: "50px" }) }}>
                           Grab this limited time offer now before it's gone!
                         </p>
-                        {/* <div style={{ display: 'flex', gap: '15px', marginTop: '35px' }}>
-                          <button onClick={() => setShowOfferPopup(false)} style={{
-                            padding: "18px 45px", borderRadius: "16px", background: "#fff", color: "#21397C",
-                            fontWeight: "800", fontSize: "18px", border: "none", cursor: "pointer", boxShadow: "0 20px 40px rgba(0,0,0,0.3)"
-                          }}>
-                            Book Now
-                          </button>
-                        </div> */}  
+                        {/* optional button remains commented */}
                       </div>
                     </div>
                   </div>
@@ -460,8 +480,8 @@ const DashboardLayout = ({ user, handleLogout }) => {
                 display: "flex", gap: "12px", zIndex: 105
               }}>
                 {allOffers.map((_, idx) => (
-                  <button 
-                    key={idx} 
+                  <button
+                    key={idx}
                     onClick={() => setCurrentSlide(idx)}
                     style={{
                       width: currentSlide === idx ? "45px" : "12px", height: "12px", borderRadius: "10px",

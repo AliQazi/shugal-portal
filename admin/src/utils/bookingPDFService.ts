@@ -443,10 +443,17 @@ export const printGDSBooking = (booking: any, showPrice = true): void => {
   };
   window.addEventListener('afterprint', cleanup);
 
-  printContainer.style.display = 'block';
+printContainer.style.display = 'block';
+
+// --- FIX: Force reflow + small delay for mobile rendering ---
+printContainer.offsetHeight; // forces layout
+setTimeout(() => {
   window.print();
-  // Fallback cleanup for browsers that don't fire afterprint
-  setTimeout(cleanup, 2000);
+}, 100);
+// ---------------------------------------------------------
+
+// Fallback cleanup for browsers that don't fire afterprint
+setTimeout(cleanup, 2000);
 };
 
 // --- Helper Functions ---

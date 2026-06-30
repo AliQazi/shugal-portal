@@ -17,7 +17,102 @@ import MaskedDatePicker from "../../../components/MaskedDatePicker";
 import { theme } from "../../../theme/theme";
 import TopBar from "../../../components/TopBar/TopBar";
 import { groupTypes } from "../../../data/groupTypes";
+import citiesData from "./cities.json";
 
+// ─── ADDED: Airline name standardisation mapping (copied from AllGroupsPackages) ───
+const AIRLINE_NAME_MAPPING = {
+  // Air Sial variations
+  "airsial": "Air Sial",
+  "air sial": "Air Sial",
+  "airsial lhe-dxb": "Air Sial",
+  "airsial isb-dxb": "Air Sial",
+  "airsial lhe-dmm": "Air Sial",
+  "airsial lhe-ruh": "Air Sial",
+
+  // Air Arabia variations
+  "air arabia": "Air Arabia",
+  "airarabia": "Air Arabia",
+  "air arabia pew-shj": "Air Arabia",
+  "air arabia lyp-shj": "Air Arabia",
+
+  // Fly Jinnah variations
+  "fly jinnah": "Fly Jinnah",
+  "flyjinnah": "Fly Jinnah",
+  "fly jinnah lhe-dxb": "Fly Jinnah",
+  "fly jinnah isb-shj": "Fly Jinnah",
+  "fly jinnah lhe-dmm": "Fly Jinnah",
+  "fly jinnah isb-dmm": "Fly Jinnah",
+
+  // FlyDubai variations
+  "flydubai": "FlyDubai",
+  "fly dubai": "FlyDubai",
+  "flydubai lyp-ruh": "FlyDubai",
+
+  // flyadeal variations
+  "flyadeal": "flyadeal",
+  "fly adeal": "flyadeal",
+  "flyadeal skt-ruh": "flyadeal",
+  "flyadeal pew-ruh": "flyadeal",
+  "flyadeal isb-ruh": "flyadeal",
+  "flyadeal lhe-ruh": "flyadeal",
+
+  // Saudi Airline variations
+  "saudi airline": "Saudi Airline",
+  "saudiairline": "Saudi Airline",
+  "saudi airline pew-ruh": "Saudi Airline",
+  "saudi airline isb-ruh": "Saudi Airline",
+  "saudi airline lhe-ruh": "Saudi Airline",
+  "saudi airline umrah mux": "Saudi Airline",
+
+  // Flynas variations
+  "flynas": "Flynas",
+  "fly nas": "Flynas",
+  "fly nas lhe-ruh": "Flynas",
+
+  // Salam Air variations
+  "salam air": "Salam Air",
+  "salamair": "Salam Air",
+  "salam air mux-mct-jed": "Salam Air",
+  "salam air lhe-mct-jed": "Salam Air",
+  "salam air pew-mct-jed": "Salam Air",
+  "salam air isb-mct-jed": "Salam Air",
+};
+
+// ─── ADDED: Standardise airline name helper ──────────────────────────────────────────
+const standardizeAirlineName = (airlineName) => {
+  if (!airlineName || typeof airlineName !== 'string') {
+    return 'Unknown Airline';
+  }
+
+  const normalizedInput = airlineName.trim().toLowerCase();
+
+  // Direct mapping
+  if (AIRLINE_NAME_MAPPING[normalizedInput]) {
+    return AIRLINE_NAME_MAPPING[normalizedInput];
+  }
+
+  // Partial match
+  for (const [key, value] of Object.entries(AIRLINE_NAME_MAPPING)) {
+    if (normalizedInput.includes(key) || key.includes(normalizedInput.split(' ')[0])) {
+      return value;
+    }
+  }
+
+  // Handle numbered entries (e.g., "01. airsial lhe-dxb")
+  const numberedPattern = /^\d+\.\s*(.+)$/i;
+  const match = normalizedInput.match(numberedPattern);
+  if (match) {
+    const extractedName = match[1].split(' ')[0];
+    if (AIRLINE_NAME_MAPPING[extractedName]) {
+      return AIRLINE_NAME_MAPPING[extractedName];
+    }
+  }
+
+  // Fallback: return original with first letter capitalised
+  return airlineName.charAt(0).toUpperCase() + airlineName.slice(1);
+};
+
+// ─── Existing constants (CITY_TO_AIRPORT, etc.) ──────────────────────────────────────
 const TYPE_TO_CATEGORY = {
   "UAE ONE WAY GROUP": "uae",
   "ONE WAY GROUP": "ksa",
@@ -687,14 +782,25 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         });
       }
 
+      // ─── MODIFIED: Standardise airline names ──────────────────────────────────────
+      const standardizedGroups = fetchedGroups.map(group => ({
+        ...group,
+        airline: {
+          ...group.airline,
+          airline_name: group.airline?.airline_name
+            ? standardizeAirlineName(group.airline.airline_name)
+            : group.airline?.airline_name
+        }
+      }));
+
       const uniqueAirlines = [
         ...new Set(
-          fetchedGroups.map((g) => g.airline?.airline_name).filter(Boolean),
+          standardizedGroups.map((g) => g.airline?.airline_name).filter(Boolean),
         ),
       ];
       const uniqueSectors = [
         ...new Set(
-          fetchedGroups
+          standardizedGroups
             .map((g) => getEffectiveSector(g))
             .filter(Boolean),
         ),
@@ -702,8 +808,8 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
 
       setAirlines(uniqueAirlines.sort());
       setSectors(uniqueSectors.sort());
-      setAllGroups(fetchedGroups);
-      applyFilters(fetchedGroups);
+      setAllGroups(standardizedGroups);
+      applyFilters(standardizedGroups);
     } catch (err) {
       console.error("Error fetching groups:", err);
       toast.error("Failed to load groups");
@@ -722,10 +828,14 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         filters.sectors.includes(getEffectiveSector(g)),
       );
     }
+    // ─── MODIFIED: Use standardised airline names when filtering ──────────────────
     if (filters.airlines.length > 0) {
-      filtered = filtered.filter((g) =>
-        filters.airlines.includes(g.airline?.airline_name),
-      );
+      filtered = filtered.filter((g) => {
+        const standardizedAirlineName = g.airline?.airline_name
+          ? standardizeAirlineName(g.airline.airline_name)
+          : g.airline?.airline_name;
+        return filters.airlines.includes(standardizedAirlineName);
+      });
     }
     if (filters.durations.length > 0) {
       filtered = filtered.filter((g) => {
@@ -737,10 +847,12 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     if (filters.searchKeyword) {
       const keyword = filters.searchKeyword.toLowerCase();
       filtered = filtered.filter((g) => {
+        // ─── MODIFIED: standardise airline name for search too ────────────────────
+        const standardizedAirlineName = g.airline?.airline_name
+          ? standardizeAirlineName(g.airline.airline_name).toLowerCase()
+          : g.airline?.airline_name?.toLowerCase();
         const matchesSector = g.sector?.toLowerCase().includes(keyword);
-        const matchesAirline = g.airline?.airline_name
-          ?.toLowerCase()
-          .includes(keyword);
+        const matchesAirline = standardizedAirlineName?.includes(keyword);
         const matchesGroupName = g.groupName?.toLowerCase().includes(keyword);
         const matchesFlightNo = g.details?.some((flight) =>
           flight.flight_no?.toLowerCase().includes(keyword),
@@ -779,6 +891,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     setGroups(filtered);
   };
 
+  // ─── MODIFIED: Standardise airline value before adding to filters ──────────────
   const handleFilterChange = (filterType, value) => {
     if (filterType === "sector") {
       setFilters((prev) => ({
@@ -788,11 +901,12 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
           : [...prev.sectors, value],
       }));
     } else if (filterType === "airline") {
+      const standardizedValue = standardizeAirlineName(value);
       setFilters((prev) => ({
         ...prev,
-        airlines: prev.airlines.includes(value)
-          ? prev.airlines.filter((a) => a !== value)
-          : [...prev.airlines, value],
+        airlines: prev.airlines.includes(standardizedValue)
+          ? prev.airlines.filter((a) => a !== standardizedValue)
+          : [...prev.airlines, standardizedValue],
       }));
     } else if (filterType === "duration") {
       setFilters((prev) => ({
@@ -869,6 +983,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     },
   );
 
+  // ─── MODIFIED: FilterContent displays standardised airline names ────────────────
   // Shared Filter UI Component for Sidebar and Mobile Drawer
   const FilterContent = () => (
     <>
@@ -906,20 +1021,24 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         Airlines
       </h3>
       <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
-        {airlines.map((airline) => (
-          <label
-            key={airline}
-            className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-xl transition"
-          >
-            <input
-              type="checkbox"
-              checked={filters.airlines.includes(airline)}
-              onChange={() => handleFilterChange("airline", airline)}
-              className="w-4 h-4 rounded"
-            />
-            <span className="text-sm text-gray-700">{airline}</span>
-          </label>
-        ))}
+        {airlines.map((airline) => {
+          // ─── MODIFIED: display standardised name ────────────────────────────────
+          const standardizedAirline = standardizeAirlineName(airline);
+          return (
+            <label
+              key={airline}
+              className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-xl transition"
+            >
+              <input
+                type="checkbox"
+                checked={filters.airlines.includes(standardizedAirline)}
+                onChange={() => handleFilterChange("airline", airline)}
+                className="w-4 h-4 rounded"
+              />
+              <span className="text-sm text-gray-700">{standardizedAirline}</span>
+            </label>
+          );
+        })}
       </div>
       <div className="h-px bg-gray-200 my-6" />
       <h3

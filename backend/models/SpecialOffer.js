@@ -9,7 +9,7 @@ const SpecialOfferSchema = new mongoose.Schema(
     },
     image: {
       type: String,
-      required: [true, "image is required"],
+      required: [false, "image is required"],
     },
   },
   {

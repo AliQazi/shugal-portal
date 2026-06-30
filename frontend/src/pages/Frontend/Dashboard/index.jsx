@@ -137,7 +137,7 @@ const Dashboard = () => {
 
         {/* --- Lower Section (Aligned with Summary Cards) --- */}
         <div className="flex flex-col lg:flex-row gap-6">
-          
+
           {/* Left: Group Categories (Takes 2/3 width on LG) */}
           <div className="lg:w-2/3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
@@ -173,23 +173,26 @@ const Dashboard = () => {
               <div className="w-full min-h-[100px] flex items-center justify-center bg-gray-50 rounded-2xl">No Offers</div>
             ) : (
               <div className="relative w-full group">
-                <div className=" w-full bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col border border-gray-100">
-                  <div className="relative flex-1 overflow-hidden">
-                    <img
-                      src={indexCards[currentIndex].image}
-                      alt={indexCards[currentIndex].title}
-                      className="w-full h-full object-cover"
-                    />
-                    {/* Navigation Buttons inside the card on hover */}
-                    <div className="absolute inset-0 flex items-center justify-between px-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={prevSlide} className="bg-white/90 p-2 rounded-full shadow hover:bg-white">←</button>
-                      <button onClick={nextSlide} className="bg-white/90 p-2 rounded-full shadow hover:bg-white">→</button>
+                <div className="w-full bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col border border-gray-100">
+                  {/* ✅ Only render image container if image exists */}
+                  {indexCards[currentIndex].image && (
+                    <div className="relative flex-1 overflow-hidden">
+                      <img
+                        src={indexCards[currentIndex].image}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                      {/* Navigation Buttons inside the card on hover */}
+                      <div className="absolute inset-0 flex items-center justify-between px-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={prevSlide} className="bg-white/90 p-2 rounded-full shadow hover:bg-white">←</button>
+                        <button onClick={nextSlide} className="bg-white/90 p-2 rounded-full shadow hover:bg-white">→</button>
+                      </div>
                     </div>
-                  </div>
-                  
+                  )}
+
                   <div className="p-5 bg-white">
                     <div className="flex justify-between items-start mb-1">
-                       <h3 className="font-black text-gray-800 text-lg uppercase leading-tight">
+                      <h3 className="font-black text-gray-800 text-lg uppercase leading-tight">
                         {indexCards[currentIndex].title}
                       </h3>
                     </div>

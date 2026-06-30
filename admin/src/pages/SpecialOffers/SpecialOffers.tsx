@@ -22,7 +22,7 @@ interface SnackbarState {
 export default function SpecialOffers() {
     const [offers, setOffers] = useState<Offer[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
-    const [showForm, setShowForm] = useState<boolean>(false); // Changed from openDialog
+    const [showForm, setShowForm] = useState<boolean>(false);
     const [editMode, setEditMode] = useState<boolean>(false);
     const [submitting, setSubmitting] = useState<boolean>(false);
     const [currentOffer, setCurrentOffer] = useState<Offer | null>(null);
@@ -68,7 +68,7 @@ export default function SpecialOffers() {
             setImagePreview("");
         }
         setShowForm(true);
-        window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top to see the form
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleCloseForm = () => {
@@ -172,7 +172,7 @@ export default function SpecialOffers() {
                 )}
             </div>
 
-            {/* Inline Form Section (Replaces the Modal) */}
+            {/* Inline Form Section */}
             {showForm && (
                 <div className="mb-10 bg-white border border-blue-100 rounded-2xl shadow-sm overflow-hidden animate-fade-in">
                     <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
@@ -188,16 +188,16 @@ export default function SpecialOffers() {
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-600 mb-1">Offer Title</label>
-                                <input
-                                    type="text"
+                                <textarea
+                                    rows={3}
                                     value={formData.title}
                                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                    placeholder="e.g. Summer Sale 2026"
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-y"
+                                    placeholder="e.g. Summer Sale 2026&#10;More details here..."
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-1">Offer Image</label>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">Offer Image (optional)</label>
                                 <input
                                     type="file"
                                     accept="image/*"
@@ -208,7 +208,7 @@ export default function SpecialOffers() {
                             <div className="flex gap-3 pt-4">
                                 <button
                                     onClick={handleSubmit}
-                                    disabled={submitting || !formData.title || (!formData.image && !editMode)}
+                                    disabled={submitting || !formData.title.trim()}
                                     className="flex items-center justify-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg font-medium disabled:bg-gray-400 disabled:cursor-not-allowed transition-all min-w-[140px]"
                                 >
                                     {submitting ? (
@@ -246,8 +246,14 @@ export default function SpecialOffers() {
             {/* Offers Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {offers.map((offer) => (
-                    <div key={offer._id} className="bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                        <img src={offer.image} alt={offer.title} className="w-full h-40 object-cover rounded-t-xl" />
+                    <div key={offer._id} className="bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-overflow-hidden">
+                        {offer.image && (
+                            <img
+                                src={offer.image}
+                                alt={offer.title}
+                                className="w-full h-40 object-cover rounded-t-xl"
+                            />
+                        )}
                         <div className="p-4">
                             <h3 className="font-bold text-gray-800 truncate">{offer.title}</h3>
                             <div className="mt-4 flex justify-between items-center">
@@ -266,7 +272,7 @@ export default function SpecialOffers() {
                 ))}
             </div>
 
-            {/* Custom Snackbar (unchanged logic, improved positioning) */}
+            {/* Snackbar */}
             {snackbar.open && (
                 <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-slide-up">
                     <div className={`w-2 h-2 rounded-full ${snackbar.severity === 'success' ? 'bg-green-400' : 'bg-red-400'}`} />
