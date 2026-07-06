@@ -188,8 +188,7 @@ export const sendPasswordResetEmail = async (
     console.log(`📤 Attempting to send password reset email to: ${email}`);
 
     // Construct reset link
-    const frontendURL =
-      process.env.FRONTEND_URL || "https://shaheenwingstravels.com";
+    const frontendURL = "https://shaheenwingstravels.com";
     const resetLink = `${frontendURL}/auth/forgot-password?token=${resetToken}&userId=${userId}`;
 
     const mailOptions = {
@@ -541,8 +540,13 @@ export const sendAgentRegistrationNotificationEmail = async (payload) => {
 
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("❌ Error sending agent registration notification:", error.message);
-    throw new Error(`Failed to send agent registration notification: ${error.message}`);
+    console.error(
+      "❌ Error sending agent registration notification:",
+      error.message,
+    );
+    throw new Error(
+      `Failed to send agent registration notification: ${error.message}`,
+    );
   }
 };
 
@@ -608,7 +612,11 @@ const getBookingNotificationHTML = ({
   `;
 };
 
-export const sendBookingNotificationEmail = async ({ bookingType, booking, agent }) => {
+export const sendBookingNotificationEmail = async ({
+  bookingType,
+  booking,
+  agent,
+}) => {
   try {
     const recipients = [
       process.env.EMAIL_USER,
@@ -643,8 +651,12 @@ export const sendBookingNotificationEmail = async ({ bookingType, booking, agent
         groupId: booking.groupId,
         source: booking.source,
         status: booking.status,
-        totalPassengers: (booking.adultsCount || 0) + (booking.childrenCount || 0) + (booking.infantsCount || 0),
-        totalAmount: booking.pricing?.grandTotal || booking.pricing?.totalAmount || 0,
+        totalPassengers:
+          (booking.adultsCount || 0) +
+          (booking.childrenCount || 0) +
+          (booking.infantsCount || 0),
+        totalAmount:
+          booking.pricing?.grandTotal || booking.pricing?.totalAmount || 0,
         agentName: agent?.name || agent?.email || "Agent",
         agentEmail: agent?.email || "N/A",
         agencyCode: agent?.agencyCode || "N/A",
@@ -671,7 +683,10 @@ Created At: ${booking.createdAt || new Date().toISOString()}
     console.log("✅ Booking notification email sent:", info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("❌ Error sending booking notification email:", error.message);
+    console.error(
+      "❌ Error sending booking notification email:",
+      error.message,
+    );
     throw error;
   }
 };

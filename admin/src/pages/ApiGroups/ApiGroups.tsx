@@ -835,7 +835,7 @@ export default function ApiGroups() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1200px] border-collapse text-sm">
+              <table className="w-full min-w-300 border-collapse text-sm">
                 <thead>
                   <tr className="bg-white text-left text-xs font-bold text-gray-600">
                     <th className="border border-gray-300 px-3 py-3 w-[32%]">Hotels</th>

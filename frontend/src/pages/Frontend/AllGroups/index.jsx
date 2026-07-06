@@ -42,6 +42,12 @@ const AIRLINE_NAME_MAPPING = {
   "fly jinnah isb-shj": "Fly Jinnah",
   "fly jinnah lhe-dmm": "Fly Jinnah",
   "fly jinnah isb-dmm": "Fly Jinnah",
+  "Air Blue": "Air Blue",
+  "air blue": "Air Blue",
+  "airblue": "Air Blue",
+  "air_blue": "Air Blue",
+  "AIRBLUE": "Air Blue",
+  "AIR BLUE": "Air Blue",
 
   // FlyDubai variations
   "flydubai": "FlyDubai",
