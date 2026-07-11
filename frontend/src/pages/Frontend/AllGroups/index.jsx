@@ -930,7 +930,11 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     }
 
     // ─── ADDED: Filter out groups with zero available seats ────────────────────────
+    // Abid Air never sends seat counts (always defaults to 0), so it's excluded
+    // from this filter to keep its groups visible.
     filtered = filtered.filter((g) => {
+      const airlineName = (g.airline?.airline_name || "").toLowerCase();
+      if (airlineName.includes("abid")) return true;
       const seats = getEffectiveSeats(g);
       return seats > 0;
     });
