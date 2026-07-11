@@ -1,13 +1,17 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import axiosInstance from "../../api/axios";
 import MaskedDatePicker from "../../components/MaskedDatePicker";
 import TopBar from "../../components/TopBar/TopBar";
-import { jsPDF } from "jspdf";
-import { useRef } from "react";
-import html2canvas from "html2canvas";
+import logo from "../../assets/images/logo2-.png";
+import {
+  getFrontendUserName,
+  getStoredFrontendUser,
+} from "../../utils/authUser";
+import "./Ledger.css";
 
 const Ledger = () => {
-  const printRef = useRef(null);
   const getCurrentYearStart = () => {
     const now = new Date();
     return `${now.getFullYear()}-01-01`;
@@ -19,32 +23,85 @@ const Ledger = () => {
   });
 
   const [ledgerData, setLedgerData] = useState([]);
+  const [ledgerMeta, setLedgerMeta] = useState({
+    account: null,
+    openingBalance: 0,
+    closingBalance: null,
+    totals: null,
+  });
   const [initialLoading, setInitialLoading] = useState(true);
-  const [downloadingPDF, setDownloadingPDF] = useState(false);
-  const [pdfRendering, setPdfRendering] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [userProfile, setUserProfile] = useState(null);
+  const statementRef = useRef(null);
 
-  // Calculate totals
-  const calculateTotals = () => {
-    const debit = ledgerData.reduce((sum, item) => sum + (item.debit || 0), 0);
-    const credit = ledgerData.reduce(
-      (sum, item) => sum + (item.credit || 0),
-      0,
-    );
-    const closingBalance = debit - credit;
+  const storedUser = getStoredFrontendUser();
+  const userName = getFrontendUserName(storedUser);
+  const accountName = ledgerMeta.account?.account_name || userName;
 
-    return { debit, credit, closingBalance };
-  };
-
-  // Format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("en-PK", {
-      minimumFractionDigits: 2,
+      minimumFractionDigits: 0,
       maximumFractionDigits: 2,
-    }).format(amount);
+    }).format(Math.abs(Number(amount || 0)));
+  };
+
+  const formatPrintAmount = (amount) =>
+    Number(amount || 0).toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+
+  const formatBalance = (amount) => {
+    const numericAmount = Number(amount || 0);
+    const suffix = numericAmount < 0 ? "CR" : "DR";
+    return `${formatCurrency(numericAmount)} ${suffix}`;
+  };
+
+  const formatStatementDate = (dateValue) => {
+    const date = dateValue ? new Date(dateValue) : new Date();
+
+    if (Number.isNaN(date.getTime())) return "-";
+
+    return date.toLocaleDateString("en-GB", {
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const formatPrintDate = () => {
+    return new Date().toLocaleDateString("en-GB", {
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const calculateTotals = (rows = ledgerData) => {
+    const isFullStatement = rows.length === ledgerData.length && !searchTerm;
+    const debit =
+      isFullStatement && ledgerMeta.totals
+        ? Number(ledgerMeta.totals.debit || 0)
+        : rows.reduce((sum, item) => sum + Number(item.debit || 0), 0);
+    const credit =
+      isFullStatement && ledgerMeta.totals
+        ? Number(ledgerMeta.totals.credit || 0)
+        : rows.reduce((sum, item) => sum + Number(item.credit || 0), 0);
+    const openingBalance = Number(ledgerMeta.openingBalance || 0);
+    const closingBalance =
+      isFullStatement && ledgerMeta.closingBalance !== null
+        ? ledgerMeta.closingBalance
+        : openingBalance + debit - credit;
+
+    return {
+      debit,
+      credit,
+      openingBalance,
+      closingBalance: Number(closingBalance || 0),
+    };
   };
 
   const fetchLedger = async () => {
@@ -52,26 +109,24 @@ const Ledger = () => {
       setFetching(true);
       setError(null);
 
-      const user = JSON.parse(sessionStorage.getItem("frontend_user"));
-      const userId = user?._id || user?.id;
-
-      if (!userId) {
-        setError("User not authenticated. Please login again.");
-        setFetching(false);
-        return;
-      }
-
-      const response = await axiosInstance.get(`/payment/ledger/${userId}`, {
+      const response = await axiosInstance.get("/payment/ledger/me", {
         params: {
           dateFrom: filters.dateFrom,
           dateTo: filters.dateTo,
-          ledgerView: "agent",
         },
       });
 
       if (response.data.success) {
-        console.log("Fetched ledger data:", response.data.data);
         setLedgerData(response.data.data || []);
+        setLedgerMeta({
+          account: response.data.account || null,
+          openingBalance: Number(response.data.openingBalance || 0),
+          closingBalance:
+            response.data.closingBalance === undefined
+              ? null
+              : Number(response.data.closingBalance || 0),
+          totals: response.data.totals || null,
+        });
       }
     } catch (error) {
       console.error("Error fetching ledger:", error);
@@ -82,36 +137,9 @@ const Ledger = () => {
     }
   };
 
-  const fetchUserProfile = async () => {
-    // Seed immediately from session storage so logo renders without waiting for API
-    const sessionUser = JSON.parse(sessionStorage.getItem("frontend_user") || "{}");
-    if (sessionUser && Object.keys(sessionUser).length > 0) {
-      setUserProfile(sessionUser);
-    }
-
-    try {
-      const response = await axiosInstance.get("/auth/profile");
-      if (response.data.success) {
-        const profileData = response.data.data;
-        setUserProfile(profileData);
-        // Keep session in sync so future renders are fast
-        sessionStorage.setItem(
-          "frontend_user",
-          JSON.stringify({ ...sessionUser, ...profileData }),
-        );
-      }
-    } catch (err) { 
-      console.error("Error fetching user profile:", err);
-    }
-  };
-
   useEffect(() => {
     fetchLedger();
-  }, [filters]);
-
-  useEffect(() => {
-    fetchUserProfile();
-  }, []);
+  }, [filters.dateFrom, filters.dateTo]);
 
   const handleFilterChange = (filterName, value) => {
     setFilters((prev) => ({ ...prev, [filterName]: value }));
@@ -129,24 +157,270 @@ const Ledger = () => {
     window.print();
   };
 
+  const sanitizeFilename = (value) =>
+    value
+      .replace(/[\\/:*?"<>|]+/g, "-")
+      .replace(/\s+/g, "-")
+      .trim() || "ledger";
+
+  const downloadStatementPdf = async () => {
+    const source = statementRef.current;
+    if (!source) return;
+
+    const wrapper = document.createElement("div");
+    const clone = source.cloneNode(true);
+    const style = document.createElement("style");
+
+    style.textContent = `
+      .ledger-statement {
+        width: 794px !important;
+        min-height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        color: #111827 !important;
+        box-shadow: none !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 8.5pt !important;
+      }
+      .ledger-fetching,
+      .no-print {
+        display: none !important;
+      }
+      .ledger-print-date {
+        color: #555 !important;
+        font-size: 8pt !important;
+        line-height: 1 !important;
+        margin-bottom: 14px !important;
+        text-align: right !important;
+      }
+      .ledger-company-row {
+        display: flex !important;
+        align-items: flex-start !important;
+        justify-content: space-between !important;
+        gap: 18px !important;
+        margin-bottom: 18px !important;
+      }
+      .ledger-company {
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+        min-width: 0 !important;
+      }
+      .ledger-company img {
+        width: 86px !important;
+        height: auto !important;
+        object-fit: contain !important;
+        flex: 0 0 auto !important;
+      }
+      .ledger-company h1 {
+        margin: 0 0 2px !important;
+        color: #111827 !important;
+        font-size: 9pt !important;
+        font-weight: 800 !important;
+        line-height: 1.1 !important;
+      }
+      .ledger-company p {
+        margin: 2px 0 !important;
+        color: #111827 !important;
+        font-size: 8.5pt !important;
+        line-height: 1.35 !important;
+      }
+      .ledger-opening-box {
+        width: 210px !important;
+        margin-top: 0 !important;
+        border: 1px solid #9ca3af !important;
+        text-align: center !important;
+        color: #111827 !important;
+        flex: 0 0 auto !important;
+        font-size: 8.5pt !important;
+        font-weight: 700 !important;
+      }
+      .ledger-opening-box div,
+      .ledger-opening-box strong {
+        display: block !important;
+        min-height: 0 !important;
+        padding: 7px 10px !important;
+      }
+      .ledger-opening-box div {
+        background: #f9fafb !important;
+        border-bottom: 1px solid #9ca3af !important;
+      }
+      .ledger-opening-box strong {
+        border-top: 0 !important;
+      }
+      .ledger-divider {
+        display: none !important;
+      }
+      .ledger-title-bar {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 18px !important;
+        min-height: 0 !important;
+        margin-bottom: 0 !important;
+        border: 1px solid #111827 !important;
+        background: #56b4ee !important;
+        padding: 7px 8px !important;
+        color: #000 !important;
+        font-size: 8.5pt !important;
+        font-weight: 700 !important;
+        line-height: 1.25 !important;
+      }
+      .ledger-title-bar span {
+        flex: 0 0 auto !important;
+      }
+      .ledger-table-scroll {
+        width: 100% !important;
+        overflow: visible !important;
+      }
+      .ledger-report-table {
+        width: 100% !important;
+        min-width: 0 !important;
+        border-collapse: collapse !important;
+        table-layout: fixed !important;
+        color: #111827 !important;
+        font-size: 8pt !important;
+      }
+      .ledger-report-table th,
+      .ledger-report-table td {
+        border: 1px solid #b6b6b6 !important;
+        padding: 5px 4px !important;
+        vertical-align: top !important;
+        line-height: 1.3 !important;
+        word-break: break-word !important;
+      }
+      .ledger-report-table th {
+        background: #d1d5db !important;
+        color: #111827 !important;
+        border-color: #9ca3af !important;
+        text-align: left !important;
+        font-weight: 700 !important;
+      }
+      .ledger-report-table th:nth-child(1) { width: 13% !important; }
+      .ledger-report-table th:nth-child(2) { width: 13% !important; }
+      .ledger-report-table th:nth-child(4),
+      .ledger-report-table th:nth-child(5) { width: 13% !important; }
+      .ledger-report-table th:nth-child(6) { width: 15% !important; }
+      .ledger-report-table tbody td {
+        color: #1f2937 !important;
+        font-weight: 400 !important;
+      }
+      .ledger-report-table tfoot td {
+        background: #f3f4f6 !important;
+        font-weight: 700 !important;
+      }
+      .ledger-number {
+        text-align: right !important;
+        white-space: nowrap !important;
+      }
+      .ledger-voucher {
+        color: #0070c0 !important;
+      }
+      .ledger-balance {
+        color: #ff0000 !important;
+        font-weight: 700 !important;
+      }
+    `;
+
+    Object.assign(wrapper.style, {
+      position: "fixed",
+      left: "-10000px",
+      top: "0",
+      width: "794px",
+      background: "#ffffff",
+      pointerEvents: "none",
+    });
+
+    wrapper.appendChild(style);
+    wrapper.appendChild(clone);
+    document.body.appendChild(wrapper);
+
+    try {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+
+      const canvas = await html2canvas(clone, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+      });
+      const imageData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 14;
+      const imageWidth = pageWidth - margin * 2;
+      const imageHeight = (canvas.height * imageWidth) / canvas.width;
+      const printableHeight = pageHeight - margin * 2;
+
+      let heightLeft = imageHeight;
+      let position = margin;
+
+      pdf.addImage(imageData, "PNG", margin, position, imageWidth, imageHeight);
+      heightLeft -= printableHeight;
+
+      while (heightLeft > 0) {
+        pdf.addPage();
+        position = margin - (imageHeight - heightLeft);
+        pdf.addImage(
+          imageData,
+          "PNG",
+          margin,
+          position,
+          imageWidth,
+          imageHeight,
+        );
+        heightLeft -= printableHeight;
+      }
+
+      pdf.save(`ledger-${sanitizeFilename(userName)}-${Date.now()}.pdf`);
+    } finally {
+      document.body.removeChild(wrapper);
+    }
+  };
+
+  const filteredData = useMemo(() => {
+    if (!searchTerm) return ledgerData;
+
+    const search = searchTerm.toLowerCase();
+
+    return ledgerData.filter((item) => {
+      return (
+        item.voucherId?.toString().toLowerCase().includes(search) ||
+        item.ticketNumber?.toLowerCase().includes(search) ||
+        item.description?.toLowerCase().includes(search)
+      );
+    });
+  }, [ledgerData, searchTerm]);
+
+  const totals = calculateTotals(filteredData);
+
+  const rowsWithBalance = useMemo(() => {
+    let runningBalance = totals.openingBalance;
+
+    return filteredData.map((item) => {
+      runningBalance += Number(item.debit || 0) - Number(item.credit || 0);
+
+      return {
+        ...item,
+        runningBalance,
+      };
+    });
+  }, [filteredData, totals.openingBalance]);
+
   const handleExport = async (type) => {
     try {
-      const user = JSON.parse(sessionStorage.getItem("frontend_user"));
-      const userId = user?._id || user?.id;
-      const userName = user?.name || "User";
-
       if (type === "copy") {
-        const tableData = dataWithRunningBalance
+        const tableData = rowsWithBalance
           .map(
             (entry) =>
-              `${entry.voucherId || "-"}\t${entry.date ? new Date(entry.date).toLocaleDateString() : "-"}\t${entry.ticketNumber || "-"}\t${entry.description || "-"}\t${entry.debit > 0 ? formatCurrency(entry.debit) : ""}\t${entry.credit > 0 ? formatCurrency(entry.credit) : ""}\t${formatCurrency(entry.runningBalance)}`,
+              `${formatStatementDate(entry.date)}\t${entry.voucherId || "-"}\t${entry.description || "-"}\t${entry.debit > 0 ? formatCurrency(entry.debit) : ""}\t${entry.credit > 0 ? formatCurrency(entry.credit) : ""}\t${formatBalance(entry.runningBalance)}`,
           )
           .join("\n");
 
-        const header =
-          "Voucher Id\tDate\tTicket #\tDescription\tDebit\tCredit\tBalance\n";
-        const totals = `\nTotal\t\t\t\t${formatCurrency(calculateTotals().debit)}\t${formatCurrency(calculateTotals().credit)}\t${formatCurrency(calculateTotals().closingBalance)}`;
-        const fullText = `Ledger of ${userName.toUpperCase()}\nFrom ${filters.dateFrom} To ${filters.dateTo}\n\n${header}${tableData}${totals}`;
+        const header = "Date\tV.no\tDetails\tDebit\tCredit\tBalance\n";
+        const totalLine = `\nTotal\t\t\t${formatCurrency(totals.debit)}\t${formatCurrency(totals.credit)}\t${formatBalance(totals.closingBalance)}`;
+        const fullText = `Account Statement of ${accountName}\nFrom ${formatStatementDate(filters.dateFrom)} To ${formatStatementDate(filters.dateTo)}\n\n${header}${tableData}${totalLine}`;
 
         await navigator.clipboard.writeText(fullText);
         alert("Table data copied to clipboard!");
@@ -154,90 +428,21 @@ const Ledger = () => {
       }
 
       if (type === "pdf") {
-        setDownloadingPDF(true);
-        try {
-          const container = printRef.current;
-
-          // Temporarily make the container visible for html2canvas
-          const prevDisplay = container.style.display;
-          const prevPosition = container.style.position;
-          const prevLeft = container.style.left;
-          const prevTop = container.style.top;
-          const prevZIndex = container.style.zIndex;
-          const prevWidth = container.style.width;
-          const prevBackground = container.style.background;
-
-          // Show container off-screen for capture
-          setPdfRendering(true);
-          container.style.display = "block";
-          container.style.position = "fixed";
-          container.style.left = "-9999px";
-          container.style.top = "0";
-          container.style.zIndex = "-1";
-          container.style.width = "794px"; // A4 at 96dpi
-
-          // Wait for React re-render + images to load
-          await new Promise((r) => setTimeout(r, 300));
-
-          const canvas = await html2canvas(container, {
-            scale: 2,
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: "#ffffff",
-            logging: false,
-            width: 794,
-          });
-
-          // Restore
-          setPdfRendering(false);
-          container.style.display = prevDisplay;
-          container.style.position = prevPosition;
-          container.style.left = prevLeft;
-          container.style.top = prevTop;
-          container.style.zIndex = prevZIndex;
-          container.style.width = prevWidth;
-          container.style.background = prevBackground;
-          container.style.padding = "";
-          container.style.fontFamily = "";
-
-          const imgData = canvas.toDataURL("image/png");
-          const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-
-          const pdfWidth = pdf.internal.pageSize.getWidth();   // 210mm
-          const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
-          const imgWidth = pdfWidth;
-          const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-
-          let heightLeft = imgHeight;
-          let position = 0;
-
-          pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-          heightLeft -= pdfHeight;
-
-          while (heightLeft > 0) {
-            position -= pdfHeight;
-            pdf.addPage();
-            pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-            heightLeft -= pdfHeight;
-          }
-
-          pdf.save(`ledger-${userName}-${Date.now()}.pdf`);
-        } finally {
-          setDownloadingPDF(false);
-        }
+        await downloadStatementPdf();
         return;
       }
 
-      const exportUrl = `/payment/ledger/${userId}/export/${type}`;
-
-      const response = await axiosInstance.get(exportUrl, {
-        params: {
-          dateFrom: filters.dateFrom,
-          dateTo: filters.dateTo,
-          userName,
+      const response = await axiosInstance.get(
+        `/payment/ledger/me/export/${type}`,
+        {
+          params: {
+            dateFrom: filters.dateFrom,
+            dateTo: filters.dateTo,
+            userName,
+          },
+          responseType: "blob",
         },
-        responseType: "blob",
-      });
+      );
 
       if (response.headers["content-type"]?.includes("application/json")) {
         const reader = new FileReader();
@@ -271,18 +476,6 @@ const Ledger = () => {
     }
   };
 
-  const filteredData = ledgerData.filter((item) => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
-    return (
-      item.voucherId?.toString().includes(search) ||
-      item.ticketNumber?.toLowerCase().includes(search) ||
-      item.description?.toLowerCase().includes(search)
-    );
-  });
-
-  const totals = calculateTotals();
-
   if (initialLoading) {
     return (
       <div className="w-full min-h-screen flex items-center justify-center">
@@ -310,450 +503,442 @@ const Ledger = () => {
     );
   }
 
-  // Opening balance — not provided by API, default to 0
-  const openingBalance = 0;
-
-  const dataWithRunningBalance = filteredData.map((item, index) => {
-    // Calculate running balance: Opening + Sum(Debits) - Sum(Credits)
-    const previousDebits = filteredData.slice(0, index + 1).reduce((sum, i) => sum + (i.debit || 0), 0);
-    const previousCredits = filteredData.slice(0, index + 1).reduce((sum, i) => sum + (i.credit || 0), 0);
-    const runningBalance = openingBalance + previousDebits - previousCredits;
-
-    return { ...item, runningBalance };
-  });
-
-  const formatDateWithDay = (dateString) => {
-    if (!dateString) return "";
-    return new Date(dateString).toLocaleDateString('en-GB', {
-      weekday: 'short',
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    }).replace(/ /g, ' ').replace(',', ''); // Result: Sat, 09 May 2026
-  };
-
-
   return (
-    <div className="w-full min-h-screen mx-auto">
-      {/* Print / PDF Styles */}
+    <div className="ledger-page w-full min-h-screen mx-auto">
       <style>{`
-  /* ── Hidden on screen; shown only in print or during PDF capture ── */
-  @media screen {
-    .print-layout-container { display: none; }
-  }
+        .agent-ledger-print-only {
+          display: none;
+        }
 
-  /* ── Layout styles apply always (container is hidden on screen anyway) ── */
-  .print-layout-container {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    color: #000;
-    background: #fff;
-    padding: 20px 24px;
-    box-sizing: border-box;
-  }
+        @media print {
+          @page { size: A4; margin: 10mm; }
+          * {
+            box-shadow: none !important;
+            text-shadow: none !important;
+          }
+          html, body, #root {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+          body {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          body * {
+            visibility: hidden !important;
+          }
+          nav, aside, header, footer, .no-print, .dashboard-sidebar, .dashboard-header, .ledger-statement-shell {
+            display: none !important;
+          }
+          .agent-ledger-print-only,
+          .agent-ledger-print-only * {
+            visibility: visible !important;
+          }
+          .agent-ledger-print-only {
+            display: block !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            background: white !important;
+          }
+          .agent-ledger-print-page {
+            display: block !important;
+            width: 100% !important;
+            color: #111827 !important;
+            font-family: Arial, Helvetica, sans-serif !important;
+            font-size: 8.5pt !important;
+          }
+          .agent-ledger-print-topline {
+            text-align: right !important;
+            color: #555 !important;
+            font-size: 8pt !important;
+            margin-bottom: 14px !important;
+          }
+          .agent-ledger-print-company {
+            display: flex !important;
+            align-items: flex-start !important;
+            justify-content: space-between !important;
+            gap: 18px !important;
+            margin-bottom: 18px !important;
+          }
+          .agent-ledger-print-brand {
+            display: flex !important;
+            align-items: center !important;
+            gap: 12px !important;
+            min-width: 0 !important;
+          }
+          .agent-ledger-print-logo {
+            width: 86px !important;
+            height: auto !important;
+            object-fit: contain !important;
+          }
+          .agent-ledger-print-company-text {
+            line-height: 1.35 !important;
+            color: #111827 !important;
+            max-width: 430px !important;
+          }
+          .agent-ledger-print-company-text strong {
+            display: inline-block !important;
+            font-size: 9pt !important;
+            margin-bottom: 2px !important;
+          }
+          .agent-ledger-print-opening {
+            width: 210px !important;
+            border: 1px solid #9ca3af !important;
+            text-align: center !important;
+            flex: 0 0 auto !important;
+          }
+          .agent-ledger-print-opening div {
+            padding: 7px 10px !important;
+            font-weight: 700 !important;
+          }
+          .agent-ledger-print-opening div:first-child {
+            border-bottom: 1px solid #9ca3af !important;
+            background: #f9fafb !important;
+          }
+          .agent-ledger-print-titlebar {
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            background: #56b4ee !important;
+            border: 1px solid #111827 !important;
+            color: #000 !important;
+            font-weight: 700 !important;
+            padding: 7px 8px !important;
+            margin-bottom: 0 !important;
+          }
+          .agent-ledger-print-table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            table-layout: fixed !important;
+            font-size: 8pt !important;
+          }
+          .agent-ledger-print-table thead {
+            display: table-header-group !important;
+          }
+          .agent-ledger-print-table th {
+            background: #d1d5db !important;
+            color: #111827 !important;
+            border: 1px solid #9ca3af !important;
+            padding: 5px 4px !important;
+            font-weight: 700 !important;
+            text-align: left !important;
+          }
+          .agent-ledger-print-table td {
+            border: 1px solid #b6b6b6 !important;
+            color: #1f2937 !important;
+            padding: 5px 4px !important;
+            vertical-align: top !important;
+            line-height: 1.3 !important;
+            word-break: break-word !important;
+          }
+          .agent-ledger-print-table .text-right {
+            text-align: right !important;
+          }
+          .agent-ledger-print-table .agent-ledger-print-voucher {
+            color: #0070c0 !important;
+          }
+          .agent-ledger-print-table .agent-ledger-print-balance {
+            color: #ff0000 !important;
+            font-weight: 700 !important;
+            white-space: nowrap !important;
+          }
+          .agent-ledger-print-table tfoot td {
+            background: #f3f4f6 !important;
+            font-weight: 700 !important;
+          }
+            .agent-ledger-print-table tfoot td {
+            background: #f3f4f6 !important;
+            font-weight: 700 !important;
+            border: 1px solid #b6b6b6 !important;
+          }
+        }
+      `}</style>
 
-  /* Print Date Header */
-  .print-date-header { text-align: right; font-size: 8pt; color: #666; margin-bottom: 12px; }
+      <div className="agent-ledger-print-only">
+        <div className="agent-ledger-print-page">
+          <div className="agent-ledger-print-topline">
+            Print Date:{formatPrintDate()}
+          </div>
 
-  /* Header Layout */
-  .header-section { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; margin-top: 30px; }
-  .company-details { font-size: 8pt; line-height: 1.4; color: #444; }
-  .company-name { font-size: 10pt; font-weight: bold; color: #000; margin-bottom: 2px; }
-
-  /* Opening Balance Box */
-  .ob-box { border: 1px solid #000; width: 220px; text-align: center; }
-  .ob-title {
-    background: #f4f4f4;
-    border-bottom: 1px solid #000;
-    padding: 4px;
-    font-weight: bold;
-    font-size: 8.5pt;
-    color: #333;
-  }
-  .ob-val { padding: 6px; font-weight: bold; font-size: 10pt; color: #000; }
-
-  /* Separator Line */
-  .grey-line { border: none; border-top: 1px solid #999; margin: 30px 0 12px; }
-
-  /* Statement Bar */
-  .statement-bar {
-    background: #75b9e7;
-    border: 1px solid #000;
-    padding: 6px 10px;
-    display: flex;
-    justify-content: space-between;
-    font-weight: bold;
-    font-size: 9pt;
-    margin-bottom: 12px;
-  }
-
-  /* Table */
-  .print-table { width: 100%; border-collapse: collapse; border: 1px solid #999; }
-  .print-table th {
-    background: #d6d6d6;
-    border: 1px solid #999;
-    padding: 6px 8px;
-    font-size: 8.5pt;
-    text-align: left;
-  }
-  .print-table td { border: 1px solid #bbb; padding: 6px 8px; font-size: 8.5pt; }
-
-  .v-link { color: #3498db; text-decoration: none; font-weight: 500; }
-  .text-right { text-align: right !important; }
-  .bold { font-weight: bold; }
-
-  /* Special Notes */
-  .special-notes-section { margin-top: 20px; font-size: 9pt; }
-  .notes-title { font-weight: bold; margin-bottom: 4px; }
-
-  /* ── Print-only overrides ── */
-  @media print {
-    @page { size: A4; margin: 0mm; }
-    .no-print, nav, aside, header, footer { display: none !important; }
-    html, body, body * { background: white !important; box-shadow: none !important; }
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #000; }
-    .statement-bar *, .ob-title *, .print-table th *, .print-table td * { background: transparent !important; }
-    .print-layout-container { display: block !important; width: 100%; padding: 0; }
-    html, body { height: auto !important; min-height: 0 !important; }
-    div, section, main { min-height: 0 !important; }
-    .print-layout-container { page-break-after: avoid; break-after: avoid; }
-
-    /* Force color printing */
-    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
-    .statement-bar { background: #75b9e7 !important; }
-    .ob-title { background: #f4f4f4 !important; }
-    .print-table th { background: #d6d6d6 !important; }
-  }
-`}</style>
-
-
-
-      {/* Print Title - Only visible in print */}
-      <div className="print-layout-container" ref={printRef}>
-        <div className="print-date-header">
-          Print Date: {formatDateWithDay(new Date())}
-        </div>
-
-        <div className="header-section">
-          <div className="flex gap-4">
-            {userProfile?.logo ? (
+          <div className="agent-ledger-print-company">
+            <div className="agent-ledger-print-brand">
               <img
-                src={userProfile.logo}
-                alt="Company Logo"
-                style={{ height: '48px', width: 'auto', objectFit: 'contain' }}
+                src={logo}
+                alt="Company logo"
+                className="agent-ledger-print-logo"
               />
-            ) : (
-              <div style={{ height: '48px', width: '48px', background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px' }}>
-                Company Logo
+              <div className="agent-ledger-print-company-text">
+                <strong>{accountName.toUpperCase()}</strong>
+                <div>Shaheen Wings Travels</div>
+                <div>Email: shaheenwingsgrouptkt@gmail.com</div>
+                <div>
+                  Account statement generated from Shaheen Wings Travel portal
+                </div>
               </div>
-            )}
-            <div className="company-details">
-              <div className="company-name">{userProfile?.companyName || userProfile?.name || "-"}</div>
-              {userProfile?.address && <div>{userProfile.address}{userProfile.city ? `, ${userProfile.city}` : ""}{userProfile.country ? `, ${userProfile.country}` : ""}</div>}
-              {userProfile?.phone && <div>Phone: {userProfile.phone}</div>}
-              {userProfile?.agencyCode && <div>Agency Code: {userProfile.agencyCode}</div>}
+            </div>
+
+            <div className="agent-ledger-print-opening">
+              <div>Opening Balance</div>
+              <div>{formatBalance(totals.openingBalance)}</div>
             </div>
           </div>
 
-          <div className="ob-box">
-            <div className="ob-title">Opening Balance</div>
-            <div className="ob-val">{formatCurrency(openingBalance)} DR</div>
+          <div className="agent-ledger-print-titlebar">
+            <span>Account Statement of Ledger</span>
+            <span>
+              From {formatStatementDate(filters.dateFrom)} To{" "}
+              {formatStatementDate(filters.dateTo)}
+            </span>
           </div>
-        </div>
 
-        <div className="grey-line"></div>
-
-        <div className="statement-bar">
-          <span>Account Statement of Cash</span>
-          <span>From {formatDateWithDay(filters.dateFrom)} To {formatDateWithDay(filters.dateTo)}</span>
-        </div>
-
-        <table className="print-table">
-          <thead>
-            <tr>
-              <th style={{ width: '15%' }}>Date</th>
-              <th style={{ width: '10%' }}>V.no</th>
-              <th style={{ width: '40%' }}>Details</th>
-              <th className="text-right" style={{ width: '10%' }}>Debit</th>
-              <th className="text-right" style={{ width: '10%' }}>Credit</th>
-              <th className="text-right" style={{ width: '15%' }}>Balance</th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* If data exists, map it; otherwise show the "Closing/Total" lines as per image */}
-            {dataWithRunningBalance.length > 0 ? (
-              dataWithRunningBalance.map((item, idx) => (
-                <tr key={idx}>
-                  <td>{formatDateWithDay(item.date)}</td>
-                  <td><span className="v-link">{item.voucherId || '-'}</span></td>
-                  <td>{item.description || '-'}</td>
-                  <td className="text-right">{item.debit || 0}</td>
-                  <td className="text-right">{item.credit ? formatCurrency(item.credit) : '0'}</td>
-                  <td className="text-right bold">{formatCurrency(item.runningBalance)} DR</td>
-                </tr>
-              ))
-            ) : (
+          <table className="agent-ledger-print-table">
+            <thead>
               <tr>
-                <td colSpan="6" className="text-center py-4 text-gray-400 italic">No ledger entries found</td>
+                <th style={{ width: "13%" }}>Date</th>
+                <th style={{ width: "10%" }}>V.no</th>
+                <th>Details</th>
+                <th className="text-right" style={{ width: "11%" }}>
+                  Debit
+                </th>
+                <th className="text-right" style={{ width: "11%" }}>
+                  Credit
+                </th>
+                <th className="text-right" style={{ width: "13%" }}>
+                  Balance
+                </th>
               </tr>
-            )}
-
-            {/* Closing Balance Row */}
-            <tr className="bold">
-              <td colSpan="5">Closing Balance as on {formatDateWithDay(filters.dateTo)}</td>
-              <td className="text-right">{formatCurrency(totals.closingBalance)} DR</td>
-            </tr>
-
-            {/* Totals Row */}
-            <tr className="bold">
-              <td colSpan="3" className="text-center">Total</td>
-              <td className="text-right">{totals.debit || 0}</td>
-              <td className="text-right">{formatCurrency(totals.credit)}</td>
-              <td className="text-right">{formatCurrency(totals.closingBalance)} DR</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div className="special-notes-section">
-          <div className="notes-title">SPECIAL NOTES :</div>
-          <div>{userProfile?.remarks || userProfile?.notes || ""}</div>
-        </div>
-      </div>
-
-      {/* Header */}
-      {/* WRAP THE TOPBAR HERE */}
-      <div className="no-print">
-        <TopBar
-          title={`${userProfile?.name || userProfile?.companyName || "Agent"} Ledger`}
-        />
-      </div>
-
-      {/* Filters Section */}
-      <div className="mb-6 bg-white rounded-lg shadow p-4 sm:p-6 no-print">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900">
-            Date Range & Export
-          </h3>
-          <button
-            onClick={resetFilters}
-            className="text-sm text-red-600 hover:text-red-800 font-medium self-start sm:self-auto"
-          >
-            Reset
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
-          {/* From Date */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              From Date
-            </label>
-            {/* <input
-              type="date"
-              value={filters.dateFrom}
-              onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            /> */}
-            <MaskedDatePicker
-              value={filters.dateFrom}
-              onChange={(date) => handleFilterChange("dateFrom", date)}
-              placeholderText="From Date"
-            />
-          </div>
-
-          {/* To Date */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              To Date
-            </label>
-            {/* <input
-              type="date"
-              value={filters.dateTo}
-              onChange={(e) => handleFilterChange('dateTo', e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            /> */}
-            <MaskedDatePicker
-              value={filters.dateTo}
-              onChange={(date) => handleFilterChange("dateTo", date)}
-              placeholderText="To Date"
-            />
-          </div>
-        </div>
-
-        {/* Export Buttons */}
-        <div className="flex flex-wrap gap-2 no-print">
-          <button
-            onClick={() => handleExport("copy")}
-            className="px-3 sm:px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-colors"
-          >
-            Copy
-          </button>
-          <button
-            onClick={() => handleExport("pdf")}
-            disabled={downloadingPDF}
-            className="px-3 sm:px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:opacity-60 text-white text-xs sm:text-sm font-medium rounded-lg transition-colors"
-          >
-            {downloadingPDF ? "Generating..." : "PDF"}
-          </button>
-          <button
-            onClick={handlePrint}
-            className="px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-colors"
-          >
-            Print
-          </button>
-        </div>
-      </div>
-
-      {/* Search Bar */}
-      <div className="mb-4 bg-white rounded-lg shadow p-4 no-print">
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search by voucher, ticket, or description..."
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-
-      {/* Ledger Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden relative no-print">
-        {fetching && (
-          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          </div>
-        )}
-
-        <div className="overflow-x-auto -mx-4 sm:mx-0">
-          <div className="inline-block min-w-full align-middle px-4 sm:px-0">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-linear-to-r from-[#1e3a5f] to-[#2d5a8f]">
+            </thead>
+            <tbody>
+              {rowsWithBalance.length === 0 ? (
                 <tr>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-white uppercase tracking-wider whitespace-nowrap">
-                    Voucher Id
-                  </th>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-white uppercase tracking-wider whitespace-nowrap">
-                    Date
-                  </th>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-white uppercase tracking-wider whitespace-nowrap">
-                    Ticket #
-                  </th>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                    Description
-                  </th>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-white uppercase tracking-wider whitespace-nowrap">
-                    Debit
-                  </th>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-white uppercase tracking-wider whitespace-nowrap">
-                    Credit
-                  </th>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-white uppercase tracking-wider whitespace-nowrap">
-                    Balance
-                  </th>
+                  <td colSpan="6" className="text-center">
+                    No data available in table
+                  </td>
+                </tr>
+              ) : (
+                rowsWithBalance.map((entry, index) => (
+                  <tr key={`${entry.voucherId || "print-entry"}-${index}`}>
+                    <td>{formatStatementDate(entry.date)}</td>
+                    <td className="agent-ledger-print-voucher">
+                      {entry.voucherId || "-"}
+                    </td>
+                    <td>{entry.description || entry.ticketNumber || "-"}</td>
+                    <td className="text-right">
+                      {entry.debit > 0 ? formatPrintAmount(entry.debit) : "0"}
+                    </td>
+                    <td className="text-right">
+                      {entry.credit > 0 ? formatPrintAmount(entry.credit) : "0"}
+                    </td>
+                    <td className="text-right agent-ledger-print-balance">
+                      {formatBalance(entry.runningBalance)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan="3">Total</td>
+                <td className="text-right">
+                  {formatPrintAmount(totals.debit)}
+                </td>
+                <td className="text-right">
+                  {formatPrintAmount(totals.credit)}
+                </td>
+                <td className="text-right agent-ledger-print-balance">
+                  {formatBalance(totals.closingBalance)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div className="no-print">
+        <TopBar title={`Ledger of ${userName.toUpperCase()}`} />
+
+        <div className="mb-5 bg-white rounded-lg shadow p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+              Date Range & Export
+            </h3>
+            <button
+              onClick={resetFilters}
+              className="text-sm text-red-600 hover:text-red-800 font-medium self-start sm:self-auto"
+            >
+              Reset
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                From Date
+              </label>
+              <MaskedDatePicker
+                value={filters.dateFrom}
+                onChange={(date) => handleFilterChange("dateFrom", date)}
+                placeholderText="From Date"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                To Date
+              </label>
+              <MaskedDatePicker
+                value={filters.dateTo}
+                onChange={(date) => handleFilterChange("dateTo", date)}
+                placeholderText="To Date"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Search
+              </label>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search by voucher, ticket, or description..."
+                className="w-full min-h-10 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {["copy", "csv", "excel", "pdf"].map((type) => (
+              <button
+                key={type}
+                onClick={() => handleExport(type)}
+                className="px-3 sm:px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-colors"
+              >
+                {type === "copy"
+                  ? "Copy"
+                  : type === "csv"
+                    ? "CSV"
+                    : type === "pdf"
+                      ? "PDF"
+                      : "Excel"}
+              </button>
+            ))}
+            <button
+              onClick={handlePrint}
+              className="px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-colors"
+            >
+              Print
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="ledger-statement-shell">
+        <section ref={statementRef} className="ledger-statement">
+          {fetching && (
+            <div className="ledger-fetching no-print">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          )}
+
+          <div className="ledger-print-date">
+            Print Date:{formatPrintDate()}
+          </div>
+
+          <div className="ledger-company-row">
+            <div className="ledger-company">
+              <img src={logo} alt="Company logo" />
+              <div>
+                <h1>{accountName.toUpperCase()}</h1>
+                <p>The Flight Centre</p>
+                <p>Email: info@tfc.com</p>
+                <p>Account statement generated from The Flight Centre portal</p>
+              </div>
+            </div>
+
+            <div className="ledger-opening-box">
+              <div>Opening Balance</div>
+              <strong>{formatBalance(totals.openingBalance)}</strong>
+            </div>
+          </div>
+
+          <div className="ledger-divider" />
+
+          <div className="ledger-title-bar">
+            <strong>Account Statement of Ledger</strong>
+            <span>
+              From {formatStatementDate(filters.dateFrom)} To{" "}
+              {formatStatementDate(filters.dateTo)}
+            </span>
+          </div>
+
+          <div className="ledger-table-scroll">
+            <table className="ledger-report-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>V.no</th>
+                  <th>Details</th>
+                  <th>Debit</th>
+                  <th>Credit</th>
+                  <th>Balance</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredData.length === 0 ? (
+              <tbody>
+                {rowsWithBalance.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan="7"
-                      className="px-2 sm:px-4 py-6 sm:py-8 text-center text-sm text-gray-500"
-                    >
-                      No ledger entries found
+                    <td colSpan="6" className="ledger-closing-row">
+                      Closing Balance as on{" "}
+                      {formatStatementDate(filters.dateTo)}
+                      <strong>{formatBalance(totals.closingBalance)}</strong>
                     </td>
                   </tr>
                 ) : (
-                  dataWithRunningBalance.map((item, index) => (
-                    <tr
-                      key={index}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
-                        {item.voucherId || "-"}
+                  rowsWithBalance.map((entry, index) => (
+                    <tr key={`${entry.voucherId || "entry"}-${index}`}>
+                      <td>{formatStatementDate(entry.date)}</td>
+                      <td className="ledger-voucher">
+                        {entry.voucherId || "-"}
                       </td>
-                      <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-900">
-                        {item.date
-                          ? new Date(item.date).toLocaleDateString()
-                          : "-"}
+                      <td>{entry.description || entry.ticketNumber || "-"}</td>
+                      <td className="ledger-number">
+                        {entry.debit ? formatCurrency(entry.debit) : ""}
                       </td>
-                      <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-900">
-                        {item.ticketNumber || "-"}
+                      <td className="ledger-number">
+                        {entry.credit ? formatCurrency(entry.credit) : ""}
                       </td>
-                      <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-900">
-                        <div
-                          className="max-w-xs sm:max-w-md truncate"
-                          title={item.description}
-                        >
-                          {item.description || "-"}
-                        </div>
-                      </td>
-                      <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-right font-semibold text-gray-900">
-                        {item.debit ? formatCurrency(item.debit) : ""}
-                      </td>
-                      <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-right font-semibold text-gray-900">
-                        {item.credit ? formatCurrency(item.credit) : "0"}
-                      </td>
-                      <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-right font-bold text-gray-900">
-                        {formatCurrency(item.runningBalance)}
+                      <td className="ledger-number ledger-balance">
+                        {formatBalance(entry.runningBalance)}
                       </td>
                     </tr>
                   ))
                 )}
               </tbody>
-              <tfoot className="bg-gray-50">
-                <tr className="border-t-2 border-gray-300">
-                  <td
-                    colSpan="4"
-                    className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-bold text-right text-gray-900"
-                  >
-                    Total:
-                  </td>
-                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-bold text-right text-gray-900 whitespace-nowrap">
+              <tfoot>
+                <tr>
+                  <td colSpan="3">Total</td>
+                  <td className="ledger-number">
                     {formatCurrency(totals.debit)}
                   </td>
-                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-bold text-right text-gray-900 whitespace-nowrap">
+                  <td className="ledger-number">
                     {formatCurrency(totals.credit)}
                   </td>
-                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-bold text-right text-gray-900 whitespace-nowrap">
-                    {formatCurrency(totals.closingBalance)}
+                  <td className="ledger-number">
+                    {formatBalance(totals.closingBalance)}
                   </td>
                 </tr>
               </tfoot>
             </table>
           </div>
-        </div>
+        </section>
       </div>
 
-      {/* Summary */}
-      <div className="no-print mt-4 sm:mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-        <div className="bg-white rounded-lg shadow p-3 sm:p-4">
-          <div className="text-xs sm:text-sm text-gray-600 mb-1">
-            Total Debit
-          </div>
-          <div className="text-xl sm:text-2xl font-bold text-blue-600">
-            {formatCurrency(totals.debit)}
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-3 sm:p-4">
-          <div className="text-xs sm:text-sm text-gray-600 mb-1">
-            Total Credit
-          </div>
-          <div className="text-xl sm:text-2xl font-bold text-green-600">
-            {formatCurrency(totals.credit)}
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600 mb-1">Closing Balance</div>
-          <div
-            className={`text-2xl font-bold ${totals.closingBalance >= 0 ? "text-green-600" : "text-red-600"}`}
-          >
-            {formatCurrency(totals.closingBalance)}
-          </div>
-        </div>
-      </div>
-
-      {/* Info */}
-      {/* <div className="no-print mt-4 text-center text-sm text-gray-600">
+      <div className="no-print mt-4 text-center text-sm text-gray-600">
         Showing {filteredData.length} of {ledgerData.length} entries
-      </div> */}
+      </div>
     </div>
   );
 };
