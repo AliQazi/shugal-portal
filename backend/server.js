@@ -25,7 +25,7 @@ import visaRoutes from "./routes/visa.routes.js";
 import umrahPackageRoutes from "./routes/umrahPackage.routes.js";
 import umrahPackageBookingRoutes from "./routes/umrahPackageBooking.routes.js";
 
-import { getValidSabaoonToken, initializeSabaoonToken } from "./utils/sabaoonToken.js";
+import { initializeSabaoonToken } from "./utils/sabaoonToken.js";
 import testEmail from "./utils/testEmail.js";
 import { startBookingExpiryJob } from "./utils/bookingExpiryJob.js";
 import path from "path";
@@ -38,10 +38,10 @@ const adminDistPath = path.join(__dirname, "../admin/dist");
 const frontendIndexPath = path.join(frontendDistPath, "index.html");
 const adminIndexPath = path.join(adminDistPath, "index.html");
 
-
 dotenv.config();
 dbConnection();
 testEmail();
+initializeSabaoonToken();
 
 const app = express();
 
@@ -52,7 +52,7 @@ app.use(
       "http://localhost:5173",
       "http://localhost:3000",
       "http://localhost:3001",
-      "https://shaheenwingstravels.com"
+      "https://shaheenwingstravels.com",
     ],
     credentials: true,
   }),
@@ -116,7 +116,8 @@ app.use((req, res, next) => {
   }
 
   // Allow all client routes under /admin-portal/
-  const isAdminPortalRoute = req.path === "/admin-portal/" || req.path.startsWith("/admin-portal/");
+  const isAdminPortalRoute =
+    req.path === "/admin-portal/" || req.path.startsWith("/admin-portal/");
 
   if (isAdminPortalRoute) {
     res.sendFile(adminIndexPath);

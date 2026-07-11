@@ -1,6 +1,9 @@
 import axios from "axios";
 import FormData from "form-data";
-import { getValidSabaoonToken } from "../utils/sabaoonToken.js";
+import {
+  getValidSabaoonToken,
+  invalidateSabaoonToken,
+} from "../utils/sabaoonToken.js";
 import SabaoonGroupOverride from "../models/SabaoonGroupOverride.js";
 
 // ─────────────────────────────────────────────────────────
@@ -28,12 +31,6 @@ const getSabaoonBaseURL = () => {
   return baseURL.replace(/\/+$/, "");
 };
 
-const getConfiguredSabaoonToken = () =>
-  process.env.sabbor_Token?.trim() ||
-  process.env.saboor_Token?.trim() ||
-  process.env.SABAOON_TOKEN?.trim() ||
-  "";
-
 const getConfiguredSabaoonAgentCode = () =>
   process.env.saboor_AgentCode?.trim() ||
   process.env.sabbor_AgentCode?.trim() ||
@@ -59,8 +56,12 @@ const normalizeSabaoonType = (value) =>
 
 const normalizeSabaoonGroup = (group) => {
   const details = Array.isArray(group?.details) ? group.details : [];
-  const deptDate = formatDate(group?.dept_date || group?.dep_date || details[0]?.flight_date);
-  const airlineObj = Array.isArray(group?.airline) ? group.airline[0] : group?.airline;
+  const deptDate = formatDate(
+    group?.dept_date || group?.dep_date || details[0]?.flight_date,
+  );
+  const airlineObj = Array.isArray(group?.airline)
+    ? group.airline[0]
+    : group?.airline;
   const firstDetail = details[0] || {};
   const lastDetail = details[details.length - 1] || {};
   const LOGO_BASE = "https://alsaboorportal.com/assets/img/airline-logo/";
@@ -72,7 +73,9 @@ const normalizeSabaoonGroup = (group) => {
     : null;
 
   const normalizedDetails = details.map((detail) => {
-    const depDate = formatDate(detail?.flight_date || detail?.dep_date || deptDate);
+    const depDate = formatDate(
+      detail?.flight_date || detail?.dep_date || deptDate,
+    );
 
     return {
       ...detail,
@@ -116,6 +119,45 @@ const normalizeSabaoonGroup = (group) => {
 };
 
 // ─────────────────────────────────────────────────────────
+// AXIOS INSTANCE WITH AUTO TOKEN REFRESH
+// ─────────────────────────────────────────────────────────
+
+const SABOOR = axios.create({ timeout: 30000 });
+
+// The token is fetched fresh on every request; getValidSabaoonToken() only
+// hits the login API when the cached token is missing/expired, otherwise
+// it's a DB read.
+SABOOR.interceptors.request.use(async (config) => {
+  const { token } = await getValidSabaoonToken();
+
+  config.baseURL = getSabaoonBaseURL();
+  config.headers = { ...config.headers, Authorization: `Bearer ${token}` };
+  config.params = { ...config.params, token };
+
+  return config;
+});
+
+// Sabaoon responds with HTTP 200 even for its own error conditions (e.g.
+// `{ status: 'error', message: 'Token not found' }` for an expired/unrecognized
+// token), so retry once with a freshly issued token when we see that shape.
+SABOOR.interceptors.response.use(async (response) => {
+  const config = response.config;
+
+  if (
+    response.data?.status === "error" &&
+    /token/i.test(response.data?.message || "") &&
+    config &&
+    !config._retriedAfterTokenRefresh
+  ) {
+    config._retriedAfterTokenRefresh = true;
+    await invalidateSabaoonToken();
+    return SABOOR(config);
+  }
+
+  return response;
+});
+
+// ─────────────────────────────────────────────────────────
 // SHARED HELPER
 // ─────────────────────────────────────────────────────────
 
@@ -124,26 +166,14 @@ const normalizeSabaoonGroup = (group) => {
  * Throws on token or network failure.
  */
 export const fetchNormalisedSabaoonGroups = async (type) => {
-  const configuredToken = getConfiguredSabaoonToken();
-  let token = configuredToken;
+  const response = await SABOOR.get("/groups", {
+    params: type ? { type } : undefined,
+  });
 
-  if (!token) {
-    try {
-      const tokenRecord = await getValidSabaoonToken();
-      token = tokenRecord.token;
-    } catch (refreshErr) {
-      console.error("Failed to obtain a valid Sabaoon token:", refreshErr.message);
-      throw new Error("Unable to authenticate with Sabaoon. Please try again later.");
-    }
+  if (response.data?.status === "error") {
+    throw new Error(response.data?.message || "Sabaoon groups API returned an error");
   }
 
-  const params = { token };
-  if (type) params.type = type;
-
-  const response = await axios.get(`${getSabaoonBaseURL()}/groups`, {
-    params,
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-  });
   const payload = response.data;
   const rawGroups = Array.isArray(payload)
     ? payload
@@ -164,7 +194,9 @@ export const getSabaoonGroups = async (req, res) => {
 
     // Load admin overrides and build a lookup map
     const overrides = await SabaoonGroupOverride.find({}).lean();
-    const overrideMap = Object.fromEntries(overrides.map((o) => [String(o.groupId), o]));
+    const overrideMap = Object.fromEntries(
+      overrides.map((o) => [String(o.groupId), o]),
+    );
 
     // Filter out hidden groups; attach individualMargin when set
     const publicGroups = groups
@@ -177,7 +209,9 @@ export const getSabaoonGroups = async (req, res) => {
     return res.json({ success: true, data: publicGroups });
   } catch (error) {
     console.error("Error fetching Sabaoon groups:", error?.message);
-    return res.status(500).json({ success: false, message: "Failed to fetch groups from Sabaoon" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch groups from Sabaoon" });
   }
 };
 
@@ -190,7 +224,9 @@ export const getAdminSabaoonGroups = async (req, res) => {
     const groups = await fetchNormalisedSabaoonGroups(req.query.type);
 
     const overrides = await SabaoonGroupOverride.find({}).lean();
-    const overrideMap = Object.fromEntries(overrides.map((o) => [String(o.groupId), o]));
+    const overrideMap = Object.fromEntries(
+      overrides.map((o) => [String(o.groupId), o]),
+    );
 
     const adminGroups = groups.map((g) => {
       const override = overrideMap[String(g.id)];
@@ -204,7 +240,9 @@ export const getAdminSabaoonGroups = async (req, res) => {
     return res.json({ success: true, data: adminGroups });
   } catch (error) {
     console.error("Error fetching admin Sabaoon groups:", error?.message);
-    return res.status(500).json({ success: false, message: "Failed to fetch groups from Sabaoon" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch groups from Sabaoon" });
   }
 };
 
@@ -222,7 +260,9 @@ export const upsertGroupOverride = async (req, res) => {
     if (individualMargin !== undefined) {
       // empty string or explicit null clears the margin
       update.individualMargin =
-        individualMargin === "" || individualMargin === null || individualMargin == 0
+        individualMargin === "" ||
+        individualMargin === null ||
+        individualMargin == 0
           ? null
           : Number(individualMargin);
     }
@@ -230,13 +270,15 @@ export const upsertGroupOverride = async (req, res) => {
     const override = await SabaoonGroupOverride.findOneAndUpdate(
       { groupId: String(groupId) },
       { $set: update },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
 
     return res.json({ success: true, data: override });
   } catch (error) {
     console.error("Error upserting group override:", error?.message);
-    return res.status(500).json({ success: false, message: "Failed to update group override" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to update group override" });
   }
 };
 
@@ -259,7 +301,8 @@ export const upsertGroupOverride = async (req, res) => {
  *
  * @returns {{ transactionId: number }} Sabaoon transaction_id
  */
-export const createSabaoonBooking = async ({
+const buildSabaoonBookingForm = ({
+  token,
   groupId,
   pnr,
   bookingReference,
@@ -269,14 +312,6 @@ export const createSabaoonBooking = async ({
   passengers,
   pricing,
 }) => {
-  const token = getConfiguredSabaoonToken() || (await getValidSabaoonToken()).token;
-
-  if (!token) {
-    throw new Error("No valid Sabaoon token available");
-  }
-
-  console.log(`[Sabaoon] Creating booking with token: ${token.slice(0, 8)}...`);
-
   // Split PNR into pnr_1 / pnr_2 (Sabaoon sometimes has "PNR1 / PNR2")
   const pnrParts = (pnr || "").split(/\s*\/\s*/);
   const pnr_1 = pnrParts[0] || "";
@@ -305,7 +340,10 @@ export const createSabaoonBooking = async ({
 
   for (const p of passengers) {
     form.append("pax_title[]", p.title || "Mr");
-    form.append("human_type[]", humanTypeMap[(p.type || "Adult").toLowerCase()] || "1");
+    form.append(
+      "human_type[]",
+      humanTypeMap[(p.type || "Adult").toLowerCase()] || "1",
+    );
     form.append("sur_name[]", p.surName || "");
     form.append("given_name[]", p.givenName || "");
     form.append("pass_no[]", p.passport || "");
@@ -319,7 +357,8 @@ export const createSabaoonBooking = async ({
   // Fall back to adultPrice if base prices are not stored (legacy bookings).
   const sabaoonAdultPrice = pricing.adultBasePrice || pricing.adultPrice || 0;
   const sabaoonChildPrice = pricing.childBasePrice || pricing.childPrice || 0;
-  const sabaoonInfantPrice = pricing.infantBasePrice || pricing.infantPrice || 0;
+  const sabaoonInfantPrice =
+    pricing.infantBasePrice || pricing.infantPrice || 0;
 
   for (let i = 0; i < adultsCount; i++)
     form.append("adult_price[]", String(sabaoonAdultPrice));
@@ -328,24 +367,51 @@ export const createSabaoonBooking = async ({
   for (let i = 0; i < infantsCount; i++)
     form.append("infant_price[]", String(sabaoonInfantPrice));
 
-  const response = await axios.post(
-    `${getSabaoonBaseURL()}${getSabaoonBookingEndpoint()}`,
-    form,
-    {
-      headers: {
-        ...form.getHeaders(),
-        Authorization: `Token ${token}`,
-      },
+  return form;
+};
+
+export const createSabaoonBooking = async (bookingParams) => {
+  // The form-data body is a stream and can't be replayed, so on a token
+  // error we invalidate the cached token and rebuild the form from scratch
+  // with a freshly issued one, instead of retrying the same request config.
+  const submit = async (isRetry) => {
+    const { token } = await getValidSabaoonToken();
+
+    if (!token) {
+      throw new Error("No valid Sabaoon token available");
     }
-  );
 
-  console.log("[Sabaoon] Booking response:", JSON.stringify(response.data));
+    console.log(
+      `[Sabaoon] Creating booking with token: ${token.slice(0, 8)}...${isRetry ? " (retry)" : ""}`,
+    );
 
-  const { status, message, transaction_id, booking_id, id } = response.data;
+    const form = buildSabaoonBookingForm({ ...bookingParams, token });
 
-  if (status && String(status).toLowerCase() !== "success") {
-    throw new Error(message || "Sabaoon booking API returned a failure status");
-  }
+    const response = await axios.post(
+      `${getSabaoonBaseURL()}${getSabaoonBookingEndpoint()}`,
+      form,
+      {
+        headers: {
+          ...form.getHeaders(),
+          Authorization: `Token ${token}`,
+        },
+      },
+    );
 
-  return { transactionId: transaction_id ?? booking_id ?? id ?? null };
+    console.log("[Sabaoon] Booking response:", JSON.stringify(response.data));
+
+    const { status, message, transaction_id, booking_id, id } = response.data;
+
+    if (status && String(status).toLowerCase() !== "success") {
+      if (!isRetry && /token/i.test(message || "")) {
+        await invalidateSabaoonToken();
+        return submit(true);
+      }
+      throw new Error(message || "Sabaoon booking API returned a failure status");
+    }
+
+    return { transactionId: transaction_id ?? booking_id ?? id ?? null };
+  };
+
+  return submit(false);
 };
