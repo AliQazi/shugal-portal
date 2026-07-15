@@ -1,6 +1,6 @@
 export const getStoredFrontendUser = () => {
   try {
-    return JSON.parse(localStorage.getItem("frontend_user") || "null");
+    return JSON.parse(sessionStorage.getItem("frontend_user") || "null");
   } catch {
     return null;
   }
@@ -12,7 +12,12 @@ export const getFrontendUserId = (user = getStoredFrontendUser()) => {
   if (typeof user === "string") return user;
 
   return (
-    user._id || user.id || user.userId || user.user?._id || user.user?.id || null
+    user._id ||
+    user.id ||
+    user.userId ||
+    user.user?._id ||
+    user.user?.id ||
+    null
   );
 };
 

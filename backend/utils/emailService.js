@@ -619,6 +619,7 @@ export const sendBookingNotificationEmail = async ({
 }) => {
   try {
     const recipients = [
+      agent?.email,
       process.env.EMAIL_USER,
       process.env.ADMIN_EMAIL,
       process.env.INTERNAL_ALERT_EMAIL,
@@ -691,6 +692,89 @@ Created At: ${booking.createdAt || new Date().toISOString()}
   }
 };
 
+export const sendBookingStatusChangeEmail = async ({
+  bookingType = "Ticket",
+  booking,
+  agent,
+  oldStatus,
+  newStatus,
+  changedBy,
+}) => {
+  try {
+    const recipients = [
+      agent?.email,
+      process.env.EMAIL_USER,
+      process.env.ADMIN_EMAIL,
+      process.env.INTERNAL_ALERT_EMAIL,
+      process.env.SHAHEENWINGS_GMAIL,
+    ]
+      .flatMap((value) => String(value || "").split(","))
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    const uniqueRecipients = [...new Set(recipients)];
+
+    if (!uniqueRecipients.length) {
+      throw new Error("No booking status email recipients are configured");
+    }
+
+    const reference = booking.bookingReference || booking.bookingNumber || booking._id;
+    const totalPassengers =
+      (booking.adultsCount || 0) +
+      (booking.childrenCount || 0) +
+      (booking.infantsCount || 0);
+    const totalAmount = booking.pricing?.grandTotal || booking.pricing?.totalAmount || 0;
+
+    const mailOptions = {
+      from: {
+        name: process.env.EMAIL_FROM_NAME || "Shaheen Wings travel and tours",
+        address: process.env.EMAIL_USER,
+      },
+      to: uniqueRecipients,
+      subject: `${bookingType} Booking ${reference} status changed to ${newStatus}`,
+      html: getBookingNotificationHTML({
+        bookingType,
+        bookingReference: booking.bookingReference,
+        bookingNumber: booking.bookingNumber,
+        pnr: booking.pnr,
+        sector: booking.sector,
+        packageName: booking.packageName,
+        groupId: booking.groupId,
+        source: booking.source,
+        status: `${oldStatus || "N/A"} -> ${newStatus || "N/A"}`,
+        totalPassengers,
+        totalAmount,
+        agentName: agent?.name || agent?.email || "Agent",
+        agentEmail: agent?.email || "N/A",
+        agencyCode: agent?.agencyCode || "N/A",
+        companyName: agent?.companyName || "N/A",
+        createdAt: booking.updatedAt || new Date(),
+      }),
+      text: `Booking status changed.
+
+Reference: ${reference}
+Old Status: ${oldStatus || "N/A"}
+New Status: ${newStatus || "N/A"}
+PNR / Package: ${booking.pnr || booking.packageName || "N/A"}
+Sector / Source: ${booking.sector || booking.source || "N/A"}
+Passengers: ${totalPassengers}
+Total Amount: ${totalAmount}
+Agent: ${agent?.name || "Agent"}
+Agent Email: ${agent?.email || "N/A"}
+Changed By: ${changedBy || "System"}
+Changed At: ${new Date().toISOString()}
+`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log("✅ Booking status change email sent:", info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("❌ Error sending booking status change email:", error.message);
+    throw error;
+  }
+};
+
 // Test email configuration
 export const testEmailConfiguration = async () => {
   try {
@@ -708,5 +792,6 @@ export default {
   sendCredentialsEmail,
   sendAgentRegistrationNotificationEmail,
   sendBookingNotificationEmail,
+  sendBookingStatusChangeEmail,
   testEmailConfiguration,
 };

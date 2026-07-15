@@ -1,7 +1,10 @@
 import UmrahPackageBooking from "../models/UmrahPackageBooking.js";
 import Register from "../models/Register.js";
 import { cloudinary } from "../config/cloudinary.js";
-import { sendBookingNotificationEmail } from "../utils/emailService.js";
+import {
+  sendBookingNotificationEmail,
+  sendBookingStatusChangeEmail,
+} from "../utils/emailService.js";
 
 /* ────────────────────────────────────────────────────────
    CREATE BOOKING  POST /api/umrah-package-bookings/create
@@ -338,6 +341,8 @@ export const adminUpdateBookingStatus = async (req, res) => {
     if (!booking)
       return res.status(404).json({ success: false, message: "Booking not found" });
 
+    const oldStatus = booking.status;
+
     if (discountAmount !== undefined) {
       const discountValue = Number(discountAmount || 0);
       if (Number.isNaN(discountValue) || discountValue < 0)
@@ -371,7 +376,7 @@ export const adminUpdateBookingStatus = async (req, res) => {
       }
     }
 
-    if (String(status).toLowerCase() === "cancelled") {
+    if (String(status).toLowerCase() !== "confirmed") {
       try {
         const { default: MarginLedger } = await import("../models/MarginLedger.js");
         await MarginLedger.deleteMany({
@@ -385,6 +390,24 @@ export const adminUpdateBookingStatus = async (req, res) => {
         });
       } catch (ledgerErr) {
         console.error("adminUpdateBookingStatus ledger cleanup failed:", ledgerErr?.message || ledgerErr);
+      }
+    }
+
+    if (oldStatus !== status) {
+      try {
+        const agent = await Register.findById(booking.user)
+          .select("name email agencyCode companyName phone")
+          .lean();
+        await sendBookingStatusChangeEmail({
+          bookingType: "Umrah Package",
+          booking,
+          agent,
+          oldStatus,
+          newStatus: status,
+          changedBy: req.user?.name || req.user?.email || "System",
+        });
+      } catch (emailErr) {
+        console.error("sendBookingStatusChangeEmail failed:", emailErr?.message || emailErr);
       }
     }
 

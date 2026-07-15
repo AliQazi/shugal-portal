@@ -14,6 +14,14 @@ const nationalityOptions = countryCodes
   .filter(Boolean)
   .sort((a, b) => a.localeCompare(b));
 
+const ABID_AIR_PASSENGER_LIMIT = 10;
+
+const isAbidAirGroup = (group = {}) => {
+  const source = String(group?.source || group?.packageSource || "").toLowerCase();
+  const airlineName = String(group?.airline?.airline_name || "").toLowerCase();
+  return source === "abidairtravel" || airlineName.includes("abid");
+};
+
 export default function BookingForm({ user }) {
   // const user = JSON.parse(localStorage.getItem("frontend_user"));
   const navigate = useNavigate();
@@ -60,14 +68,16 @@ export default function BookingForm({ user }) {
   };
 
   const isUmrahPackageGroup = (group = {}) =>
-    Boolean(
+    isAbidAirGroup(group)
+      ? Boolean(group?.hotels || group?.rates)
+      : Boolean(
       group?.packageName ||
       group?.package_name ||
       group?.hotels ||
       group?.hotel ||
       group?.packageId ||
       group?.package_id,
-    );
+      );
 
   const normalizeSector = (sector = "") =>
     String(sector)
@@ -430,6 +440,9 @@ export default function BookingForm({ user }) {
   const validateSeatLimit = (adults, children) => {
     if (isEditMode) return true;
     const totalSeats = adults + children;
+    if (isAbidAirGroup(groupData)) {
+      return totalSeats <= ABID_AIR_PASSENGER_LIMIT;
+    }
     const availableSeats = groupData?.available_no_of_pax || 0;
     return totalSeats <= availableSeats;
   };
@@ -454,7 +467,12 @@ export default function BookingForm({ user }) {
 
     const availableSeats = groupData?.available_no_of_pax || 0;
 
-    if (totalSeatsRequired > availableSeats) {
+    if (isAbidAirGroup(groupData)) {
+      if (totalSeatsRequired > ABID_AIR_PASSENGER_LIMIT) {
+        toast.error(`Abid Air bookings can have up to ${ABID_AIR_PASSENGER_LIMIT} passengers.`);
+        return;
+      }
+    } else if (totalSeatsRequired > availableSeats) {
       toast.error("No seats available. You cannot exceed available seats.");
       return;
     }
@@ -487,10 +505,10 @@ export default function BookingForm({ user }) {
       if (!validateSeatLimit(adults, children)) {
         const totalSeats = adults + children;
         const availableSeats = groupData?.available_no_of_pax || 0;
-        toast.error(
-          `Seats not available! You selected ${totalSeats} seats but only ${availableSeats} are available.`,
-          { toastId: "seat-limit-error" },
-        );
+        const message = isAbidAirGroup(groupData)
+          ? `Abid Air bookings can have up to ${ABID_AIR_PASSENGER_LIMIT} passengers.`
+          : `Seats not available! You selected ${totalSeats} seats but only ${availableSeats} are available.`;
+        toast.error(message, { toastId: "seat-limit-error" });
         const defaultValue = getDefaultPassengerValue(name);
         setFormData((prev) => ({ ...prev, [name]: defaultValue }));
         e.target.focus();
@@ -711,10 +729,17 @@ export default function BookingForm({ user }) {
       (parseInt(formData.children) || 0) +
       (parseInt(formData.infants) || 0);
 
+    const isAbidAirBooking = isAbidAirGroup(groupData);
+
+    if (isAbidAirBooking && payingPassengers > ABID_AIR_PASSENGER_LIMIT) {
+      toast.error(`Abid Air bookings can have up to ${ABID_AIR_PASSENGER_LIMIT} passengers.`);
+      return;
+    }
+
     // ✅ final available seats AFTER deduction
     const remainingSeats = (groupData?.available_no_of_pax || 0) - booked;
     // ❌ validation
-    if (payingPassengers > remainingSeats) {
+    if (!isAbidAirBooking && payingPassengers > remainingSeats) {
       toast.error(
         `Total passengers (${payingPassengers}) cannot exceed available seats (${remainingSeats})`,
       );
@@ -1001,6 +1026,10 @@ export default function BookingForm({ user }) {
                   </p>
                   <p className="text-sm font-extrabold text-[#3d6a8f] bg-blue-50 px-2 py-1 rounded-2xl">
                     {(() => {
+                      if (isAbidAirGroup(groupData)) {
+                        return "Seats on call";
+                      }
+
                       if (
                         !groupData ||
                         !groupData.details ||

@@ -523,7 +523,10 @@ import Register from "../models/Register.js";
 import { deductSeatsFromCache } from "../utils/cacheHelpers.js";
 import { createSabaoonBooking } from "./sabaoon.controller.js";
 import { createTravelNetworkBooking } from "./travel-network.controller.js";
-import { sendBookingNotificationEmail } from "../utils/emailService.js";
+import {
+  sendBookingNotificationEmail,
+  sendBookingStatusChangeEmail,
+} from "../utils/emailService.js";
 
 const HOLD_DURATION = 2 * 60 * 60 * 1000;
 // -------------------------
@@ -737,27 +740,6 @@ export const createBooking = async (req, res) => {
       source: bookingSource,
       sabaoonBookingStatus: isSabaoonGroup ? "pending" : "not_applicable",
     });
-
-    // Agent-side "Confirm Booking" creates booking as on-hold.
-    // Write margin ledger here as well so ledger is available immediately.
-    try {
-      const { default: MarginLedger } = await import("../models/MarginLedger.js");
-      const existingLedger = await MarginLedger.findOne({
-        entryType: "booking_confirmed",
-        bookingId: booking._id,
-      }).lean();
-
-      if (!existingLedger) {
-        const { recordBookingMarginLedger } = await import("./groupMargin.controller.js");
-        const { default: Margin } = await import("../models/Margin.js");
-        const latestMargin = await Margin.findOne({}).sort({ createdAt: -1 }).lean();
-        await recordBookingMarginLedger({ booking, globalMargin: latestMargin });
-      }
-    } catch (ledgerErr) {
-      // Non-fatal: booking should still be created even if ledger logging fails.
-      console.error("createBooking ledger write failed:", ledgerErr?.message || ledgerErr);
-    }
-
 
     // ─── Call Sabaoon booking API for external (Sabaoon) groups ───
     if (isSabaoonGroup && passengers.length > 0) {
@@ -1035,7 +1017,10 @@ export const getBookingByReference = async (req, res) => {
 export const updateBookingStatus = async (req, res) => {
   try {
     const { status, notes } = req.body;
-    const booking = await Booking.findById(req.params.id);
+    const booking = await Booking.findById(req.params.id).populate(
+      "userId",
+      "name email agencyCode companyName phone address",
+    );
     if (!booking) throw new Error("Booking not found");
 
     const oldStatus = booking.status;
@@ -1049,14 +1034,17 @@ export const updateBookingStatus = async (req, res) => {
       await recordBookingMarginLedger({ booking, globalMargin: latestMargin });
     }
 
-    if (oldStatus !== "cancelled" && status === "cancelled") {
-      await adjustSeatsIfLocalGroup(normalizeGroupId(booking.groupId), seats);
+    if (status !== "confirmed") {
       await cleanupBookingMarginLedger({
         bookingId: booking._id,
         bookingReference: booking.bookingReference,
       }).catch((ledgerErr) => {
         console.error("updateBookingStatus ledger cleanup failed:", ledgerErr?.message || ledgerErr);
       });
+    }
+
+    if (oldStatus !== "cancelled" && status === "cancelled") {
+      await adjustSeatsIfLocalGroup(normalizeGroupId(booking.groupId), seats);
     }
 
     if (oldStatus === "cancelled" && status !== "cancelled") {
@@ -1073,6 +1061,21 @@ export const updateBookingStatus = async (req, res) => {
       status === "on hold" ? new Date(Date.now() + HOLD_DURATION) : null;
 
     await booking.save();
+
+    if (oldStatus !== status) {
+      try {
+        await sendBookingStatusChangeEmail({
+          bookingType: "Ticket",
+          booking,
+          agent: booking.userId,
+          oldStatus,
+          newStatus: status,
+          changedBy: req.user?.name || req.user?.email || "System",
+        });
+      } catch (emailErr) {
+        console.error("sendBookingStatusChangeEmail failed:", emailErr?.message || emailErr);
+      }
+    }
 
     res.json({ success: true, data: booking });
   } catch (err) {
@@ -1160,10 +1163,14 @@ export const updateBooking = async (req, res) => {
 // -------------------------
 export const cancelBooking = async (req, res) => {
   try {
-    const booking = await Booking.findById(req.params.id);
+    const booking = await Booking.findById(req.params.id).populate(
+      "userId",
+      "name email agencyCode companyName phone address",
+    );
     if (!booking) throw new Error("Booking not found");
     if (booking.status === "cancelled") throw new Error("Already cancelled");
 
+    const oldStatus = booking.status;
     const seats = booking.adultsCount + booking.childrenCount;
 
     booking.status = "cancelled";
@@ -1177,6 +1184,19 @@ export const cancelBooking = async (req, res) => {
     }).catch((ledgerErr) => {
       console.error("cancelBooking ledger cleanup failed:", ledgerErr?.message || ledgerErr);
     });
+
+    try {
+      await sendBookingStatusChangeEmail({
+        bookingType: "Ticket",
+        booking,
+        agent: booking.userId,
+        oldStatus,
+        newStatus: "cancelled",
+        changedBy: req.user?.name || req.user?.email || "System",
+      });
+    } catch (emailErr) {
+      console.error("sendBookingStatusChangeEmail failed:", emailErr?.message || emailErr);
+    }
 
     res.json({ success: true, message: "Booking cancelled", data: booking });
   } catch (err) {
@@ -1198,6 +1218,12 @@ export const deleteBooking = async (req, res) => {
     }
 
     await booking.deleteOne();
+    await cleanupBookingMarginLedger({
+      bookingId: booking._id,
+      bookingReference: booking.bookingReference,
+    }).catch((ledgerErr) => {
+      console.error("deleteBooking ledger cleanup failed:", ledgerErr?.message || ledgerErr);
+    });
 
     res.json({ success: true, message: "Booking deleted" });
   } catch (err) {

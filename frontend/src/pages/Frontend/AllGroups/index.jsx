@@ -258,13 +258,21 @@ const getCategoryFromGroup = (group = {}) => {
 };
 
 const isUmrahPackageGroup = (group = {}) =>
-  Boolean(
+  String(group?.source || group?.packageSource || "").toLowerCase() === "abidairtravel"
+    ? Boolean(group?.hotels || group?.rates)
+    : Boolean(
     group?.packageName ||
     group?.hotels ||
     group?.rates ||
     group?.packageId ||
     group?.package_id,
-  );
+    );
+
+const isAbidAirGroup = (group = {}) => {
+  const source = String(group?.source || group?.packageSource || "").toLowerCase();
+  const airlineName = String(group?.airline?.airline_name || "").toLowerCase();
+  return source === "abidairtravel" || airlineName.includes("abid");
+};
 
 const getDisplayDetails = (group = {}) => {
   const details = Array.isArray(group?.details) ? group.details.filter(Boolean) : [];
@@ -705,6 +713,10 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
 
   // ─── ADDED: Helper to compute effective available seats ─────────────────────────
   const getEffectiveSeats = (group) => {
+    if (isAbidAirGroup(group)) {
+      return "Seats on call";
+    }
+
     // For own groups, use available_no_of_pax directly
     if (group.isOwnGroup) {
       return Number(group.available_no_of_pax) || 0;
@@ -933,8 +945,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     // Abid Air never sends seat counts (always defaults to 0), so it's excluded
     // from this filter to keep its groups visible.
     filtered = filtered.filter((g) => {
-      const airlineName = (g.airline?.airline_name || "").toLowerCase();
-      if (airlineName.includes("abid")) return true;
+      if (isAbidAirGroup(g)) return true;
       const seats = getEffectiveSeats(g);
       return seats > 0;
     });
@@ -1605,7 +1616,11 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
 
                                   {/* Seats */}
                                   <td className="px-4 py-3 text-center align-middle">
-                                    {group.isOwnGroup ? (
+                                    {isAbidAirGroup(group) ? (
+                                      <span className="text-sm font-bold text-red-500">
+                                        Seats on call
+                                      </span>
+                                    ) : group.isOwnGroup ? (
                                       group.showSeat ? (
                                         <span className="text-sm font-bold" style={{ color: theme.colors.ublGradientStart }}>
                                           {getEffectiveSeats(group)}

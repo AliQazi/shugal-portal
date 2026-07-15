@@ -328,7 +328,8 @@ export const recordBookingMarginLedger = async ({
     let marginAmount = 0;
     const bookingReference =
       booking.bookingReference || booking.bookingNumber || booking.reference || "";
-    const userId = booking.userId || booking.user || null;
+    const rawUserId = booking.userId || booking.user || null;
+    const userId = rawUserId?._id || rawUserId || null;
 
     if (override && override.marginAmount > 0) {
       marginAmount = override.marginAmount;

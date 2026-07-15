@@ -109,12 +109,15 @@ const Ledger = () => {
       setFetching(true);
       setError(null);
 
-      const response = await axiosInstance.get("/payment/ledger/me", {
-        params: {
-          dateFrom: filters.dateFrom,
-          dateTo: filters.dateTo,
+      const response = await axiosInstance.get(
+        `/payment/ledger/${storedUser.id}`,
+        {
+          params: {
+            dateFrom: filters.dateFrom,
+            dateTo: filters.dateTo,
+          },
         },
-      });
+      );
 
       if (response.data.success) {
         setLedgerData(response.data.data || []);
@@ -853,9 +856,11 @@ const Ledger = () => {
               <img src={logo} alt="Company logo" />
               <div>
                 <h1>{accountName.toUpperCase()}</h1>
-                <p>The Flight Centre</p>
-                <p>Email: info@tfc.com</p>
-                <p>Account statement generated from The Flight Centre portal</p>
+                <p>Shaheen Wings Travels</p>
+                <p>Email: shaheenwingsgrouptkt@gmail.com</p>
+                <p>
+                  Account statement generated from Shaheen Wings Travels portal
+                </p>
               </div>
             </div>
 

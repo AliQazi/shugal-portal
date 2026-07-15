@@ -47,6 +47,28 @@ const handleZipAccountCreation = async (user) => {
   }
 };
 
+const sendActivationCredentialsIfNeeded = async (user, previousStatus) => {
+  if (!user || previousStatus === "Active" || user.status !== "Active") return;
+  if (user.role !== "Agency") return;
+
+  if (!user.email || !user.agencyCode || !user.plainPassword) {
+    console.warn(`Skipping activation email for ${user.email || user._id}: missing credentials`);
+    return;
+  }
+
+  try {
+    await sendCredentialsEmail(
+      user.email,
+      user.agencyCode,
+      user.plainPassword,
+      user.name,
+      user.companyName || "N/A",
+    );
+  } catch (mailError) {
+    console.error("Activation credentials email failed:", mailError.message);
+  }
+};
+
 /* ===========================
    REGISTER USER
 =========================== */
@@ -463,6 +485,8 @@ export const updateUserProfile = async (req, res) => {
       });
     }
 
+    const previousStatus = user.status;
+
     if (name !== undefined) user.name = name;
     if (email !== undefined) user.email = email;
     if (phone !== undefined) user.phone = phone;
@@ -506,6 +530,7 @@ export const updateUserProfile = async (req, res) => {
     if (discountAmount !== undefined) user.discountAmount = discountAmount;
 
     await user.save();
+    await sendActivationCredentialsIfNeeded(user, previousStatus);
 
     const { password: _pwd, ...safeUser } = user.toObject();
 
@@ -528,6 +553,16 @@ export const updateUserProfile = async (req, res) => {
 export const updateUserStatus = async (req, res) => {
   try {
     const { status } = req.body;
+    const existingUser = await Register.findById(req.params.id);
+
+    if (!existingUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const previousStatus = existingUser.status;
     const updates = { status };
 
     // Track who activated and when
@@ -552,13 +587,7 @@ export const updateUserStatus = async (req, res) => {
     const user = await Register.findByIdAndUpdate(req.params.id, updates, {
       new: true,
     });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
+    await sendActivationCredentialsIfNeeded(user, previousStatus);
 
     res.status(200).json({
       success: true,
