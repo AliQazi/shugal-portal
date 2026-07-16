@@ -17,7 +17,9 @@ const nationalityOptions = countryCodes
 const ABID_AIR_PASSENGER_LIMIT = 10;
 
 const isAbidAirGroup = (group = {}) => {
-  const source = String(group?.source || group?.packageSource || "").toLowerCase();
+  const source = String(
+    group?.source || group?.packageSource || "",
+  ).toLowerCase();
   const airlineName = String(group?.airline?.airline_name || "").toLowerCase();
   return source === "abidairtravel" || airlineName.includes("abid");
 };
@@ -71,13 +73,13 @@ export default function BookingForm({ user }) {
     isAbidAirGroup(group)
       ? Boolean(group?.hotels || group?.rates)
       : Boolean(
-      group?.packageName ||
-      group?.package_name ||
-      group?.hotels ||
-      group?.hotel ||
-      group?.packageId ||
-      group?.package_id,
-      );
+          group?.packageName ||
+          group?.package_name ||
+          group?.hotels ||
+          group?.hotel ||
+          group?.packageId ||
+          group?.package_id,
+        );
 
   const normalizeSector = (sector = "") =>
     String(sector)
@@ -88,13 +90,16 @@ export default function BookingForm({ user }) {
 
   const getCategoryFromGroup = (group = {}) => {
     if (isUmrahPackageGroup(group)) return "umrah-packages";
-    const type = String(group?.type || "").toUpperCase().trim();
+    const type = String(group?.type || "")
+      .toUpperCase()
+      .trim();
     return TYPE_TO_CATEGORY[type] || "";
   };
 
   const calculateB2BPrice = (groupPrice, group = {}) => {
     const basePrice = Number(groupPrice);
-    const normalizedBasePrice = Number.isFinite(basePrice) && basePrice > 0 ? basePrice : 0;
+    const normalizedBasePrice =
+      Number.isFinite(basePrice) && basePrice > 0 ? basePrice : 0;
 
     if (!user) return normalizedBasePrice;
     if (user?.priceOnCall) return null;
@@ -109,7 +114,8 @@ export default function BookingForm({ user }) {
     const marginAmount = user.flightMarginAmount;
 
     if (marginType === "Percentage" && marginPercent > 0) {
-      finalPrice = normalizedBasePrice + (normalizedBasePrice * marginPercent) / 100;
+      finalPrice =
+        normalizedBasePrice + (normalizedBasePrice * marginPercent) / 100;
     } else if (marginType === "Amount" && marginAmount > 0) {
       finalPrice = normalizedBasePrice + marginAmount;
     }
@@ -117,14 +123,19 @@ export default function BookingForm({ user }) {
     // =========================
     // 2. GROUP/CATEGORY/SECTOR OVERRIDES (fallback)
     // =========================
-    if (finalPrice === normalizedBasePrice && Object.keys(groupMargins).length > 0) {
+    if (
+      finalPrice === normalizedBasePrice &&
+      Object.keys(groupMargins).length > 0
+    ) {
       const category = getCategoryFromGroup(group);
       const categoryKey = category ? `group-category-${category}` : "";
       const sectorKey = group?.sector
         ? `sector-sector:${normalizeSector(group.sector)}`
         : "";
-      const flightKey = group?.source && group?.id ? `${group.source}-${group.id}` : "";
-      const groupTypeFlightKey = group?.type && group?.id ? `${group.type}-${group.id}` : "";
+      const flightKey =
+        group?.source && group?.id ? `${group.source}-${group.id}` : "";
+      const groupTypeFlightKey =
+        group?.type && group?.id ? `${group.type}-${group.id}` : "";
 
       const categoryMargin = categoryKey
         ? groupMargins[categoryKey]?.marginAmount
@@ -165,7 +176,8 @@ export default function BookingForm({ user }) {
     // =========================
     if (finalPrice === normalizedBasePrice && dbMargin) {
       if (dbMargin.type === "percent" && dbMargin.value > 0) {
-        finalPrice = normalizedBasePrice + (normalizedBasePrice * dbMargin.value) / 100;
+        finalPrice =
+          normalizedBasePrice + (normalizedBasePrice * dbMargin.value) / 100;
       } else if (dbMargin.type === "amount" && dbMargin.value > 0) {
         finalPrice = normalizedBasePrice + dbMargin.value;
       }
@@ -218,7 +230,8 @@ export default function BookingForm({ user }) {
   // --- NEW STATE FOR MODAL ---
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [isReviewed, setIsReviewed] = useState(false);
-  const [bookingWithoutPassengers, setBookingWithoutPassengers] = useState(false);
+  const [bookingWithoutPassengers, setBookingWithoutPassengers] =
+    useState(false);
 
   useEffect(() => {
     fetchBookingVoucher(); // always fetch seat map
@@ -347,13 +360,13 @@ export default function BookingForm({ user }) {
           formattedPassengers.length > 0
             ? formattedPassengers
             : buildPassengers({
-              adults: booking.adultsCount || 0,
-              children: booking.childrenCount || 0,
-              infants: booking.infantsCount || 0,
-              existing: [],
-              allowChildren: true,
-              allowInfants: true,
-            });
+                adults: booking.adultsCount || 0,
+                children: booking.childrenCount || 0,
+                infants: booking.infantsCount || 0,
+                existing: [],
+                allowChildren: true,
+                allowInfants: true,
+              });
 
         setFormData({
           contactPersonName: booking.contactPersonName || "N/A",
@@ -469,7 +482,9 @@ export default function BookingForm({ user }) {
 
     if (isAbidAirGroup(groupData)) {
       if (totalSeatsRequired > ABID_AIR_PASSENGER_LIMIT) {
-        toast.error(`Abid Air bookings can have up to ${ABID_AIR_PASSENGER_LIMIT} passengers.`);
+        toast.error(
+          `this bookings can have up to ${ABID_AIR_PASSENGER_LIMIT} passengers.`,
+        );
         return;
       }
     } else if (totalSeatsRequired > availableSeats) {
@@ -506,7 +521,7 @@ export default function BookingForm({ user }) {
         const totalSeats = adults + children;
         const availableSeats = groupData?.available_no_of_pax || 0;
         const message = isAbidAirGroup(groupData)
-          ? `Abid Air bookings can have up to ${ABID_AIR_PASSENGER_LIMIT} passengers.`
+          ? `this ookings can have up to ${ABID_AIR_PASSENGER_LIMIT} passengers.`
           : `Seats not available! You selected ${totalSeats} seats but only ${availableSeats} are available.`;
         toast.error(message, { toastId: "seat-limit-error" });
         const defaultValue = getDefaultPassengerValue(name);
@@ -717,10 +732,11 @@ export default function BookingForm({ user }) {
     let booked = 0;
     let key = "";
     if (flight) {
-      key = `${normalizeFlightNo(flight.flight_no)}_${new Date(flight.dep_date || flight.flight_date)
-        .toISOString()
-        .split("T")[0]
-        }`;
+      key = `${normalizeFlightNo(flight.flight_no)}_${
+        new Date(flight.dep_date || flight.flight_date)
+          .toISOString()
+          .split("T")[0]
+      }`;
       booked = bookedSeatsMap[key] || 0;
     }
 
@@ -732,7 +748,9 @@ export default function BookingForm({ user }) {
     const isAbidAirBooking = isAbidAirGroup(groupData);
 
     if (isAbidAirBooking && payingPassengers > ABID_AIR_PASSENGER_LIMIT) {
-      toast.error(`Abid Air bookings can have up to ${ABID_AIR_PASSENGER_LIMIT} passengers.`);
+      toast.error(
+        `Abid Air bookings can have up to ${ABID_AIR_PASSENGER_LIMIT} passengers.`,
+      );
       return;
     }
 
@@ -1055,8 +1073,8 @@ export default function BookingForm({ user }) {
 
                       const currentBookingPassengers = isEditMode
                         ? (parseInt(formData.adults) || 0) +
-                        (parseInt(formData.children) || 0) +
-                        (parseInt(formData.infants) || 0)
+                          (parseInt(formData.children) || 0) +
+                          (parseInt(formData.infants) || 0)
                         : 0;
 
                       return total - booked + currentBookingPassengers;
@@ -1194,10 +1212,16 @@ export default function BookingForm({ user }) {
                   <td className="px-3 py-2 text-xs font-medium border-r border-gray-200">
                     {isChildPriceAvailable() ? (
                       <span className="text-[#3d6a8f] inline-block text-xs font-extrabold px-2 py-1 rounded-2xl">
-                        PKR {calculateB2BPrice(groupData?.childPrice, groupData)?.toLocaleString()}
+                        PKR{" "}
+                        {calculateB2BPrice(
+                          groupData?.childPrice,
+                          groupData,
+                        )?.toLocaleString()}
                       </span>
                     ) : (
-                      <span className="text-red-500 font-semibold">Price On Call</span>
+                      <span className="text-red-500 font-semibold">
+                        Price On Call
+                      </span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-center text-xs font-bold text-gray-900 border-r border-gray-200">
@@ -1207,7 +1231,9 @@ export default function BookingForm({ user }) {
                     {isChildPriceAvailable() ? (
                       `PKR ${calculateChildTotal().toLocaleString()}`
                     ) : formData.children ? (
-                      <span className="text-red-500 font-semibold">Price On Call</span>
+                      <span className="text-red-500 font-semibold">
+                        Price On Call
+                      </span>
                     ) : (
                       "-"
                     )}
@@ -1272,8 +1298,10 @@ export default function BookingForm({ user }) {
                   </td>
                   <td className="px-3 py-2 text-right text-xs font-bold">
                     {user?.priceOnCall ||
-                      ((parseInt(formData.children) || 0) > 0 && !isChildPriceAvailable()) ||
-                      ((parseInt(formData.infants) || 0) > 0 && !isInfantPriceAvailable()) ? (
+                    ((parseInt(formData.children) || 0) > 0 &&
+                      !isChildPriceAvailable()) ||
+                    ((parseInt(formData.infants) || 0) > 0 &&
+                      !isInfantPriceAvailable()) ? (
                       <span className="text-red-500 font-semibold">
                         Price on Call
                       </span>
@@ -1499,7 +1527,7 @@ export default function BookingForm({ user }) {
                               {pendingDocs[index] ? (
                                 // Local file preview (not yet uploaded)
                                 pendingDocs[index].type ===
-                                  "application/pdf" ? (
+                                "application/pdf" ? (
                                   <span className="text-[10px] text-amber-600 font-semibold border border-amber-300 bg-amber-50 px-1.5 py-0.5 rounded">
                                     PDF ready
                                   </span>
@@ -1514,8 +1542,8 @@ export default function BookingForm({ user }) {
                                   />
                                 )
                               ) : passenger.documentUrl.match(
-                                /\.(jpg|jpeg|png|webp)/i,
-                              ) ? (
+                                  /\.(jpg|jpeg|png|webp)/i,
+                                ) ? (
                                 <a
                                   href={passenger.documentUrl}
                                   target="_blank"
@@ -1774,10 +1802,11 @@ export default function BookingForm({ user }) {
                 type="button"
                 onClick={handleMrzParse}
                 disabled={!mrzInput.trim()}
-                className={`px-6 py-2 text-sm font-bold rounded-lg transition-all ${mrzInput.trim()
-                  ? "bg-[#3d6a8f] text-white hover:bg-[#2d5a8f] shadow-sm hover:shadow-md"
-                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                  }`}
+                className={`px-6 py-2 text-sm font-bold rounded-lg transition-all ${
+                  mrzInput.trim()
+                    ? "bg-[#3d6a8f] text-white hover:bg-[#2d5a8f] shadow-sm hover:shadow-md"
+                    : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                }`}
               >
                 Scan
               </button>
@@ -1817,8 +1846,14 @@ export default function BookingForm({ user }) {
             <div className="overflow-y-auto p-4 sm:p-6 flex-1">
               {bookingWithoutPassengers && (
                 <div className="mb-4 bg-amber-50 border border-amber-300 rounded-lg p-4 text-sm text-amber-800">
-                  <p className="font-semibold mb-1">⚠ Passenger details are incomplete</p>
-                  <p>The booking will be created with <strong>{totalPassengers}</strong> seat(s) reserved but <strong>no passenger information</strong>.</p>
+                  <p className="font-semibold mb-1">
+                    ⚠ Passenger details are incomplete
+                  </p>
+                  <p>
+                    The booking will be created with{" "}
+                    <strong>{totalPassengers}</strong> seat(s) reserved but{" "}
+                    <strong>no passenger information</strong>.
+                  </p>
                 </div>
               )}
               <div className="rounded-xl border border-gray-200 overflow-x-auto shadow-sm">
@@ -1972,10 +2007,11 @@ export default function BookingForm({ user }) {
                   onClick={handleFinalSubmit}
                   disabled={!isReviewed || isSubmitting}
                   className={`flex-1 sm:flex-none px-8 py-2.5 rounded-lg text-sm font-bold shadow-md flex items-center justify-center gap-2 transition-all transform active:scale-95
-                                        ${isReviewed && !isSubmitting
-                      ? "bg-[#3d6a8f] text-white hover:bg-[#2d5a8f] hover:shadow-lg"
-                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    }`}
+                                        ${
+                                          isReviewed && !isSubmitting
+                                            ? "bg-[#3d6a8f] text-white hover:bg-[#2d5a8f] hover:shadow-lg"
+                                            : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                        }`}
                 >
                   {isSubmitting ? <>Loading...</> : <>Submit</>}
                 </button>
