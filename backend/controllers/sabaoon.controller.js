@@ -42,7 +42,7 @@ const getSabaoonBookingEndpoint = () => {
     process.env.saboor_Booking_Path?.trim() ||
     process.env.sabbor_Booking_Path?.trim() ||
     process.env.SABAOON_BOOKING_PATH?.trim() ||
-    "/bookig";
+    "/booking";
 
   return path.startsWith("/") ? path : `/${path}`;
 };
@@ -349,7 +349,7 @@ const buildSabaoonBookingForm = ({
     form.append("pass_no[]", p.passport || "");
     form.append("dob[]", formatDate(p.dateOfBirth));
     form.append("doi[]", ""); // passport issue date not collected
-    form.append("doe[]", formatDate(p.passportExpiry));
+    form.append("doe[]", formatDate(p.passportExpiry));     
   }
 
   // Price arrays — one entry per passenger of that type.
