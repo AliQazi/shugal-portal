@@ -527,6 +527,7 @@ import {
   sendBookingNotificationEmail,
   sendBookingStatusChangeEmail,
 } from "../utils/emailService.js";
+import { bookGroupNCT, formatBookingForNCT } from "../utils/Group-Booking.js";
 
 const HOLD_DURATION = 2 * 60 * 60 * 1000;
 // -------------------------
@@ -537,7 +538,9 @@ const normalizeGroupId = (groupId) => groupId?.toString();
 const toIsoDate = (value) => {
   if (!value) return "";
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString().split("T")[0];
+  return Number.isNaN(parsed.getTime())
+    ? ""
+    : parsed.toISOString().split("T")[0];
 };
 const normalizeExternalSource = ({ source, groupId, groupPriceDetailId }) => {
   const normalizedRaw = String(source || "")
@@ -545,20 +548,34 @@ const normalizeExternalSource = ({ source, groupId, groupPriceDetailId }) => {
     .trim()
     .replace(/[\s_]+/g, "-");
 
-  if (["travel-network", "travelnetwork", "tn", "travel-net"].includes(normalizedRaw)) {
+  if (
+    ["travel-network", "travelnetwork", "tn", "travel-net"].includes(
+      normalizedRaw,
+    )
+  ) {
     return "travel-network";
   }
 
-  if (["al-haider", "alhaider", "al-haidar", "alhaidar"].includes(normalizedRaw)) {
+  if (
+    ["al-haider", "alhaider", "al-haidar", "alhaidar"].includes(normalizedRaw)
+  ) {
     return "al-haider";
   }
 
-  if (["sabaoon", "saboon", "saboor", "alsaboor", "al-saboor"].includes(normalizedRaw)) {
+  if (
+    ["sabaoon", "saboon", "saboor", "alsaboor", "al-saboor"].includes(
+      normalizedRaw,
+    )
+  ) {
     return "sabaoon";
   }
 
   if (!normalizedRaw) {
-    if (!isLocalGroup(groupId) && groupPriceDetailId !== undefined && groupPriceDetailId !== null) {
+    if (
+      !isLocalGroup(groupId) &&
+      groupPriceDetailId !== undefined &&
+      groupPriceDetailId !== null
+    ) {
       return "travel-network";
     }
 
@@ -570,20 +587,20 @@ const normalizeExternalSource = ({ source, groupId, groupPriceDetailId }) => {
 
 /**
  * Adjust seats for local groups (admin groups)
- * 
+ *
  * This function is atomic and thread-safe using MongoDB's $inc operator.
- * 
+ *
  * Positive seatChange: Releases seats (booking cancelled)
  * Negative seatChange: Deducts seats (booking created/on-hold)
- * 
+ *
  * @param {String} groupId - MongoDB ObjectId of the GroupTicketing
  * @param {Number} seatChange - Seats to add (+) or remove (-)
  * @param {Boolean} checkAvailability - If true, throws error if insufficient seats
- * 
+ *
  * @example
  * // Booking created with 2 passengers
  * await adjustSeatsIfLocalGroup(groupId, -2, true); // Check availability
- * 
+ *
  * // Booking cancelled
  * await adjustSeatsIfLocalGroup(groupId, 2); // Release 2 seats
  */
@@ -607,17 +624,16 @@ const adjustSeatsIfLocalGroup = async (
     throw new Error("Not enough seats available");
 
   // Log the seat adjustment
-  console.log(`[SEAT ADJUSTMENT] GroupID: ${groupId}, Change: ${seatChange}, Success: ${result.modifiedCount > 0}`);
+  console.log(
+    `[SEAT ADJUSTMENT] GroupID: ${groupId}, Change: ${seatChange}, Success: ${result.modifiedCount > 0}`,
+  );
 };
 
 const cleanupBookingMarginLedger = async ({ bookingId, bookingReference }) => {
   const { default: MarginLedger } = await import("../models/MarginLedger.js");
   const filter = {
     entryType: "booking_confirmed",
-    $or: [
-      { bookingId },
-      { bookingId: bookingId?.toString?.() },
-    ],
+    $or: [{ bookingId }, { bookingId: bookingId?.toString?.() }],
   };
 
   if (bookingReference) {
@@ -632,20 +648,20 @@ const cleanupBookingMarginLedger = async ({ bookingId, bookingReference }) => {
 // -------------------------
 /**
  * Creates a new booking with automatic seat deduction
- * 
+ *
  * Flow:
  * 1. Validate passenger count and pricing
  * 2. Deduct seats from GroupTicketing (throws if insufficient)
  * 3. Create booking with "on hold" status
  * 4. Set expiry timer (30 minutes)
  * 5. Seats are automatically released if booking expires or is cancelled
- * 
+ *
  * Seat Tracking:
  * - Only counts adults + children (infants don't occupy seats)
  * - Deducted immediately (GroupTicketing.totalSeats -= seats)
  * - Will be restored by cron job if booking expires
  * - Can be manually restored by cancellation
- * 
+ *
  * @returns {Object} Booking document with auto-generated reference
  */
 export const createBooking = async (req, res) => {
@@ -661,7 +677,7 @@ export const createBooking = async (req, res) => {
       sector,
       pnr,
       contactPersonName,
-      adultsCount,  
+      adultsCount,
       childrenCount,
       infantsCount,
       totalPassengers,
@@ -695,10 +711,11 @@ export const createBooking = async (req, res) => {
       groupPriceDetailId: resolvedGroupPriceDetailId,
     });
 
-    const isSabaoonGroup = bookingSource === "sabaoon" && !isLocalGroup(groupId);
+    const isSabaoonGroup =
+      bookingSource === "sabaoon" && !isLocalGroup(groupId);
     const isTravelNetworkGroup =
       bookingSource === "travel-network" && !isLocalGroup(groupId);
-
+    const isNCTGroup = bookingSource === "NCT";
     const pricingData = {
       ...pricing,
       discountAmount: Number(pricing?.discountAmount || 0),
@@ -761,7 +778,9 @@ export const createBooking = async (req, res) => {
           : null;
         booking.sabaoonBookingStatus = "success";
         await booking.save();
-        console.log(`Sabaoon booking created — transaction_id: ${transactionId}`);
+        console.log(
+          `Sabaoon booking created — transaction_id: ${transactionId}`,
+        );
       } catch (sabaoonErr) {
         console.error("Sabaoon booking API failed:", sabaoonErr.message);
         booking.sabaoonBookingStatus = "failed";
@@ -798,8 +817,12 @@ export const createBooking = async (req, res) => {
             doe: p.doe || p.passportExpiry || "",
           })),
         };
-        const alHaiderResp = await import("./al-haider.controller.js").then(m => m.createAlHaiderBooking(alHaiderBooking));
-        booking.alHaiderBookingStatus = alHaiderResp.success ? "success" : "failed";
+        const alHaiderResp = await import("./al-haider.controller.js").then(
+          (m) => m.createAlHaiderBooking(alHaiderBooking),
+        );
+        booking.alHaiderBookingStatus = alHaiderResp.success
+          ? "success"
+          : "failed";
         booking.alHaiderBookingResponse = alHaiderResp;
         await booking.save();
         console.log("Al-Haider booking created", alHaiderResp);
@@ -818,7 +841,9 @@ export const createBooking = async (req, res) => {
         const tnPayload = {
           group_id: Number.isNaN(Number(groupId)) ? groupId : Number(groupId),
           agency_info: {
-            group_id: Number.isNaN(agencyGroupId) ? process.env.id_travelnetwork?.trim() || "" : agencyGroupId,
+            group_id: Number.isNaN(agencyGroupId)
+              ? process.env.id_travelnetwork?.trim() || ""
+              : agencyGroupId,
             agent_name: process.env.name_travelnetwork?.trim() || "",
             agency_name: process.env.name_travelnetwork?.trim() || "",
             email: process.env.email_travelnetwork?.trim() || "",
@@ -842,7 +867,9 @@ export const createBooking = async (req, res) => {
               type: normalizedType,
               surname: p.surname || p.surName || "",
               given_name: p.given_name || p.givenName || "",
-              title: String(p.title || defaultTitleMap[normalizedType] || "MR").toUpperCase(),
+              title: String(
+                p.title || defaultTitleMap[normalizedType] || "MR",
+              ).toUpperCase(),
               passport_no: p.passport_no || p.passportNo || p.passport || "",
               dob: toIsoDate(p.dob || p.dateOfBirth),
               doe: toIsoDate(p.doe || p.passportExpiry),
@@ -864,6 +891,69 @@ export const createBooking = async (req, res) => {
       }
     }
 
+    // ─── Handle NCT (Group Booking adapter) third-party API call ───
+    if (isNCTGroup) {
+      try {
+        // Groups from this source are normalized as "nct_<productId>"
+        const productId = String(groupId).replace(/^nct_/, "");
+
+        const sealed =
+          req.body.sealed ?? req.body._groupBooking?.sealed ?? null;
+
+        const nctBookingData = formatBookingForNCT({
+          productId,
+          sealed,
+          agencyCode: process.env.GROUP_BOOKING_AGENCY_CODE,
+          agencyName: BOOKING_CONTACT.agencyName,
+          bookStatus: "ON_HOLD",
+          passengers: passengers.map((p) => ({
+            type: p.type,
+            title: p.title || "",
+            givenName: p.givenName || "",
+            surName: p.surName || p.surname || "",
+            passport: p.passport || "",
+            dateOfBirth: p.dateOfBirth || p.dob || "",
+            passportExpiry: p.passportExpiry || p.expiry || p.doe || "",
+            passportIssue: p.passportIssue || p.passportIssueDate || "",
+            nationality: p.nationality || "Pakistan",
+          })),
+          pricing,
+        });
+
+        const nctResponse = await bookGroupNCT(nctBookingData);
+        console.log(nctResponse);
+
+        if (nctResponse) {
+          const nctData = nctResponse.data || nctResponse;
+
+          booking.nctBookingId =
+            nctData?.bookingId || nctData?.id || nctData?.booking_id || null;
+
+          if (nctData?.pnr) {
+            booking.pnr = nctData.pnr;
+          }
+
+          booking.nctResponse = nctResponse;
+          booking.nctBookingStatus = "success";
+
+          await booking.save();
+          console.log("✅ NCT booking saved successfully");
+        }
+      } catch (nctError) {
+        console.error("❌ NCT API booking failed:", nctError.message);
+
+        booking.nctBookingStatus = "failed";
+        booking.nctErrorMessage = nctError.message;
+
+        if (nctError.groupBookingResponseData) {
+          booking.nctErrorDetails = nctError.groupBookingResponseData;
+        }
+
+        await booking.save();
+        console.log("⚠️ NCT booking marked as failed but local booking kept");
+      }
+    }
+
     try {
       await sendBookingNotificationEmail({
         bookingType: "Ticket",
@@ -871,7 +961,10 @@ export const createBooking = async (req, res) => {
         agent: req.user,
       });
     } catch (emailErr) {
-      console.error("sendBookingNotificationEmail failed:", emailErr?.message || emailErr);
+      console.error(
+        "sendBookingNotificationEmail failed:",
+        emailErr?.message || emailErr,
+      );
     }
 
     res.status(201).json({ success: true, data: booking });
@@ -1028,9 +1121,12 @@ export const updateBookingStatus = async (req, res) => {
 
     // Ensure margin ledger entry is refreshed when booking is confirmed
     if (status === "confirmed") {
-      const { recordBookingMarginLedger } = await import("./groupMargin.controller.js");
+      const { recordBookingMarginLedger } =
+        await import("./groupMargin.controller.js");
       const { default: Margin } = await import("../models/Margin.js");
-      const latestMargin = await Margin.findOne({}).sort({ createdAt: -1 }).lean();
+      const latestMargin = await Margin.findOne({})
+        .sort({ createdAt: -1 })
+        .lean();
       await recordBookingMarginLedger({ booking, globalMargin: latestMargin });
     }
 
@@ -1039,7 +1135,10 @@ export const updateBookingStatus = async (req, res) => {
         bookingId: booking._id,
         bookingReference: booking.bookingReference,
       }).catch((ledgerErr) => {
-        console.error("updateBookingStatus ledger cleanup failed:", ledgerErr?.message || ledgerErr);
+        console.error(
+          "updateBookingStatus ledger cleanup failed:",
+          ledgerErr?.message || ledgerErr,
+        );
       });
     }
 
@@ -1073,7 +1172,10 @@ export const updateBookingStatus = async (req, res) => {
           changedBy: req.user?.name || req.user?.email || "System",
         });
       } catch (emailErr) {
-        console.error("sendBookingStatusChangeEmail failed:", emailErr?.message || emailErr);
+        console.error(
+          "sendBookingStatusChangeEmail failed:",
+          emailErr?.message || emailErr,
+        );
       }
     }
 
@@ -1097,18 +1199,24 @@ export const updateBookingDiscount = async (req, res) => {
     const existingDiscount = Number(booking.pricing?.discountAmount || 0);
     const originalGrandTotal =
       Number(booking.pricing?.originalGrandTotal || 0) ||
-      (Number(booking.pricing?.grandTotal || 0) + existingDiscount);
+      Number(booking.pricing?.grandTotal || 0) + existingDiscount;
 
     booking.pricing.discountAmount = discountAmount;
     booking.pricing.originalGrandTotal = originalGrandTotal;
-    booking.pricing.grandTotal = Math.max(0, originalGrandTotal - discountAmount);
+    booking.pricing.grandTotal = Math.max(
+      0,
+      originalGrandTotal - discountAmount,
+    );
 
     await booking.save();
 
     if (booking.status === "confirmed") {
-      const { recordBookingMarginLedger } = await import("./groupMargin.controller.js");
+      const { recordBookingMarginLedger } =
+        await import("./groupMargin.controller.js");
       const { default: Margin } = await import("../models/Margin.js");
-      const latestMargin = await Margin.findOne({}).sort({ createdAt: -1 }).lean();
+      const latestMargin = await Margin.findOne({})
+        .sort({ createdAt: -1 })
+        .lean();
       await recordBookingMarginLedger({ booking, globalMargin: latestMargin });
     }
 
@@ -1182,7 +1290,10 @@ export const cancelBooking = async (req, res) => {
       bookingId: booking._id,
       bookingReference: booking.bookingReference,
     }).catch((ledgerErr) => {
-      console.error("cancelBooking ledger cleanup failed:", ledgerErr?.message || ledgerErr);
+      console.error(
+        "cancelBooking ledger cleanup failed:",
+        ledgerErr?.message || ledgerErr,
+      );
     });
 
     try {
@@ -1195,7 +1306,10 @@ export const cancelBooking = async (req, res) => {
         changedBy: req.user?.name || req.user?.email || "System",
       });
     } catch (emailErr) {
-      console.error("sendBookingStatusChangeEmail failed:", emailErr?.message || emailErr);
+      console.error(
+        "sendBookingStatusChangeEmail failed:",
+        emailErr?.message || emailErr,
+      );
     }
 
     res.json({ success: true, message: "Booking cancelled", data: booking });
@@ -1222,7 +1336,10 @@ export const deleteBooking = async (req, res) => {
       bookingId: booking._id,
       bookingReference: booking.bookingReference,
     }).catch((ledgerErr) => {
-      console.error("deleteBooking ledger cleanup failed:", ledgerErr?.message || ledgerErr);
+      console.error(
+        "deleteBooking ledger cleanup failed:",
+        ledgerErr?.message || ledgerErr,
+      );
     });
 
     res.json({ success: true, message: "Booking deleted" });

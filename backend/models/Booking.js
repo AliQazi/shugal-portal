@@ -228,6 +228,28 @@ const bookingSchema = new mongoose.Schema(
       enum: ["pending", "success", "failed", "not_applicable"],
       default: "pending",
     },
+    // NCT specific fields
+    nctBookingId: {
+      type: String,
+      default: null,
+    },
+    nctBookingStatus: {
+      type: String,
+      enum: ["pending", "success", "failed", "not_applicable"],
+      default: "not_applicable",
+    },
+    nctErrorMessage: {
+      type: String,
+      default: null,
+    },
+    nctErrorDetails: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    nctResponse: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -247,7 +269,7 @@ bookingSchema.pre("save", async function () {
   const counter = await BookingCounter.findOneAndUpdate(
     { date: dateString },
     { $inc: { seq: 1 } },
-    { new: true, upsert: true },   
+    { new: true, upsert: true },
   );
 
   const sequence = String(counter.seq).padStart(4, "0");

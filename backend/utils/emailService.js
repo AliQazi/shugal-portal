@@ -594,7 +594,7 @@ const getBookingNotificationHTML = ({
           </div>
           <div class="content">
             <div class="row"><span class="label">Reference</span><div class="value">${bookingReference || bookingNumber || groupId || "N/A"}</div></div>
-            <div class="row"><span class="label">PNR / Package</span><div class="value">${pnr || packageName || "N/A"}</div></div>
+            <div class="row"><span class="label">PNR / Package</span><div class="value">${packageName || "N/A"}</div></div>
             <div class="row"><span class="label">Sector / Source</span><div class="value">${sector || source || "N/A"}</div></div>
             <div class="row"><span class="label">Status</span><div class="value">${status || "N/A"}</div></div>
             <div class="row"><span class="label">Passengers</span><div class="value">${totalPassengers || 0}</div></div>
@@ -718,12 +718,14 @@ export const sendBookingStatusChangeEmail = async ({
       throw new Error("No booking status email recipients are configured");
     }
 
-    const reference = booking.bookingReference || booking.bookingNumber || booking._id;
+    const reference =
+      booking.bookingReference || booking.bookingNumber || booking._id;
     const totalPassengers =
       (booking.adultsCount || 0) +
       (booking.childrenCount || 0) +
       (booking.infantsCount || 0);
-    const totalAmount = booking.pricing?.grandTotal || booking.pricing?.totalAmount || 0;
+    const totalAmount =
+      booking.pricing?.grandTotal || booking.pricing?.totalAmount || 0;
 
     const mailOptions = {
       from: {
@@ -770,7 +772,10 @@ Changed At: ${new Date().toISOString()}
     console.log("✅ Booking status change email sent:", info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("❌ Error sending booking status change email:", error.message);
+    console.error(
+      "❌ Error sending booking status change email:",
+      error.message,
+    );
     throw error;
   }
 };

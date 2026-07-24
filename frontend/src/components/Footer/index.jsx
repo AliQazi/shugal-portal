@@ -15,7 +15,7 @@ export default function Footer({ user }) {
   return (
     <>
       {/* TOP CTA */}
-      {!user?._id &&
+      {!user?._id && (
         <div
           className="py-24 px-4" // height barhane ke liye py-24 rakha
           style={{
@@ -32,7 +32,7 @@ export default function Footer({ user }) {
                   src="https://ex-coders.com/html/turmet/assets/img/plane-shape.png"
                   alt=""
                   style={{
-                    height: "150px", 
+                    height: "150px",
                   }}
                   srcset=""
                 />
@@ -80,7 +80,7 @@ export default function Footer({ user }) {
             </div>
           </div>
         </div>
-      }
+      )}
 
       {/* MAIN FOOTER */}
       <footer
@@ -97,7 +97,11 @@ export default function Footer({ user }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Logo */}
             <div>
-              <img src={logo} alt="logo" className="w-34 mb-4 p-2 bg-white rounded-2xl" />
+              <img
+                src={logo}
+                alt="logo"
+                className="w-34 mb-4 p-2 bg-white rounded-2xl"
+              />
               <h2
                 className="text-lg font-semibold"
                 style={{ color: theme.colors.sidebarTextLight }}
@@ -123,7 +127,7 @@ export default function Footer({ user }) {
               </h3>
 
               <div className="flex flex-col gap-3">
-                {["Home", "About", "Packages", "Contact"].map((item) => (
+                {["Home", "About", "Packages", "Contact"].map((item) =>
                   item === "Contact" ? (
                     <a
                       key={item}
@@ -144,8 +148,8 @@ export default function Footer({ user }) {
                     >
                       {item}
                     </button>
-                  )
-                ))}
+                  ),
+                )}
               </div>
             </div>
           </div>
@@ -199,7 +203,7 @@ export default function Footer({ user }) {
                   className="flex items-center gap-3 hover:translate-x-1 transition"
                   style={{ color: theme.colors.sidebarText }}
                 >
-                  <FaPhoneAlt /> 0307-99655120
+                  <FaPhoneAlt /> 0307-9965120
                 </a>
 
                 <a
@@ -244,13 +248,10 @@ export default function Footer({ user }) {
             href="https://shaheenwingstravels.com/"
             style={{ color: theme.colors.sidebarText }}
           >
-            &copy; {dayjs().year()} Shaheen Wings Travels 
+            &copy; {dayjs().year()} Shaheen Wings Travels
           </a>
 
-          <a
-            className="text-sm"
-            style={{ color: theme.colors.sidebarText }}
-          >
+          <a className="text-sm" style={{ color: theme.colors.sidebarText }}>
             Designed & Developed by Nexagen Solution
           </a>
         </div>

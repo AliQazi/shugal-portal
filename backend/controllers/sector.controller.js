@@ -8,6 +8,7 @@ import { fetchNormalisedAlHaiderGroups } from "./al-haider.controller.js";
 import { fetchNormalisedTravelNetworkGroups } from "./travel-network.controller.js";
 import { fetchNormalisedAbidAirGroups } from "./abidair.controller.js";
 import { fetchNormalisedSabaoonGroups } from "./sabaoon.controller.js";
+import { getGroupBookingProducts } from "../utils/Group-Booking.js";
 
 const normalizeSector = (sector) => {
   if (!sector) return null;
@@ -276,8 +277,78 @@ const makeGroupKey = (g) => {
 //     .trim();
 // };
 
-export const getUnifiedGroups = async (req, res) => {
+const normalizeGroupBookingProducts = (rawList) => {
+  return (rawList || []).map((item) => {
+    const adtPricing = item.pricingList?.find((p) => p.paxType === "ADT");
+    const chdPricing = item.pricingList?.find((p) => p.paxType === "CHD");
+    const infPricing = item.pricingList?.find((p) => p.paxType === "INF");
 
+    const segments = item.flightSegmentList || [];
+    const details = segments.map((seg, idx) => ({
+      sr: idx + 1,
+      flight_no: seg.flightNumber || "",
+      dep_date: seg.departureDate || item.departureDate || "",
+      dept_time: seg.departureTime || "",
+      origin: (seg.origin || "").trim(),
+      destination: (seg.destination || "").trim(),
+      arv_date: seg.arrivalDate || "",
+      arv_time: seg.arrivalTime || "",
+      baggage: seg.baggage || "",
+      meal: seg.meals || "",
+      bookedSeats: 0,
+    }));
+
+    return {
+      id: `nct_${item.id}`,
+      source: "NCT",
+      isOwnGroup: false,
+
+      sector: (item.route || "").trim(),
+      sectorKey: (item.route || "").trim(),
+      type: item.tripType || "",
+
+      available_no_of_pax: parseInt(item.availableSeats) || 0,
+      showSeat: true,
+      _totalOriginalSeats: parseInt(item.openForSale) || 0,
+      _onHoldSeats: 0,
+      _activeBookings: 0,
+
+      price: adtPricing?.sellingPrice || 0,
+      childPrice: chdPricing?.sellingPrice || 0,
+      infantPrice: infPricing?.sellingPrice || 0,
+
+      pnr: item.pnr || "",
+
+      dept_date: item.departureDate || null,
+      arv_date: item.returnDate || null,
+
+      details,
+
+      airline: {
+        id: null,
+        airline_name: item.airline || "",
+        short_name: item.airline || "",
+        logo_url: null,
+      },
+
+      user: null,
+      bookedSeats: 0,
+
+      // Raw provider fields needed for the upcoming booking step
+      _groupBooking: {
+        productId: item.id,
+        sealed: item.sealed,
+        pricingList: item.pricingList,
+        maxChildSeats: item.maxChildSeats,
+        maxInfSeats: item.maxInfSeats,
+        remarks: item.remarks,
+        status: item.status,
+      },
+    };
+  });
+};
+
+export const getUnifiedGroups = async (req, res) => {
   try {
     /* ===============================
        1️⃣ Fetch Admin Groups
@@ -303,8 +374,11 @@ export const getUnifiedGroups = async (req, res) => {
     });
 
     /* 5️⃣ Fetch bookings for all admin groups (include cancelled for reference) */
-    const groupIds = adminGroups.map(g => g._id.toString());
-    const bookings = await Booking.find({ groupId: { $in: groupIds }, status: { $in: ["on hold", "confirmed"] } }).lean();
+    const groupIds = adminGroups.map((g) => g._id.toString());
+    const bookings = await Booking.find({
+      groupId: { $in: groupIds },
+      status: { $in: ["on hold", "confirmed"] },
+    }).lean();
 
     // Build a map: groupId -> total on-hold/confirmed passengers for the entire group
     const totalHeldSeatsMap = {};
@@ -330,55 +404,67 @@ export const getUnifiedGroups = async (req, res) => {
       if (Array.isArray(booking.flights)) {
         for (const flight of booking.flights) {
           const flightNo = flight.flightNo;
-          const depDate = (flight.depDate || flight.flightDate);
+          const depDate = flight.depDate || flight.flightDate;
           if (!flightNo || !depDate) continue;
-          const depDateStr = new Date(depDate).toISOString().split('T')[0];
-          const key = flightNo + '|' + depDateStr;
-          bookedMap[gid][key] = (bookedMap[gid][key] || 0) + (booking.adultsCount + booking.childrenCount || 0);
+          const depDateStr = new Date(depDate).toISOString().split("T")[0];
+          const key = flightNo + "|" + depDateStr;
+          bookedMap[gid][key] =
+            (bookedMap[gid][key] || 0) +
+            (booking.adultsCount + booking.childrenCount || 0);
         }
       }
     }
 
-    console.log(`[GET UNIFIED GROUPS] Fetched ${adminGroups.length} admin groups, ${bookings.length} active bookings`);
+    console.log(
+      `[GET UNIFIED GROUPS] Fetched ${adminGroups.length} admin groups, ${bookings.length} active bookings`,
+    );
     for (const [gid, seats] of Object.entries(totalHeldSeatsMap)) {
-      console.log(`  GroupID: ${gid}, On-Hold Seats: ${seats}, Bookings: ${bookingCountMap[gid]}`);
+      console.log(
+        `  GroupID: ${gid}, On-Hold Seats: ${seats}, Bookings: ${bookingCountMap[gid]}`,
+      );
     }
 
     /* 4️⃣ Transform Admin Groups → Unified (with bookedSeats per flight) */
     const transformedAdmin = adminGroups.map((g) => {
       const airline = airlines.find((a) => a.airlineName === g.airline);
       const gidString = g._id.toString();
-      
+
       // Prepare details with bookedSeats per flight
-      const details = g.flights?.map((f, i) => {
-        const flightNo = f.flightNo;
-        const depDate = f.depDate;
-        const depDateStr = depDate ? new Date(depDate).toISOString().split('T')[0] : '';
-        const key = flightNo + '|' + depDateStr;
-        const bookedSeats = bookedMap[gidString]?.[key] || 0;
-        return {
-          sr: i + 1,
-          flight_no: flightNo,
-          dep_date: depDate,
-          dept_time: f.depTime,
-          origin: f.sectorFrom,
-          destination: f.sectorTo,
-          arv_date: f.arrDate,
-          arv_time: f.arrTime,
-          baggage: f.baggage,
-          meal: f.meal,
-          bookedSeats,
-        };
-      }) || [];
+      const details =
+        g.flights?.map((f, i) => {
+          const flightNo = f.flightNo;
+          const depDate = f.depDate;
+          const depDateStr = depDate
+            ? new Date(depDate).toISOString().split("T")[0]
+            : "";
+          const key = flightNo + "|" + depDateStr;
+          const bookedSeats = bookedMap[gidString]?.[key] || 0;
+          return {
+            sr: i + 1,
+            flight_no: flightNo,
+            dep_date: depDate,
+            dept_time: f.depTime,
+            origin: f.sectorFrom,
+            destination: f.sectorTo,
+            arv_date: f.arrDate,
+            arv_time: f.arrTime,
+            baggage: f.baggage,
+            meal: f.meal,
+            bookedSeats,
+          };
+        }) || [];
 
       // For backward compatibility, sum all bookedSeats for this group (all flights)
-      const totalBooked = details.reduce((sum, d) => sum + (d.bookedSeats || 0), 0);
+      const totalBooked = details.reduce(
+        (sum, d) => sum + (d.bookedSeats || 0),
+        0,
+      );
 
       // ⭐ Key: totalSeats is ALREADY deducted in DB when booking is on hold
       // So available_no_of_pax = g.totalSeats (remaining after all on-hold/confirmed bookings)
       const availableSeats = g.totalSeats;
       const totalOnHoldSeats = totalHeldSeatsMap[gidString] || 0;
-      
+
       // Original seats can be calculated if needed
       const originalSeats = availableSeats + totalOnHoldSeats;
 
@@ -552,38 +638,41 @@ export const getUnifiedGroups = async (req, res) => {
     let abidAirGroups = [];
     let sabaoonGroups = [];
 
-    const [ahResult, tnResult, abidResult, sabaoonResult] = await Promise.allSettled([
-      fetchNormalisedAlHaiderGroups(),
-      fetchNormalisedTravelNetworkGroups(),
-      fetchNormalisedAbidAirGroups(),
-      fetchNormalisedSabaoonGroups(),
-    ]);
+    const [ahResult, tnResult, abidResult, sabaoonResult] =
+      await Promise.allSettled([
+        fetchNormalisedAlHaiderGroups(),
+        fetchNormalisedTravelNetworkGroups(),
+        fetchNormalisedAbidAirGroups(),
+        fetchNormalisedSabaoonGroups(),
+      ]);
 
     if (ahResult.status === "fulfilled") {
       const airlineShortMap = {};
       for (const a of airlines) {
-        if (a.airlineName) airlineShortMap[a.airlineName.trim()] = a.shortCode || null;
+        if (a.airlineName)
+          airlineShortMap[a.airlineName.trim()] = a.shortCode || null;
       }
 
       alHaiderGroups = ahResult.value.map((g) => {
-          const airlineName = g.airline?.airline_name || "";
-          return {
-            ...g,
-            source: "al-haider",
-            isOwnGroup: false,
-            airline: g.airline
-              ? {
-                  ...g.airline,
-                  short_name:
-                    airlineShortMap[airlineName] ||
-                    g.airline.short_name ||
-                    null,
-                }
-              : g.airline,
-          };
-        });
+        const airlineName = g.airline?.airline_name || "";
+        return {
+          ...g,
+          source: "al-haider",
+          isOwnGroup: false,
+          airline: g.airline
+            ? {
+                ...g.airline,
+                short_name:
+                  airlineShortMap[airlineName] || g.airline.short_name || null,
+              }
+            : g.airline,
+        };
+      });
     } else {
-      console.error("Al-Haider fetch for unified groups failed:", ahResult.reason?.message);
+      console.error(
+        "Al-Haider fetch for unified groups failed:",
+        ahResult.reason?.message,
+      );
     }
 
     if (tnResult.status === "fulfilled") {
@@ -593,7 +682,10 @@ export const getUnifiedGroups = async (req, res) => {
         isOwnGroup: false,
       }));
     } else {
-      console.error("Travel Network fetch for unified groups failed:", tnResult.reason?.message);
+      console.error(
+        "Travel Network fetch for unified groups failed:",
+        tnResult.reason?.message,
+      );
     }
 
     if (abidResult.status === "fulfilled") {
@@ -603,7 +695,10 @@ export const getUnifiedGroups = async (req, res) => {
         isOwnGroup: false,
       }));
     } else {
-      console.error("AbidAir fetch for unified groups failed:", abidResult.reason?.message);
+      console.error(
+        "AbidAir fetch for unified groups failed:",
+        abidResult.reason?.message,
+      );
     }
 
     if (sabaoonResult.status === "fulfilled") {
@@ -613,14 +708,39 @@ export const getUnifiedGroups = async (req, res) => {
         isOwnGroup: false,
       }));
     } else {
-      console.error("Sabaoon fetch for unified groups failed:", sabaoonResult.reason?.message);
+      console.error(
+        "Sabaoon fetch for unified groups failed:",
+        sabaoonResult.reason?.message,
+      );
+    }
+
+    /* ===============================
+       🆕 Fetch Group Booking (nct-groupbooking-adapter) Products
+    =============================== */
+    let groupBookingGroups = [];
+    try {
+      const rawGroupBooking = await getGroupBookingProducts();
+      groupBookingGroups = normalizeGroupBookingProducts(rawGroupBooking);
+    } catch (groupBookingErr) {
+      console.error("Group Booking fetch failed:", groupBookingErr.message);
+      // Non-fatal - continue with other groups
     }
 
     /* ===============================
        1️⃣2️⃣ Response
     =============================== */
-    const adminGroupsData = cacheDoc.data.map((g) => ({ ...g, isOwnGroup: true }));
-    const combinedData = [...adminGroupsData, ...alHaiderGroups, ...travelNetworkGroups, ...abidAirGroups, ...sabaoonGroups];
+    const adminGroupsData = cacheDoc.data.map((g) => ({
+      ...g,
+      isOwnGroup: true,
+    }));
+    const combinedData = [
+      ...adminGroupsData,
+      ...alHaiderGroups,
+      ...travelNetworkGroups,
+      ...abidAirGroups,
+      ...sabaoonGroups,
+      ...groupBookingGroups,
+    ];
 
     // Apply sector order to the full combined dataset (admin + al-haider + travel-network + abidair)
     // Primary: sector order from admin config; Secondary: departure date ascending
@@ -654,7 +774,11 @@ export const applyMargin = async (req, res) => {
     const { value, type } = req.body;
 
     // Validate inputs
-    if (!value && value !== 0 || !type || !["percent", "amount"].includes(type)) {
+    if (
+      (!value && value !== 0) ||
+      !type ||
+      !["percent", "amount"].includes(type)
+    ) {
       return res.status(400).json({
         success: false,
         message: "Invalid input. Provide value and type (percent or amount)",
