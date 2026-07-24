@@ -594,7 +594,7 @@ const getBookingNotificationHTML = ({
           </div>
           <div class="content">
             <div class="row"><span class="label">Reference</span><div class="value">${bookingReference || bookingNumber || groupId || "N/A"}</div></div>
-            <div class="row"><span class="label">PNR / Package</span><div class="value">${packageName || "N/A"}</div></div>
+            <div class="row"><span class="label">Package</span><div class="value">${packageName || "N/A"}</div></div>
             <div class="row"><span class="label">Sector / Source</span><div class="value">${sector || source || "N/A"}</div></div>
             <div class="row"><span class="label">Status</span><div class="value">${status || "N/A"}</div></div>
             <div class="row"><span class="label">Passengers</span><div class="value">${totalPassengers || 0}</div></div>
