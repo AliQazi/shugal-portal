@@ -21,6 +21,24 @@ const getAbidAirToken = () => {
   return token;
 };
 
+const getAbidAirClientConfig = () => {
+  const baseURL = getAbidAirBaseURL();
+  const token = getAbidAirToken();
+
+  if (!baseURL) {
+    throw new Error("AbidAir base URL is not configured");
+  }
+
+  return {
+    baseURL: baseURL.replace(/\/+$/, ""),
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+  };
+};
+
 export const getAbidAirTypeFilters = (category) => {
   const key = String(category || "all").toLowerCase().trim();
 
@@ -190,6 +208,11 @@ const normalizeAbidAirGroup = (group) => {
     id,
     packageId: id,
     source: "abidairtravel",
+    abidAirBookingType:
+      group?._abidAirBookingType ||
+      (group?.rates || payload?.rates || group?.hotels || payload?.hotels
+        ? "package"
+        : "flight"),
     isOwnGroup: false,
 
     groupName: String(group?.package_name || payload?.package_name || fd?.type || group?.groupName || "") || null,
@@ -239,14 +262,7 @@ const normalizeAbidAirGroup = (group) => {
 };
 
 export const fetchNormalisedAbidAirGroups = async () => {
-  const baseURL = getAbidAirBaseURL();
-  const token = getAbidAirToken();
-
-  if (!baseURL) {
-    throw new Error("AbidAir base URL is not configured");
-  }
-
-  const cleanBaseURL = baseURL.replace(/\/+$/, "");
+  const { baseURL: cleanBaseURL, headers } = getAbidAirClientConfig();
   const candidates = [`${cleanBaseURL}/flight/active`, `${cleanBaseURL}/packages/active`];
   if (!/\/api$/i.test(cleanBaseURL)) {
     candidates.push(`${cleanBaseURL}/api/packages/active`);
@@ -258,15 +274,11 @@ export const fetchNormalisedAbidAirGroups = async () => {
   await Promise.allSettled(
     candidates.map((url) =>
       axios.get(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
+        headers,
       })
     )
   ).then((results) => {
-    results.forEach((result) => {
+    results.forEach((result, index) => {
       if (result.status === "fulfilled") {
         const response = result.value;
         const resultData = response.data;
@@ -279,7 +291,15 @@ export const fetchNormalisedAbidAirGroups = async () => {
           resultData?.items || [];
 
         if (Array.isArray(rawGroups) && rawGroups.length > 0) {
-          rawGroupArrays.push(...rawGroups);
+          const bookingType = candidates[index].includes("/packages/")
+            ? "package"
+            : "flight";
+          rawGroupArrays.push(
+            ...rawGroups.map((group) => ({
+              ...group,
+              _abidAirBookingType: bookingType,
+            })),
+          );
         }
       } else {
         lastError = result.reason || lastError;
@@ -304,6 +324,28 @@ export const fetchNormalisedAbidAirGroups = async () => {
 
   return uniqueGroups;
 };
+export const createAbidAirFlightBooking = async (flightId, bookingData) => {
+  const { baseURL, headers } = getAbidAirClientConfig();
+  const response = await axios.post(
+    `${baseURL}/flight/${flightId}/booking`,
+    bookingData,
+    { headers },
+  );
+
+  return response.data;
+};
+
+export const createAbidAirPackageBooking = async (bookingData) => {
+  const { baseURL, headers } = getAbidAirClientConfig();
+  const response = await axios.post(
+    `${baseURL}/packagebooking/create`,
+    bookingData,
+    { headers },
+  );
+
+  return response.data;
+};
+
 export const getAvailableAbidAirBookingsByGroup = async (req, res) => {
   try {
     const groups = await fetchNormalisedAbidAirGroups();

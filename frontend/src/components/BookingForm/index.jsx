@@ -797,6 +797,7 @@ export default function BookingForm({ user }) {
       const bookingData = {
         groupId: groupData.id,
         source: groupData.source || "admin",
+        abidAirBookingType: groupData.abidAirBookingType,
         group_price_detail_id:
           groupData.group_price_detail_id ||
           groupData.groupPriceDetailId ||

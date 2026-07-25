@@ -519,6 +519,9 @@ export default function AllBookings() {
     const [initialLoading, setInitialLoading] = useState(true)
     const [fetching, setFetching] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
+    const [currentPage, setCurrentPage] = useState(1)
+    const [totalPages, setTotalPages] = useState(1)
+    const [totalBookings, setTotalBookings] = useState(0)
     const [filters, setFilters] = useState<Filters>({
         sector: '',
         airline: '',
@@ -597,7 +600,7 @@ export default function AllBookings() {
 
     useEffect(() => {
         fetchBookings()
-    }, [filters, activeStatus, searchQuery])
+    }, [filters, activeStatus, searchQuery, currentPage])
 
     useEffect(() => {
         // Extract unique sectors and airlines from bookings
@@ -611,6 +614,8 @@ export default function AllBookings() {
         try {
             setFetching(true)
             const params = new URLSearchParams({
+                page: String(currentPage),
+                limit: '10',
                 ...(activeStatus && { status: activeStatus }),
                 ...(filters.sector && { sector: filters.sector }),
                 ...(filters.airline && { airline: filters.airline }),
@@ -624,6 +629,8 @@ export default function AllBookings() {
 
             if (response.data.success) {
                 setBookings(response.data.data)
+                setTotalPages(response.data.pagination?.totalPages || 1)
+                setTotalBookings(response.data.pagination?.totalBookings || response.data.data.length)
             }
         } catch (err) {
             console.error('Error fetching bookings:', err)
@@ -637,11 +644,13 @@ export default function AllBookings() {
         filterName: K,
         value: Filters[K]
     ) => {
+        setCurrentPage(1)
         setFilters(prev => ({ ...prev, [filterName]: value }))
     }
 
 
     const resetFilters = () => {
+        setCurrentPage(1)
         setSearchQuery('')
         setFilters({
             sector: '',
@@ -695,7 +704,10 @@ export default function AllBookings() {
                         <input
                             type="text"
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onChange={(e) => {
+                                setCurrentPage(1)
+                                setSearchQuery(e.target.value)
+                            }}
                             placeholder="Search by reference, PNR, or customer name..."
                             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
@@ -706,6 +718,7 @@ export default function AllBookings() {
                             value={activeStatus}
                             onChange={(e) => {
                                 const val = e.target.value;
+                                setCurrentPage(1);
                                 navigate(val ? `/all-bookings?status=${encodeURIComponent(val)}` : '/all-bookings');
                             }}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -786,6 +799,43 @@ export default function AllBookings() {
                         setBookings={setBookings}
                     />
                 </div>
+                {totalPages > 1 && (
+                    <div className="flex flex-col gap-3 border-t border-gray-200 bg-gray-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="text-sm text-gray-600">
+                            Page {currentPage} of {totalPages} ({totalBookings} bookings)
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1 || fetching}
+                                className="px-3 py-1.5 rounded border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                            >
+                                Prev
+                            </button>
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                                <button
+                                    key={page}
+                                    onClick={() => setCurrentPage(page)}
+                                    disabled={fetching}
+                                    className={`px-3 py-1.5 rounded border text-sm ${
+                                        currentPage === page
+                                            ? 'border-blue-600 bg-blue-600 text-white'
+                                            : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100'
+                                    } disabled:opacity-50`}
+                                >
+                                    {page}
+                                </button>
+                            ))}
+                            <button
+                                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages || fetching}
+                                className="px-3 py-1.5 rounded border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     )

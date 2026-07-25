@@ -217,6 +217,11 @@ const bookingSchema = new mongoose.Schema(
       default: null,
       index: true, // helps cron/queries
     },
+    source: {
+      type: String,
+      default: "admin",
+      index: true,
+    },
 
     // Sabaoon API
     sabaoonTransactionId: {
@@ -248,6 +253,28 @@ const bookingSchema = new mongoose.Schema(
     },
     nctResponse: {
       type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    abidAirBookingId: {
+      type: String,
+      default: null,
+    },
+    abidAirTicketId: {
+      type: String,
+      default: null,
+    },
+    abidAirBookingStatus: {
+      type: String,
+      enum: ["pending", "success", "failed", "not_applicable"],
+      default: "not_applicable",
+    },
+    abidAirBookingResponse: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    abidAirBookingType: {
+      type: String,
+      enum: ["flight", "package", null],
       default: null,
     },
   },

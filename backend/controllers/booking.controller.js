@@ -524,6 +524,10 @@ import { deductSeatsFromCache } from "../utils/cacheHelpers.js";
 import { createSabaoonBooking } from "./sabaoon.controller.js";
 import { createTravelNetworkBooking } from "./travel-network.controller.js";
 import {
+  createAbidAirFlightBooking,
+  createAbidAirPackageBooking,
+} from "./abidair.controller.js";
+import {
   sendBookingNotificationEmail,
   sendBookingStatusChangeEmail,
 } from "../utils/emailService.js";
@@ -570,6 +574,19 @@ const normalizeExternalSource = ({ source, groupId, groupPriceDetailId }) => {
     return "sabaoon";
   }
 
+  if (
+    [
+      "abidair",
+      "abid-air",
+      "abidairtravel",
+      "abid-air-travel",
+      "abidairtravels",
+      "abid-air-travels",
+    ].includes(normalizedRaw)
+  ) {
+    return "abidairtravel";
+  }
+
   if (!normalizedRaw) {
     if (
       !isLocalGroup(groupId) &&
@@ -583,6 +600,156 @@ const normalizeExternalSource = ({ source, groupId, groupPriceDetailId }) => {
   }
 
   return normalizedRaw;
+};
+
+const toProviderPassenger = (passenger, fallbackType = "Adult") => {
+  const type = String(passenger?.type || fallbackType);
+  const normalizedType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+  const titleFallback = normalizedType === "Infant" ? "MSTR" : "MR";
+
+  return {
+    title: String(passenger?.title || titleFallback).toUpperCase(),
+    surname: passenger?.surname || passenger?.surName || "",
+    givenname:
+      passenger?.givenname || passenger?.given_name || passenger?.givenName || "",
+    passport:
+      passenger?.passport || passenger?.passport_no || passenger?.passportNo || "",
+    dob: toIsoDate(passenger?.dob || passenger?.dateOfBirth),
+    doe: toIsoDate(passenger?.doe || passenger?.passportExpiry),
+    nationality: passenger?.nationality || "Pakistan",
+    type: normalizedType,
+  };
+};
+
+const toAbidAirPersonType = (type) => {
+  const normalizedType = String(type || "").toLowerCase();
+  if (normalizedType.startsWith("child")) return "C";
+  if (normalizedType.startsWith("infant")) return "I";
+  if (normalizedType.includes("without")) return "WB";
+  return "A";
+};
+
+const shouldBookAbidAirPackage = (reqBody) => {
+  const explicitType = String(
+    reqBody.abidAirBookingType ||
+      reqBody.providerBookingType ||
+      reqBody.bookingType ||
+      "",
+  )
+    .toLowerCase()
+    .trim();
+
+  if (["package", "packagebooking", "package-booking"].includes(explicitType)) {
+    return true;
+  }
+
+  if (["flight", "ticket", "flight-booking"].includes(explicitType)) {
+    return false;
+  }
+
+  return Boolean(
+    reqBody.package_id ||
+      reqBody.packageId ||
+      reqBody.packageData ||
+      reqBody.sharing ||
+      reqBody.selectedRoom ||
+      reqBody.agentremarks ||
+      reqBody.agentRemarks,
+  );
+};
+
+const getPackagePassengerAmount = ({ passenger, pricing, index }) => {
+  const type = String(passenger?.type || "Adult").toLowerCase();
+  if (passenger?.package_book_amount !== undefined) {
+    return Number(passenger.package_book_amount) || 0;
+  }
+
+  if (type.startsWith("child")) {
+    return Number(pricing?.childBasePrice || pricing?.childPrice || 0);
+  }
+
+  if (type.startsWith("infant")) {
+    return Number(pricing?.infantBasePrice || pricing?.infantPrice || 0);
+  }
+
+  if (Array.isArray(pricing?.packageBookAmounts)) {
+    return Number(pricing.packageBookAmounts[index] || 0);
+  }
+
+  return Number(pricing?.adultBasePrice || pricing?.adultPrice || 0);
+};
+
+const buildAbidAirBookingRequest = ({
+  reqBody,
+  groupId,
+  adultsCount,
+  childrenCount,
+  infantsCount,
+  passengers,
+  pricing,
+}) => {
+  const isPackageBooking = shouldBookAbidAirPackage(reqBody);
+  const providerPassengers = passengers.map((passenger) =>
+    toProviderPassenger(passenger),
+  );
+
+  if (!isPackageBooking) {
+    return {
+      type: "flight",
+      payload: {
+        adults: Number(adultsCount) || 0,
+        childs: Number(childrenCount) || 0,
+        infants: Number(infantsCount) || 0,
+        passengers: providerPassengers.map(
+          ({ title, surname, givenname, passport, dob, doe, nationality }) => ({
+            title,
+            surname,
+            givenname,
+            passport,
+            dob,
+            doe,
+            nationality,
+          }),
+        ),
+      },
+    };
+  }
+
+  const packageId = reqBody.package_id || reqBody.packageId || groupId;
+  const sharing =
+    reqBody.sharing ||
+    reqBody.packageData?.sharing ||
+    reqBody.packageData?.selectedRoom ||
+    reqBody.selectedRoom ||
+    reqBody.roomType ||
+    2;
+
+  return {
+    type: "package",
+    payload: {
+      package_id: Number.isNaN(Number(packageId)) ? packageId : Number(packageId),
+      sharing: Number.isNaN(Number(sharing)) ? sharing : Number(sharing),
+      agentremarks:
+        reqBody.agentremarks ||
+        reqBody.agentRemarks ||
+        reqBody.notes ||
+        `Booking ${reqBody.bookingReference || ""}`.trim(),
+      passengers: providerPassengers.map((passenger, index) => ({
+        surname: passenger.surname,
+        givenname: passenger.givenname,
+        title: passenger.title,
+        passport: passenger.passport,
+        dob: passenger.dob,
+        doe: passenger.doe,
+        person_type: toAbidAirPersonType(passenger.type),
+        package_book_amount: getPackagePassengerAmount({
+          passenger: passengers[index],
+          pricing,
+          index,
+        }),
+      })),
+    },
+  };
 };
 
 /**
@@ -715,6 +882,8 @@ export const createBooking = async (req, res) => {
       bookingSource === "sabaoon" && !isLocalGroup(groupId);
     const isTravelNetworkGroup =
       bookingSource === "travel-network" && !isLocalGroup(groupId);
+    const isAbidAirGroup =
+      bookingSource === "abidairtravel" && !isLocalGroup(groupId);
     const isNCTGroup = bookingSource === "NCT";
     const pricingData = {
       ...pricing,
@@ -756,6 +925,7 @@ export const createBooking = async (req, res) => {
       expiresAt,
       source: bookingSource,
       sabaoonBookingStatus: isSabaoonGroup ? "pending" : "not_applicable",
+      abidAirBookingStatus: isAbidAirGroup ? "pending" : "not_applicable",
     });
 
     // ─── Call Sabaoon booking API for external (Sabaoon) groups ───
@@ -790,7 +960,54 @@ export const createBooking = async (req, res) => {
       }
     }
 
-    // ─── Call Al-Haider booking API for external (Al-Haider) groups ───
+    // Call Abid Air booking API for external Abid Air groups/packages
+    if (isAbidAirGroup && passengers.length > 0) {
+      try {
+        const abidAirRequest = buildAbidAirBookingRequest({
+          reqBody: req.body,
+          groupId,
+          adultsCount,
+          childrenCount,
+          infantsCount,
+          passengers,
+          pricing,
+        });
+
+        const abidAirResp =
+          abidAirRequest.type === "package"
+            ? await createAbidAirPackageBooking(abidAirRequest.payload)
+            : await createAbidAirFlightBooking(groupId, abidAirRequest.payload);
+
+        booking.abidAirBookingType = abidAirRequest.type;
+        booking.abidAirBookingStatus = abidAirResp?.success
+          ? "success"
+          : "failed";
+        booking.abidAirBookingResponse = abidAirResp;
+        booking.abidAirBookingId =
+          abidAirResp?.package_booking_id?.toString?.() ||
+          abidAirResp?.booking_id?.toString?.() ||
+          null;
+        booking.abidAirTicketId =
+          abidAirResp?.ticket_id?.toString?.() ||
+          abidAirResp?.ticketId?.toString?.() ||
+          null;
+
+        await booking.save();
+        console.log("Abid Air booking created", {
+          bookingReference: booking.bookingReference,
+          type: abidAirRequest.type,
+          response: abidAirResp,
+        });
+      } catch (abidAirErr) {
+        console.error("Abid Air booking API failed:", abidAirErr.message);
+        booking.abidAirBookingStatus = "failed";
+        booking.abidAirBookingResponse =
+          abidAirErr.response?.data || { error: abidAirErr.message };
+        await booking.save();
+      }
+    }
+
+    // Call Al-Haider booking API for external Al-Haider groups
     if (bookingSource === "al-haider" && passengers.length > 0) {
       try {
         // Map our booking to Al-Haider API format
