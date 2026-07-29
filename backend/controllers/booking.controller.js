@@ -526,6 +526,7 @@ import { createTravelNetworkBooking } from "./travel-network.controller.js";
 import {
   createAbidAirFlightBooking,
   createAbidAirPackageBooking,
+  getAbidAirFlightAvailability,
 } from "./abidair.controller.js";
 import {
   sendBookingNotificationEmail,
@@ -833,6 +834,7 @@ const cleanupBookingMarginLedger = async ({ bookingId, bookingReference }) => {
  */
 export const createBooking = async (req, res) => {
   let seatCount = 0;
+  let seatsDeducted = false;
   let booking = null;
 
   try {
@@ -885,6 +887,15 @@ export const createBooking = async (req, res) => {
     const isAbidAirGroup =
       bookingSource === "abidairtravel" && !isLocalGroup(groupId);
     const isNCTGroup = bookingSource === "NCT";
+
+    // Unlike local bookings, Abid Air cannot be booked without the passenger
+    // rows because its booking endpoint requires one row per passenger.
+    if (isAbidAirGroup && passengers.length !== totalPassengers) {
+      throw new Error(
+        "Complete passenger details are required for every Abid Air passenger.",
+      );
+    }
+
     const pricingData = {
       ...pricing,
       discountAmount: Number(pricing?.discountAmount || 0),
@@ -896,12 +907,39 @@ export const createBooking = async (req, res) => {
       pricingData.originalGrandTotal = Number(pricingData.grandTotal || 0);
     }
 
+    const abidAirRequest =
+      isAbidAirGroup && passengers.length > 0
+        ? buildAbidAirBookingRequest({
+            reqBody: req.body,
+            groupId,
+            adultsCount,
+            childrenCount,
+            infantsCount,
+            passengers,
+            pricing,
+          })
+        : null;
+
+    // Abid Air documents GET /flight/{id} as the live seat lookup. Do this
+    // before creating our local booking so an unavailable flight returns a
+    // clear error and does not leave a local booking behind.
+    if (abidAirRequest?.type === "flight") {
+      const { remainingSeats } =
+        await getAbidAirFlightAvailability(groupId);
+      if (seatCount > remainingSeats) {
+        throw new Error(
+          `Seats not available. You requested ${seatCount} seat(s), but only ${remainingSeats} remain.`,
+        );
+      }
+    }
+
     // 1️⃣ Deduct from local DB (existing logic)
     // This will throw an error if not enough seats available
     await adjustSeatsIfLocalGroup(groupId, -seatCount, true);
 
     // 2️⃣ Deduct from unified cache too
     await deductSeatsFromCache(groupId, seatCount);
+    seatsDeducted = true;
 
     // 3️⃣ Create the booking
     booking = await Booking.create({
@@ -961,27 +999,21 @@ export const createBooking = async (req, res) => {
     }
 
     // Call Abid Air booking API for external Abid Air groups/packages
-    if (isAbidAirGroup && passengers.length > 0) {
+    if (abidAirRequest) {
       try {
-        const abidAirRequest = buildAbidAirBookingRequest({
-          reqBody: req.body,
-          groupId,
-          adultsCount,
-          childrenCount,
-          infantsCount,
-          passengers,
-          pricing,
-        });
-
         const abidAirResp =
           abidAirRequest.type === "package"
             ? await createAbidAirPackageBooking(abidAirRequest.payload)
             : await createAbidAirFlightBooking(groupId, abidAirRequest.payload);
 
+        if (!abidAirResp?.success) {
+          throw new Error(
+            abidAirResp?.message || "Abid Air did not accept the booking.",
+          );
+        }
+
         booking.abidAirBookingType = abidAirRequest.type;
-        booking.abidAirBookingStatus = abidAirResp?.success
-          ? "success"
-          : "failed";
+        booking.abidAirBookingStatus = "success";
         booking.abidAirBookingResponse = abidAirResp;
         booking.abidAirBookingId =
           abidAirResp?.package_booking_id?.toString?.() ||
@@ -1004,6 +1036,20 @@ export const createBooking = async (req, res) => {
         booking.abidAirBookingResponse =
           abidAirErr.response?.data || { error: abidAirErr.message };
         await booking.save();
+        await cleanupBookingMarginLedger({
+          bookingId: booking._id,
+          bookingReference: booking.bookingReference,
+        }).catch(() => {});
+        await Booking.deleteOne({ _id: booking._id });
+        booking = null;
+
+        const providerMessage =
+          abidAirErr.response?.data?.message ||
+          abidAirErr.response?.data?.error ||
+          abidAirErr.message;
+        throw new Error(
+          providerMessage || "Abid Air booking could not be created.",
+        );
       }
     }
 
@@ -1187,7 +1233,7 @@ export const createBooking = async (req, res) => {
     res.status(201).json({ success: true, data: booking });
   } catch (err) {
     // Rollback local DB seats if booking creation failed AFTER seat deduction
-    if (seatCount > 0) {
+    if (seatsDeducted && seatCount > 0) {
       await adjustSeatsIfLocalGroup(
         normalizeGroupId(req.body.groupId),
         seatCount,

@@ -335,6 +335,54 @@ export const createAbidAirFlightBooking = async (flightId, bookingData) => {
   return response.data;
 };
 
+const REMAINING_SEAT_KEYS = [
+  "remaining_seats",
+  "remain_seats",
+  "remainingSeats",
+  "available_no_of_pax",
+  "available_seats",
+  "availableSeats",
+  "seats_available",
+];
+
+const findRemainingSeats = (value, visited = new Set()) => {
+  if (!value || typeof value !== "object" || visited.has(value)) return null;
+  visited.add(value);
+
+  for (const key of REMAINING_SEAT_KEYS) {
+    const seats = Number(value[key]);
+    if (Number.isFinite(seats)) return seats;
+  }
+
+  for (const nestedValue of Object.values(value)) {
+    const seats = findRemainingSeats(nestedValue, visited);
+    if (seats !== null) return seats;
+  }
+
+  return null;
+};
+
+/**
+ * The Abid Air documentation provides GET /flight/{id} specifically for
+ * checking seats immediately before POST /flight/{id}/booking.
+ */
+export const getAbidAirFlightAvailability = async (flightId) => {
+  const { baseURL, headers } = getAbidAirClientConfig();
+  const response = await axios.get(`${baseURL}/flight/${flightId}`, { headers });
+  const remainingSeats = findRemainingSeats(response.data);
+
+  if (remainingSeats === null) {
+    throw new Error(
+      "Unable to verify the latest Abid Air seat availability. Please try again.",
+    );
+  }
+
+  return {
+    remainingSeats,
+    response: response.data,
+  };
+};
+
 export const createAbidAirPackageBooking = async (bookingData) => {
   const { baseURL, headers } = getAbidAirClientConfig();
   const response = await axios.post(
@@ -353,5 +401,44 @@ export const getAvailableAbidAirBookingsByGroup = async (req, res) => {
   } catch (error) {
     console.error("ABID AIR API ERROR:", error.message || error);
     res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const checkAbidAirFlightAvailability = async (req, res) => {
+  try {
+    const requiredSeats = Number(req.query.requiredSeats);
+    if (
+      !Number.isInteger(requiredSeats) ||
+      requiredSeats < 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "requiredSeats must be a non-negative whole number.",
+      });
+    }
+
+    const { remainingSeats } = await getAbidAirFlightAvailability(
+      req.params.flightId,
+    );
+    const available = requiredSeats <= remainingSeats;
+
+    return res.status(available ? 200 : 409).json({
+      success: available,
+      available,
+      requiredSeats,
+      remainingSeats,
+      message: available
+        ? "Seats are available."
+        : `Seats not available. You requested ${requiredSeats} seat(s), but only ${remainingSeats} remain.`,
+    });
+  } catch (error) {
+    console.error("ABID AIR AVAILABILITY ERROR:", error.message || error);
+    return res.status(400).json({
+      success: false,
+      message:
+        error.response?.data?.message ||
+        error.message ||
+        "Unable to check Abid Air seat availability.",
+    });
   }
 };

@@ -296,7 +296,7 @@ bookingSchema.pre("save", async function () {
   const counter = await BookingCounter.findOneAndUpdate(
     { date: dateString },
     { $inc: { seq: 1 } },
-    { new: true, upsert: true },
+    { returnDocument: "after", upsert: true },
   );
 
   const sequence = String(counter.seq).padStart(4, "0");

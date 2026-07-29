@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import axiosInstance from "../../api/axios";
 import { toast } from "react-toastify";
@@ -232,6 +232,7 @@ export default function BookingForm({ user }) {
   const [isReviewed, setIsReviewed] = useState(false);
   const [bookingWithoutPassengers, setBookingWithoutPassengers] =
     useState(false);
+  const availabilityRequestRef = useRef(0);
 
   useEffect(() => {
     fetchBookingVoucher(); // always fetch seat map
@@ -460,7 +461,7 @@ export default function BookingForm({ user }) {
     return totalSeats <= availableSeats;
   };
 
-  const handleChange = (e) => {
+  const handleChange = async (e) => {
     const { name, value } = e.target;
     if (["adults", "children", "infants"].includes(name)) {
       if (!validatePassengerInput(name, value)) {
@@ -486,6 +487,51 @@ export default function BookingForm({ user }) {
           `this bookings can have up to ${ABID_AIR_PASSENGER_LIMIT} passengers.`,
         );
         return;
+      }
+
+      const isFlightBooking =
+        String(groupData?.abidAirBookingType || "flight").toLowerCase() ===
+          "flight" && !isUmrahPackageGroup(groupData);
+      const seatCounterChanged = name === "adults" || name === "children";
+
+      if (isFlightBooking && seatCounterChanged) {
+        const requestId = ++availabilityRequestRef.current;
+        try {
+          const response = await axiosInstance.get(
+            `/abidair/flight/${groupData.id}/availability`,
+            {
+              params: {
+                requiredSeats:
+                  (parseInt(updated.adults) || 0) +
+                  (parseInt(updated.children) || 0),
+              },
+            },
+          );
+
+          // Ignore an older response if the user changed the counter again.
+          if (requestId !== availabilityRequestRef.current) return;
+
+          if (!response.data?.available) {
+            toast.error(
+              response.data?.message || "Seats not available.",
+              { toastId: "abid-air-seat-error" },
+            );
+            return;
+          }
+
+          setGroupData((previous) => ({
+            ...previous,
+            available_no_of_pax: response.data.remainingSeats,
+          }));
+        } catch (error) {
+          if (requestId !== availabilityRequestRef.current) return;
+          toast.error(
+            error.response?.data?.message ||
+              "Unable to check Abid Air seat availability.",
+            { toastId: "abid-air-seat-error" },
+          );
+          return;
+        }
       }
     } else if (totalSeatsRequired > availableSeats) {
       toast.error("No seats available. You cannot exceed available seats.");
