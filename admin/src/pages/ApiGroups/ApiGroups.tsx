@@ -526,6 +526,9 @@ export default function ApiGroups() {
   const activeCategoryLabel =
     API_GROUP_CATEGORIES.find((item) => item.key === activeCategory)?.label || "All Groups";
 
+  const pageTitle =
+    activeCategory === "all" ? "API Groups" : `${activeCategoryLabel} API Groups`;
+
   const isPackageCategory = activeCategory === "umrah-packages";
 
   const fetchGroupMargins = async () => {
@@ -563,42 +566,34 @@ export default function ApiGroups() {
           ? "umrah"
           : activeCategory;
 
-      const [alHaiderRes, travelNetRes, abidAirRes] = await Promise.allSettled([
+      // This endpoint already combines Al-Haider, Travel Network, and Abid Air.
+      // Sabaoon is the only additional provider that must be fetched separately.
+      const [combinedGroupsRes, sabaoonRes] = await Promise.allSettled([
         axiosInstance.get("/al-haider/available-bookings-by-group", {
           params: activeCategory === "all" ? {} : { category: apiCategory },
         }),
         axiosInstance.get("/sabaoon/admin-groups"),
-        axiosInstance.get("/abidair/available-bookings-by-group"),
       ]);
 
-      const alHaiderGroups: ApiGroup[] =
-        alHaiderRes.status === "fulfilled" && alHaiderRes.value.data?.success
-          ? (alHaiderRes.value.data.data || []).map((g: any) =>
+      const combinedGroups: ApiGroup[] =
+        combinedGroupsRes.status === "fulfilled" && combinedGroupsRes.value.data?.success
+          ? (combinedGroupsRes.value.data.data || []).map((g: any) =>
               g.package_id || g.flight?.flight_details?.type === "UMRAH GROUPS"
                 ? normalizeUmrahPackage(g)
                 : { ...g, source: g.source || "al-haider" }
             )
           : [];
 
-      const travelNetGroups: ApiGroup[] =
-        travelNetRes.status === "fulfilled" && travelNetRes.value.data?.success
-          ? (travelNetRes.value.data.data || []).map((g: any) =>
+      const sabaoonGroups: ApiGroup[] =
+        sabaoonRes.status === "fulfilled" && sabaoonRes.value.data?.success
+          ? (sabaoonRes.value.data.data || []).map((g: any) =>
               g.package_id || g.flight?.flight_details?.type === "UMRAH GROUPS"
                 ? normalizeUmrahPackage(g)
-                : { ...g, source: g.source || "travel-network" }
+                : { ...g, source: g.source || "sabaoon" }
             )
           : [];
 
-      const abidAirGroups: ApiGroup[] =
-        abidAirRes.status === "fulfilled" && abidAirRes.value.data?.success
-          ? (abidAirRes.value.data.data || []).map((g: any) =>
-              g.package_id || g.flight?.flight_details?.type === "UMRAH GROUPS"
-                ? normalizeUmrahPackage(g)
-                : { ...g, source: g.source || "abidairtravel" }
-            )
-          : [];
-
-      let merged = [...alHaiderGroups, ...travelNetGroups, ...abidAirGroups];
+      let merged = [...combinedGroups, ...sabaoonGroups];
 
       if (activeCategory !== "all") {
         merged = merged.filter((g) => getCategoryFromGroup(g) === activeCategory);
@@ -948,7 +943,7 @@ export default function ApiGroups() {
   return (
     <>
       <PageMeta
-        title={`${activeCategoryLabel} API Groups | Admin`}
+        title={`${pageTitle} | Admin`}
         description="View API group flights"
       />
 
@@ -956,7 +951,7 @@ export default function ApiGroups() {
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="text-xl font-bold text-gray-800 dark:text-white">
-              {activeCategoryLabel} API Groups
+              {pageTitle}
             </h1>
           </div>
 
