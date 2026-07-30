@@ -906,11 +906,11 @@ export default function ApiGroups() {
                 </div>
               </div>
 
-              <div className="text-right text-2xl font-normal text-gray-900">
-                {packageGroup.duration !== null
-                  ? `${packageGroup.duration} days`
-                  : "Duration unknown"}
-              </div>
+              {packageGroup.duration !== null ? (
+                <div className="text-right text-2xl font-normal text-gray-900">
+                  {packageGroup.duration} days
+                </div>
+              ) : null}
             </div>
 
             <div className="overflow-x-auto">
