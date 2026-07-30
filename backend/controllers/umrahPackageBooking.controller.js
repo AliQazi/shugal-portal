@@ -5,6 +5,101 @@ import {
   sendBookingNotificationEmail,
   sendBookingStatusChangeEmail,
 } from "../utils/emailService.js";
+import { createAbidAirPackageBooking } from "./abidair.controller.js";
+
+const isAbidAirPackage = (source) =>
+  [
+    "abidair",
+    "abid-air",
+    "abidairtravel",
+    "abid-air-travel",
+    "abidairtravels",
+    "abid-air-travels",
+  ].includes(
+    String(source || "")
+      .toLowerCase()
+      .trim()
+      .replace(/[\s_]+/g, "-"),
+  );
+
+const toIsoDate = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? String(value)
+    : date.toISOString().split("T")[0];
+};
+
+const getSharingValue = (roomType) => {
+  const normalized = String(roomType || "").toLowerCase().trim();
+  const occupancies = { double: 2, triple: 3, quad: 4, quint: 5 };
+  if (occupancies[normalized]) return occupancies[normalized];
+
+  const numeric = Number(normalized);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : 2;
+};
+
+const getPassengerAmount = (passenger, parsedPricing, packageSnapshot) => {
+  const type = String(passenger?.type || "Adult").toLowerCase();
+  const rates =
+    packageSnapshot?.rooms ||
+    packageSnapshot?.rates ||
+    packageSnapshot?.packageRates ||
+    {};
+
+  if (type.startsWith("child")) {
+    return Number(
+      rates.child_without_bed ||
+      rates.childWithoutBed ||
+      packageSnapshot?.childPrice ||
+      0,
+    );
+  }
+
+  if (type.startsWith("infant")) {
+    return Number(rates.infant || packageSnapshot?.infantPrice || 0);
+  }
+
+  return Number(parsedPricing?.pricePerPerson || 0);
+};
+
+const buildAbidAirPackagePayload = ({
+  packageId,
+  roomType,
+  specialRequests,
+  passengers,
+  parsedPricing,
+  packageSnapshot,
+}) => ({
+  package_id: Number.isNaN(Number(packageId)) ? packageId : Number(packageId),
+  sharing: getSharingValue(roomType),
+  agentremarks:
+    specialRequests ||
+    `${String(roomType || "Sharing")} room booking`,
+  passengers: passengers.map((passenger) => {
+    const type = String(passenger?.type || "Adult").toLowerCase();
+    return {
+      surname: String(passenger?.surName || passenger?.surname || "").toUpperCase(),
+      givenname: String(
+        passenger?.givenName || passenger?.givenname || "",
+      ).toUpperCase(),
+      title: String(passenger?.title || "MR").toUpperCase(),
+      passport: passenger?.passport || "",
+      dob: toIsoDate(passenger?.dateOfBirth || passenger?.dob),
+      doe: toIsoDate(passenger?.passportExpiry || passenger?.doe),
+      person_type: type.startsWith("infant")
+        ? "I"
+        : type.startsWith("child")
+          ? "C"
+          : "A",
+      package_book_amount: getPassengerAmount(
+        passenger,
+        parsedPricing,
+        packageSnapshot,
+      ),
+    };
+  }),
+});
 
 /* ────────────────────────────────────────────────────────
    CREATE BOOKING  POST /api/umrah-package-bookings/create
@@ -96,11 +191,85 @@ export const createUmrahPackageBooking = async (req, res) => {
     const pricingDiscount = Number(parsedPricing?.discountAmount || 0);
     const pricingOriginal = Number(parsedPricing?.originalTotalAmount || 0) || pricingTotal + pricingDiscount;
 
+    const abidAirBooking = isAbidAirPackage(packageSource);
+    const expectedPassengerCount =
+      (Number(adultsCount) || 0) +
+      (Number(childrenCount) || 0) +
+      (Number(infantsCount) || 0);
+
+    if (abidAirBooking && passengers.length !== expectedPassengerCount) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Complete passenger details are required for every Abid Air package passenger.",
+      });
+    }
+
+    if (abidAirBooking && !packageId) {
+      return res.status(400).json({
+        success: false,
+        message: "Abid Air package ID is required.",
+      });
+    }
+
+    const incompletePassengerIndex = passengers.findIndex(
+      (passenger) =>
+        !passenger?.surName ||
+        !passenger?.givenName ||
+        !passenger?.passport ||
+        !passenger?.dateOfBirth ||
+        !passenger?.passportExpiry,
+    );
+    if (abidAirBooking && incompletePassengerIndex !== -1) {
+      return res.status(400).json({
+        success: false,
+        message: `Complete the name, passport, DOB and passport expiry for passenger ${incompletePassengerIndex + 1}.`,
+      });
+    }
+
+    let providerResponse = null;
+    if (abidAirBooking) {
+      const providerPayload = buildAbidAirPackagePayload({
+        packageId,
+        roomType,
+        specialRequests,
+        passengers,
+        parsedPricing,
+        packageSnapshot: parsedPackageData,
+      });
+
+      try {
+        providerResponse = await createAbidAirPackageBooking(providerPayload);
+      } catch (providerError) {
+        const providerMessage =
+          providerError.response?.data?.message ||
+          providerError.response?.data?.error ||
+          providerError.message;
+        return res.status(providerError.response?.status || 502).json({
+          success: false,
+          message: providerMessage || "Abid Air package booking failed.",
+        });
+      }
+
+      if (!providerResponse?.success) {
+        return res.status(409).json({
+          success: false,
+          message:
+            providerResponse?.message || "Abid Air did not accept the package booking.",
+        });
+      }
+    }
+
     const booking = new UmrahPackageBooking({
       user: userId,
       package: packageId && packageId.length === 24 ? packageId : undefined,
       packageName,
       packageSource: packageSource || "local",
+      providerBookingStatus: abidAirBooking ? "success" : "not_applicable",
+      providerPackageBookingId:
+        providerResponse?.package_booking_id?.toString?.() || null,
+      providerTicketId: providerResponse?.ticket_id?.toString?.() || null,
+      providerBookingResponse: providerResponse,
       pnr: pnr || parsedPackageData?.pnr || "",
       packageData: parsedPackageData,
       roomType,

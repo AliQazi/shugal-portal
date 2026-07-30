@@ -220,7 +220,10 @@ export default function UmrahBookingPage() {
       const fd = new FormData();
       fd.append("packageId", packageData?._id || packageData?.id || "");
       fd.append("packageName", packageData?.packageName || "Umrah Package");
-      fd.append("packageSource", "local");
+      fd.append(
+        "packageSource",
+        packageData?.source || packageData?.packageSource || "local",
+      );
       fd.append("pnr", packageData?.pnr || packageData?.flights?.[0]?.pnr || "");
       fd.append("roomType", selectedRoom);
       fd.append("specialRequests", formData.specialRequests);

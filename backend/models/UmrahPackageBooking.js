@@ -22,6 +22,14 @@ const UmrahPackageBookingSchema = new mongoose.Schema(
     package: { type: mongoose.Schema.Types.ObjectId, ref: "UmrahPackage", default: null },
     packageName: { type: String, default: "" },
     packageSource: { type: String, default: "local" },
+    providerBookingStatus: {
+      type: String,
+      enum: ["not_applicable", "success", "failed"],
+      default: "not_applicable",
+    },
+    providerPackageBookingId: { type: String, default: null },
+    providerTicketId: { type: String, default: null },
+    providerBookingResponse: { type: mongoose.Schema.Types.Mixed, default: null },
     pnr: { type: String, trim: true, default: "" },
     packageData: { type: mongoose.Schema.Types.Mixed, default: {} }, // snapshot
 
