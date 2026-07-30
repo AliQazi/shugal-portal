@@ -6,6 +6,10 @@ import {
   sendBookingStatusChangeEmail,
 } from "../utils/emailService.js";
 import { createAbidAirPackageBooking } from "./abidair.controller.js";
+import {
+  createTravelNetworkUmrahBooking,
+  getTravelNetworkCreatedById,
+} from "./travel-network.controller.js";
 
 const isAbidAirPackage = (source) =>
   [
@@ -16,6 +20,14 @@ const isAbidAirPackage = (source) =>
     "abidairtravels",
     "abid-air-travels",
   ].includes(
+    String(source || "")
+      .toLowerCase()
+      .trim()
+      .replace(/[\s_]+/g, "-"),
+  );
+
+const isTravelNetworkPackage = (source) =>
+  ["travel-network", "travelnetwork", "travel-net", "tn"].includes(
     String(source || "")
       .toLowerCase()
       .trim()
@@ -100,6 +112,142 @@ const buildAbidAirPackagePayload = ({
     };
   }),
 });
+
+const getTravelNetworkPricePlan = ({
+  packageSnapshot,
+  packageId,
+  roomType,
+  parsedPricing,
+}) => {
+  const plans =
+    packageSnapshot?.umrah_package_price_plans ||
+    packageSnapshot?.price_plans ||
+    packageSnapshot?.pricePlans ||
+    [];
+  const normalizedRoomType = String(roomType || "sharing").toLowerCase().trim();
+  const selectedPlan =
+    packageSnapshot?.umrah_package_price_plan ||
+    packageSnapshot?.selected_price_plan ||
+    packageSnapshot?.selectedPricePlan ||
+    packageSnapshot?.price_plan ||
+    packageSnapshot?.pricePlan ||
+    (Array.isArray(plans)
+      ? plans.find(
+          (plan) =>
+            String(plan?.type || plan?.name || "").toLowerCase().trim() ===
+            normalizedRoomType,
+        )
+      : null) ||
+    {};
+  const rates =
+    packageSnapshot?.rooms ||
+    packageSnapshot?.rates ||
+    packageSnapshot?.packageRates ||
+    {};
+
+  return {
+    id: Number(
+      selectedPlan.id ??
+        selectedPlan.price_plan_id ??
+        selectedPlan.package_price_plan_id ??
+        packageSnapshot?.price_plan_id ??
+        packageSnapshot?.package_id ??
+        packageSnapshot?.id ??
+        packageId,
+    ),
+    type: String(selectedPlan.type || selectedPlan.name || normalizedRoomType),
+    adult: Number(
+      selectedPlan.adult ??
+        selectedPlan.price ??
+        selectedPlan.amount ??
+        parsedPricing?.pricePerPerson ??
+        0,
+    ),
+    child: Number(
+      selectedPlan.child ??
+        selectedPlan.child_price ??
+        rates.child_without_bed ??
+        rates.childWithoutBed ??
+        packageSnapshot?.childPrice ??
+        0,
+    ),
+    infant: Number(
+      selectedPlan.infant ??
+        selectedPlan.infant_price ??
+        rates.infant ??
+        packageSnapshot?.infantPrice ??
+        0,
+    ),
+  };
+};
+
+const buildTravelNetworkUmrahPayload = ({
+  packageId,
+  roomType,
+  specialRequests,
+  passengers,
+  parsedPricing,
+  packageSnapshot,
+  adultsCount,
+  childrenCount,
+  infantsCount,
+}) => {
+  const createdById = getTravelNetworkCreatedById();
+  const groupId = Number(
+    packageSnapshot?.group_id ??
+      packageSnapshot?.groupId ??
+      packageSnapshot?.group?.id,
+  );
+  const normalizedPackageId = Number(packageId);
+
+  return {
+    group_id: groupId,
+    package_id: normalizedPackageId,
+    agency_info: {
+      agency_name:
+        process.env.name_travelnetwork?.trim() ||
+        process.env.name?.trim() ||
+        "",
+      agent_name:
+        process.env.name_travelnetwork?.trim() ||
+        process.env.name?.trim() ||
+        "",
+      created_by_id: createdById,
+      email:
+        process.env.email_travelnetwork?.trim() ||
+        process.env.email?.trim() ||
+        "",
+      mobile:
+        process.env.mobile_travelnetwork?.trim() ||
+        process.env.mobile_no?.trim() ||
+        "",
+      adults: Number(adultsCount) || 0,
+      child: Number(childrenCount) || 0,
+      infant: Number(infantsCount) || 0,
+      agent_notes: specialRequests || "",
+    },
+    booking_details: passengers.map((passenger) => ({
+      type: String(passenger?.type || "Adult"),
+      title: String(passenger?.title || "MR").toUpperCase(),
+      surname: String(
+        passenger?.surName || passenger?.surname || "",
+      ).toUpperCase(),
+      given_name: String(
+        passenger?.givenName || passenger?.given_name || "",
+      ).toUpperCase(),
+      passport_no:
+        passenger?.passport || passenger?.passport_no || "",
+      dob: toIsoDate(passenger?.dateOfBirth || passenger?.dob),
+      doe: toIsoDate(passenger?.passportExpiry || passenger?.doe),
+    })),
+    umrah_package_price_plan: getTravelNetworkPricePlan({
+      packageSnapshot,
+      packageId,
+      roomType,
+      parsedPricing,
+    }),
+  };
+};
 
 /* ────────────────────────────────────────────────────────
    CREATE BOOKING  POST /api/umrah-package-bookings/create
@@ -192,23 +340,27 @@ export const createUmrahPackageBooking = async (req, res) => {
     const pricingOriginal = Number(parsedPricing?.originalTotalAmount || 0) || pricingTotal + pricingDiscount;
 
     const abidAirBooking = isAbidAirPackage(packageSource);
+    const travelNetworkBooking = isTravelNetworkPackage(packageSource);
     const expectedPassengerCount =
       (Number(adultsCount) || 0) +
       (Number(childrenCount) || 0) +
       (Number(infantsCount) || 0);
 
-    if (abidAirBooking && passengers.length !== expectedPassengerCount) {
+    if (
+      (abidAirBooking || travelNetworkBooking) &&
+      passengers.length !== expectedPassengerCount
+    ) {
       return res.status(400).json({
         success: false,
         message:
-          "Complete passenger details are required for every Abid Air package passenger.",
+          "Complete passenger details are required for every external package passenger.",
       });
     }
 
-    if (abidAirBooking && !packageId) {
+    if ((abidAirBooking || travelNetworkBooking) && !packageId) {
       return res.status(400).json({
         success: false,
-        message: "Abid Air package ID is required.",
+        message: "External package ID is required.",
       });
     }
 
@@ -220,7 +372,10 @@ export const createUmrahPackageBooking = async (req, res) => {
         !passenger?.dateOfBirth ||
         !passenger?.passportExpiry,
     );
-    if (abidAirBooking && incompletePassengerIndex !== -1) {
+    if (
+      (abidAirBooking || travelNetworkBooking) &&
+      incompletePassengerIndex !== -1
+    ) {
       return res.status(400).json({
         success: false,
         message: `Complete the name, passport, DOB and passport expiry for passenger ${incompletePassengerIndex + 1}.`,
@@ -260,12 +415,55 @@ export const createUmrahPackageBooking = async (req, res) => {
       }
     }
 
+    if (travelNetworkBooking) {
+      const providerPayload = buildTravelNetworkUmrahPayload({
+        packageId,
+        roomType,
+        specialRequests,
+        passengers,
+        parsedPricing,
+        packageSnapshot: parsedPackageData,
+        adultsCount,
+        childrenCount,
+        infantsCount,
+      });
+
+      if (
+        !Number.isInteger(providerPayload.group_id) ||
+        !Number.isInteger(providerPayload.package_id) ||
+        !Number.isInteger(providerPayload.agency_info.created_by_id) ||
+        !Number.isInteger(providerPayload.umrah_package_price_plan.id)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Travel Network group, package, agency and price plan IDs are required.",
+        });
+      }
+
+      try {
+        providerResponse =
+          await createTravelNetworkUmrahBooking(providerPayload);
+      } catch (providerError) {
+        const providerMessage =
+          providerError.response?.data?.message ||
+          providerError.response?.data?.error ||
+          providerError.message;
+        return res.status(providerError.response?.status || 502).json({
+          success: false,
+          message:
+            providerMessage || "Travel Network Umrah booking failed.",
+        });
+      }
+    }
+
     const booking = new UmrahPackageBooking({
       user: userId,
       package: packageId && packageId.length === 24 ? packageId : undefined,
       packageName,
       packageSource: packageSource || "local",
-      providerBookingStatus: abidAirBooking ? "success" : "not_applicable",
+      providerBookingStatus:
+        abidAirBooking || travelNetworkBooking ? "success" : "not_applicable",
       providerPackageBookingId:
         providerResponse?.package_booking_id?.toString?.() || null,
       providerTicketId: providerResponse?.ticket_id?.toString?.() || null,

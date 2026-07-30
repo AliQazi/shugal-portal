@@ -3,6 +3,7 @@ import { protect } from "../middleware/auth.middleware.js";
 import { uploadUmrahPackage } from "../config/cloudinary.js";
 import {
   getUmrahPackages,
+  getTravelNetworkUmrahPackages,
   getUmrahPackageById,
   createUmrahPackage,
   updateUmrahPackage,
@@ -17,6 +18,7 @@ const uploadFields = uploadUmrahPackage.fields([
 ]);
 
 router.get("/", getUmrahPackages);
+router.get("/travel-network", protect, getTravelNetworkUmrahPackages);
 router.get("/:id", getUmrahPackageById);
 router.post("/", protect, uploadFields, createUmrahPackage);
 router.put("/:id", protect, uploadFields, updateUmrahPackage);

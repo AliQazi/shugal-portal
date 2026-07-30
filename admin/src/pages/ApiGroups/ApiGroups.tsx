@@ -409,9 +409,73 @@ const normalizeUmrahPackage = (pkg: any): ApiGroup => {
   };
 };
 
+const normalizeTravelNetworkUmrahPackage = (pkg: any): ApiGroup => {
+  const details = Array.isArray(pkg.details)
+    ? pkg.details
+    : Array.isArray(pkg.group?.details)
+      ? pkg.group.details
+      : [];
+  const airline = pkg.airline || pkg.group?.airline || null;
+  const rates = pkg.rooms || pkg.rates || {};
+
+  return {
+    ...pkg,
+    id: pkg.package_id || pkg.id,
+    package_id: pkg.package_id || pkg.id,
+    package_name: pkg.package_name || pkg.packageName,
+    packageName: pkg.packageName || pkg.package_name,
+    source: "travel-network",
+    hotels: {
+      makkah:
+        pkg.hotels?.makkah?.hotelName ||
+        pkg.hotels?.makkah?.name ||
+        pkg.makkah?.name ||
+        "",
+      madina:
+        pkg.hotels?.madinah?.hotelName ||
+        pkg.hotels?.madinah?.name ||
+        pkg.hotels?.madina?.hotelName ||
+        pkg.hotels?.madina?.name ||
+        pkg.madina?.name ||
+        "",
+    },
+    rates,
+    airline: airline
+      ? {
+          airline_name: airline.airline_name || "",
+          logo_url: airline.logo_url || null,
+          short_name: airline.short_name || "",
+        }
+      : null,
+    sector: pkg.sector || pkg.group?.sector || "",
+    price: Number(rates.sharing || 0),
+    childPrice: Number(rates.child_without_bed || 0),
+    infantPrice: Number(rates.infant || 0),
+    type: "UMRAH GROUPS",
+    available_no_of_pax: Number(
+      pkg.available_no_of_pax ?? pkg.available_seats ?? 0
+    ),
+    dept_date: pkg.dept_date || pkg.group?.dept_date || "",
+    arv_date: pkg.arv_date || "",
+    details: details.map((detail: any) => ({
+      flight_no: detail.flight_no || "",
+      flight_date: detail.flight_date || detail.dep_date || "",
+      dep_date: detail.dep_date || detail.flight_date || "",
+      dept_time: detail.dept_time || "",
+      arv_date: detail.arv_date || "",
+      arv_time: detail.arv_time || "",
+      origin: detail.origin || "",
+      destination: detail.destination || "",
+      baggage: detail.baggage || "",
+      meal: detail.meal || "",
+    })),
+  };
+};
+
 const isUmrahPackageGroup = (group: any) => {
   const source = String(group?.source || "").toLowerCase();
   const isAbidAirSource = source === "abidairtravel";
+  const isTravelNetworkSource = source === "travel-network";
   const hasPackageId = Boolean(group?.package_id || group?.packageId);
   const hasPackageName = Boolean(group?.package_name || group?.packageName || group?.groupName);
   const hasHotels = Boolean(group?.hotels || group?.hotel);
@@ -421,7 +485,8 @@ const isUmrahPackageGroup = (group: any) => {
   const hasPackageStructure = (hasPackageId || hasPackageName || hasHotels) && hasRates;
 
   return Boolean(
-    isAbidAirSource && (hasPackageStructure || isFlightPackageType)
+    (isAbidAirSource || isTravelNetworkSource) &&
+      (hasPackageStructure || isFlightPackageType)
   );
 };
 
@@ -568,11 +633,18 @@ export default function ApiGroups() {
 
       // This endpoint already combines Al-Haider, Travel Network, and Abid Air.
       // Sabaoon is the only additional provider that must be fetched separately.
-      const [combinedGroupsRes, sabaoonRes] = await Promise.allSettled([
+      const shouldFetchTravelNetworkPackages =
+        activeCategory === "all" || activeCategory === "umrah-packages";
+
+      const [combinedGroupsRes, sabaoonRes, travelNetworkPackagesRes] =
+        await Promise.allSettled([
         axiosInstance.get("/al-haider/available-bookings-by-group", {
           params: activeCategory === "all" ? {} : { category: apiCategory },
         }),
         axiosInstance.get("/sabaoon/admin-groups"),
+        shouldFetchTravelNetworkPackages
+          ? axiosInstance.get("/umrah-packages/travel-network")
+          : Promise.resolve(null),
       ]);
 
       const combinedGroups: ApiGroup[] =
@@ -593,7 +665,19 @@ export default function ApiGroups() {
             )
           : [];
 
-      let merged = [...combinedGroups, ...sabaoonGroups];
+      const travelNetworkPackages: ApiGroup[] =
+        travelNetworkPackagesRes.status === "fulfilled" &&
+        travelNetworkPackagesRes.value?.data?.success
+          ? (travelNetworkPackagesRes.value.data.data || []).map(
+              normalizeTravelNetworkUmrahPackage
+            )
+          : [];
+
+      let merged = [
+        ...combinedGroups,
+        ...sabaoonGroups,
+        ...travelNetworkPackages,
+      ];
 
       if (activeCategory !== "all") {
         merged = merged.filter((g) => getCategoryFromGroup(g) === activeCategory);

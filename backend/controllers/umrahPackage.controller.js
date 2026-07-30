@@ -1,6 +1,7 @@
 import UmrahPackage from "../models/UmrahPackage.js";
 import GroupTicketing from "../models/GroupTicketing.js";
 import { cloudinary } from "../config/cloudinary.js";
+import { fetchTravelNetworkUmrahPackages } from "./travel-network.controller.js";
 
 const buildPackageFlightData = (body) => {
   const group = body.umrahGroupTicketData || {};
@@ -37,6 +38,25 @@ export const getUmrahPackages = async (req, res) => {
     res.status(200).json({ success: true, data: packages });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getTravelNetworkUmrahPackages = async (req, res) => {
+  try {
+    const packages = await fetchTravelNetworkUmrahPackages(req.query);
+    res.status(200).json({ success: true, data: packages });
+  } catch (error) {
+    console.error(
+      "Travel Network Umrah packages fetch failed:",
+      error.response?.data || error.message,
+    );
+    res.status(error.response?.status || 502).json({
+      success: false,
+      message:
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message,
+    });
   }
 };
 

@@ -151,6 +151,11 @@ export default function UmrahPackages({ user }) {
     return Boolean(isAbidAirSource && (hasPackageStructure || isFlightPackageType));
   };
 
+  const isTravelNetworkUmrahPackage = (pkg) =>
+    String(pkg?.source || pkg?.packageSource || "")
+      .toLowerCase()
+      .trim() === "travel-network";
+
   const isManualUmrahPackage = (pkg) =>
     Boolean(
       pkg?.packageName &&
@@ -590,20 +595,31 @@ export default function UmrahPackages({ user }) {
   const fetchPackages = async () => {
     try {
       setLoading(true);
-      const [apiGroups, manualPackages] = await Promise.allSettled([
+      const [apiGroups, travelNetworkPackages, manualPackages] = await Promise.allSettled([
         axiosInstance.get("/abidair/available-bookings-by-group"),
+        axiosInstance.get("/umrah-packages/travel-network"),
         axiosInstance.get("/umrah-packages"),
       ]);
 
       const abidairData =
         apiGroups.status === "fulfilled" ? apiGroups.value.data?.data || [] : [];
-        console.log("Fetched API Packages:", abidairData);
+      const travelNetworkData =
+        travelNetworkPackages.status === "fulfilled"
+          ? travelNetworkPackages.value.data?.data || []
+          : [];
       const manualData =
         manualPackages.status === "fulfilled" ? manualPackages.value.data?.data || [] : [];
 
       const apiPackages = (Array.isArray(abidairData) ? abidairData : []).filter(isAbidAirUmrahPackage);
+      const travelNetworkPackageList = (
+        Array.isArray(travelNetworkData) ? travelNetworkData : []
+      ).filter(isTravelNetworkUmrahPackage);
       const manualPackagesList = (Array.isArray(manualData) ? manualData : []).filter(isManualUmrahPackage);
-      const packagesData = [...apiPackages, ...manualPackagesList];
+      const packagesData = [
+        ...apiPackages,
+        ...travelNetworkPackageList,
+        ...manualPackagesList,
+      ];
 
       const uniquePackages = new Map();
       packagesData.forEach((pkg) => {

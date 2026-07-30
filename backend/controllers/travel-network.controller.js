@@ -6,6 +6,29 @@ const getTravelNetworkToken = () => {
     return token;
 };
 
+export const getTravelNetworkCreatedById = () => {
+    const configuredId = Number(process.env.id_travelnetwork?.trim());
+    if (Number.isInteger(configuredId) && configuredId > 0) return configuredId;
+
+    const token = getTravelNetworkToken();
+    const tokenParts = token.split(".");
+    if (tokenParts.length === 3) {
+        try {
+            const payload = JSON.parse(
+                Buffer.from(tokenParts[1], "base64url").toString("utf8"),
+            );
+            const tokenSubject = Number(payload?.sub);
+            if (Number.isInteger(tokenSubject) && tokenSubject > 0) {
+                return tokenSubject;
+            }
+        } catch {
+            // The provider token may not always be a JWT.
+        }
+    }
+
+    return null;
+};
+
 const getTravelNetworkBaseURL = () => {
     const url = process.env.Travel_Network_BaseURL?.trim();
     if (!url) throw new Error("Travel Network base URL is not configured");
@@ -24,6 +47,108 @@ export const createTravelNetworkBooking = async (bookingData) => {
     });
 
     return response.data;
+};
+
+export const createTravelNetworkUmrahBooking = async (bookingData) => {
+    const token = getTravelNetworkToken();
+    const baseURL = getTravelNetworkBaseURL();
+
+    const response = await axios.post(
+        `${baseURL.replace(/\/+$/, "")}/api/store/umrah-bookings`,
+        bookingData,
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/json",
+                "Content-Type": "application/json",
+            },
+        },
+    );
+
+    return response.data;
+};
+
+export const fetchTravelNetworkUmrahPackages = async (filters = {}) => {
+    const token = getTravelNetworkToken();
+    const baseURL = getTravelNetworkBaseURL();
+    const params = {};
+
+    if (filters.dept_date) params.dept_date = filters.dept_date;
+    if (filters.airline_id) params.airline_id = filters.airline_id;
+    params.per_page = filters.per_page || 100;
+
+    const response = await axios.get(
+        `${baseURL.replace(/\/+$/, "")}/api/umrah-packages`,
+        {
+            params,
+            headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/json",
+                "Content-Type": "application/json",
+            },
+        },
+    );
+
+    const payload = response.data;
+    const packages =
+        (Array.isArray(payload) && payload) ||
+        (Array.isArray(payload?.packages) && payload.packages) ||
+        (Array.isArray(payload?.packages?.data) && payload.packages.data) ||
+        (Array.isArray(payload?.data) && payload.data) ||
+        (Array.isArray(payload?.data?.data) && payload.data.data) ||
+        (Array.isArray(payload?.result) && payload.result) ||
+        [];
+
+    return packages.map((pkg) => {
+        const group = pkg?.group || {};
+        const pricing = pkg?.pricing_details || {};
+        const sharingPricing = pricing?.sharing || {};
+        const rooms = {};
+
+        for (const [type, rate] of Object.entries(pricing)) {
+            rooms[type] = Number(rate?.adult || rate?.price || rate || 0);
+        }
+        rooms.child_without_bed = Number(sharingPricing?.child || 0);
+        rooms.infant = Number(sharingPricing?.infant || 0);
+
+        return {
+            ...pkg,
+            package_id: pkg?.id,
+            packageName:
+                pkg?.package_name ||
+                `${group?.airline?.short_name || group?.airline?.airline_name || "Umrah"} Package`,
+            source: "travel-network",
+            packageSource: "travel-network",
+            available_no_of_pax: Number(
+                pkg?.available_seats ?? pkg?.allowed_seats ?? 0,
+            ),
+            sector: group?.sector || "",
+            dept_date: group?.dept_date || "",
+            airline: group?.airline || null,
+            details: Array.isArray(group?.details) ? group.details : [],
+            rooms,
+            hotels: {
+                makkah: pkg?.makkah
+                    ? {
+                        ...pkg.makkah,
+                        nights: Number(pkg?.makkah_nights || 0),
+                        checkIn: pkg?.makkah_stays?.[0]?.from || "",
+                        checkOut: pkg?.makkah_stays?.[0]?.to || "",
+                    }
+                    : null,
+                madinah: pkg?.madina
+                    ? {
+                        ...pkg.madina,
+                        nights: Number(pkg?.madina_nights || 0),
+                        checkIn: pkg?.madina_stays?.[0]?.from || "",
+                        checkOut: pkg?.madina_stays?.[0]?.to || "",
+                    }
+                    : null,
+            },
+            umrah_package_price_plans:
+                group?.umrah_package_price_plans || [],
+        };
+    });
 };
 
 const formatDate = (value) => {
