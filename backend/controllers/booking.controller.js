@@ -605,16 +605,23 @@ const normalizeExternalSource = ({ source, groupId, groupPriceDetailId }) => {
 
 const toProviderPassenger = (passenger, fallbackType = "Adult") => {
   const type = String(passenger?.type || fallbackType);
-  const normalizedType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+  const normalizedType =
+    type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
   const titleFallback = normalizedType === "Infant" ? "MSTR" : "MR";
 
   return {
     title: String(passenger?.title || titleFallback).toUpperCase(),
     surname: passenger?.surname || passenger?.surName || "",
     givenname:
-      passenger?.givenname || passenger?.given_name || passenger?.givenName || "",
+      passenger?.givenname ||
+      passenger?.given_name ||
+      passenger?.givenName ||
+      "",
     passport:
-      passenger?.passport || passenger?.passport_no || passenger?.passportNo || "",
+      passenger?.passport ||
+      passenger?.passport_no ||
+      passenger?.passportNo ||
+      "",
     dob: toIsoDate(passenger?.dob || passenger?.dateOfBirth),
     doe: toIsoDate(passenger?.doe || passenger?.passportExpiry),
     nationality: passenger?.nationality || "Pakistan",
@@ -650,12 +657,12 @@ const shouldBookAbidAirPackage = (reqBody) => {
 
   return Boolean(
     reqBody.package_id ||
-      reqBody.packageId ||
-      reqBody.packageData ||
-      reqBody.sharing ||
-      reqBody.selectedRoom ||
-      reqBody.agentremarks ||
-      reqBody.agentRemarks,
+    reqBody.packageId ||
+    reqBody.packageData ||
+    reqBody.sharing ||
+    reqBody.selectedRoom ||
+    reqBody.agentremarks ||
+    reqBody.agentRemarks,
   );
 };
 
@@ -728,7 +735,9 @@ const buildAbidAirBookingRequest = ({
   return {
     type: "package",
     payload: {
-      package_id: Number.isNaN(Number(packageId)) ? packageId : Number(packageId),
+      package_id: Number.isNaN(Number(packageId))
+        ? packageId
+        : Number(packageId),
       sharing: Number.isNaN(Number(sharing)) ? sharing : Number(sharing),
       agentremarks:
         reqBody.agentremarks ||
@@ -892,7 +901,7 @@ export const createBooking = async (req, res) => {
     // rows because its booking endpoint requires one row per passenger.
     if (isAbidAirGroup && passengers.length !== totalPassengers) {
       throw new Error(
-        "Complete passenger details are required for every Abid Air passenger.",
+        "Complete passenger details are required for every passenger.",
       );
     }
 
@@ -924,8 +933,7 @@ export const createBooking = async (req, res) => {
     // before creating our local booking so an unavailable flight returns a
     // clear error and does not leave a local booking behind.
     if (abidAirRequest?.type === "flight") {
-      const { remainingSeats } =
-        await getAbidAirFlightAvailability(groupId);
+      const { remainingSeats } = await getAbidAirFlightAvailability(groupId);
       if (seatCount > remainingSeats) {
         throw new Error(
           `Seats not available. You requested ${seatCount} seat(s), but only ${remainingSeats} remain.`,
@@ -1008,7 +1016,7 @@ export const createBooking = async (req, res) => {
 
         if (!abidAirResp?.success) {
           throw new Error(
-            abidAirResp?.message || "Abid Air did not accept the booking.",
+            abidAirResp?.message || "did not accept the booking.",
           );
         }
 
@@ -1033,8 +1041,9 @@ export const createBooking = async (req, res) => {
       } catch (abidAirErr) {
         console.error("Abid Air booking API failed:", abidAirErr.message);
         booking.abidAirBookingStatus = "failed";
-        booking.abidAirBookingResponse =
-          abidAirErr.response?.data || { error: abidAirErr.message };
+        booking.abidAirBookingResponse = abidAirErr.response?.data || {
+          error: abidAirErr.message,
+        };
         await booking.save();
         await cleanupBookingMarginLedger({
           bookingId: booking._id,
@@ -1047,9 +1056,7 @@ export const createBooking = async (req, res) => {
           abidAirErr.response?.data?.message ||
           abidAirErr.response?.data?.error ||
           abidAirErr.message;
-        throw new Error(
-          providerMessage || "Abid Air booking could not be created.",
-        );
+        throw new Error(providerMessage || "booking could not be created.");
       }
     }
 

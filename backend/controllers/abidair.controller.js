@@ -40,7 +40,9 @@ const getAbidAirClientConfig = () => {
 };
 
 export const getAbidAirTypeFilters = (category) => {
-  const key = String(category || "all").toLowerCase().trim();
+  const key = String(category || "all")
+    .toLowerCase()
+    .trim();
 
   const filters = {
     all: null,
@@ -63,7 +65,20 @@ const parseDateValue = (value) => {
     const day = Number(exactMatch[1]);
     const monthName = exactMatch[2].slice(0, 3).toLowerCase();
     const year = Number(exactMatch[3]);
-    const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+    const monthNames = [
+      "jan",
+      "feb",
+      "mar",
+      "apr",
+      "may",
+      "jun",
+      "jul",
+      "aug",
+      "sep",
+      "oct",
+      "nov",
+      "dec",
+    ];
     const month = monthNames.indexOf(monthName);
     if (month >= 0 && !Number.isNaN(day) && !Number.isNaN(year)) {
       return new Date(year, month, day);
@@ -92,21 +107,32 @@ const normalizeMeal = (value) => {
   const meal = String(value || "").trim();
   if (!meal) return "No";
   const normalized = meal.toUpperCase();
-  if (["NO", "NIL", "EXCLUDED", "NOT INCLUDED", "NO MEAL"].includes(normalized)) {
+  if (
+    ["NO", "NIL", "EXCLUDED", "NOT INCLUDED", "NO MEAL"].includes(normalized)
+  ) {
     return "No";
   }
   return meal;
 };
 
 const normalizeAbidAirType = (value, group = {}) => {
-  const rawType = String(value || group?.type || group?.category || group?.package_type || "")
+  const rawType = String(
+    value || group?.type || group?.category || group?.package_type || "",
+  )
     .toUpperCase()
     .replace(/[_-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
   if (!rawType) {
-    const route = String(group?.sector || group?.route || group?.from || group?.origin || group?.destination || "").toUpperCase();
+    const route = String(
+      group?.sector ||
+        group?.route ||
+        group?.from ||
+        group?.origin ||
+        group?.destination ||
+        "",
+    ).toUpperCase();
     if (/UMRAH|MAKKAH|MADINA|HARAM|MED|JED|KSA|SAUDI/.test(route)) {
       return "UMRAH GROUP";
     }
@@ -122,19 +148,40 @@ const normalizeAbidAirType = (value, group = {}) => {
 
 const normalizeFlightDetail = (detail, fallbackDepDate = null) => {
   const depDate = formatDate(
-    detail?.dep_date || detail?.flight_date || detail?.departure_date || detail?.date || fallbackDepDate,
+    detail?.dep_date ||
+      detail?.flight_date ||
+      detail?.departure_date ||
+      detail?.date ||
+      fallbackDepDate,
   );
 
   return {
     sr: detail?.sr || detail?.serial || detail?.sequence || null,
-    flight_no: detail?.flight_no || detail?.flightNo || detail?.flight_number || detail?.flightNumber || "",
+    flight_no:
+      detail?.flight_no ||
+      detail?.flightNo ||
+      detail?.flight_number ||
+      detail?.flightNumber ||
+      "",
     dep_date: depDate,
     flight_date: depDate,
-    dept_time: detail?.dept_time || detail?.departure_time || detail?.departure_time || detail?.dep_time || "",
+    dept_time:
+      detail?.dept_time ||
+      detail?.departure_time ||
+      detail?.departure_time ||
+      detail?.dep_time ||
+      "",
     origin: detail?.origin || detail?.from || detail?.departure_city || "",
-    destination: detail?.destination || detail?.to || detail?.arrival_city || "",
-    arv_date: formatDate(detail?.arv_date || detail?.arr_date || detail?.arrival_date || detail?.date_arrival),
-    arv_time: detail?.arv_time || detail?.arrival_time || detail?.arr_time || "",
+    destination:
+      detail?.destination || detail?.to || detail?.arrival_city || "",
+    arv_date: formatDate(
+      detail?.arv_date ||
+        detail?.arr_date ||
+        detail?.arrival_date ||
+        detail?.date_arrival,
+    ),
+    arv_time:
+      detail?.arv_time || detail?.arrival_time || detail?.arr_time || "",
     baggage: detail?.baggage || detail?.baggage_allowance || "",
     meal: detail?.meal || detail?.meals || "",
   };
@@ -142,11 +189,22 @@ const normalizeFlightDetail = (detail, fallbackDepDate = null) => {
 
 const normalizeAbidAirGroup = (group) => {
   const payload = group?.flight || group;
-  const fd = payload?.flight_details || payload?.flightDetails || payload?.flight_detail || {};
+  const fd =
+    payload?.flight_details ||
+    payload?.flightDetails ||
+    payload?.flight_detail ||
+    {};
   const route = payload?.route || {};
   const time = payload?.time || {};
 
-  const id = String(group?.package_id || group?.id || group?.packageId || group?.PackageId || payload?.id || "");
+  const id = String(
+    group?.package_id ||
+      group?.id ||
+      group?.packageId ||
+      group?.PackageId ||
+      payload?.id ||
+      "",
+  );
   const depDate = formatDate(time?.departure?.date);
   const arvDate = formatDate(time?.arrival?.date);
 
@@ -162,7 +220,8 @@ const normalizeAbidAirGroup = (group) => {
 
   const returnRoute = route?.return || {};
   const returnTime = time?.return || {};
-  const isReturn = Number(route?.is_return || 0) === 1 || !!route?.return || !!time?.return;
+  const isReturn =
+    Number(route?.is_return || 0) === 1 || !!route?.return || !!time?.return;
 
   const details = [
     {
@@ -182,24 +241,33 @@ const normalizeAbidAirGroup = (group) => {
 
   if (isReturn) {
     const returnSector = String(returnRoute?.sector || "");
-    const [returnOriginFromSector, returnDestinationFromSector] = returnSector.includes("-")
-      ? returnSector.split("-").map((v) => v.trim())
-      : ["", ""];
+    const [returnOriginFromSector, returnDestinationFromSector] =
+      returnSector.includes("-")
+        ? returnSector.split("-").map((v) => v.trim())
+        : ["", ""];
 
-    const returnDepDate = formatDate(returnTime?.departure?.date || returnTime?.date);
-    const returnArvDate = formatDate(returnTime?.arrival?.date || returnTime?.arr_date);
+    const returnDepDate = formatDate(
+      returnTime?.departure?.date || returnTime?.date,
+    );
+    const returnArvDate = formatDate(
+      returnTime?.arrival?.date || returnTime?.arr_date,
+    );
 
     details.push({
       sr: 2,
       flight_no: returnRoute?.flight_number || returnRoute?.flightNo || "",
       dep_date: returnDepDate,
       flight_date: returnDepDate,
-      dept_time: formatTime(returnTime?.departure?.time || returnTime?.dep_time),
+      dept_time: formatTime(
+        returnTime?.departure?.time || returnTime?.dep_time,
+      ),
       origin: returnOriginFromSector || returnRoute?.origin || destination,
-      destination: returnDestinationFromSector || returnRoute?.destination || origin,
+      destination:
+        returnDestinationFromSector || returnRoute?.destination || origin,
       arv_date: returnArvDate,
       arv_time: formatTime(returnTime?.arrival?.time || returnTime?.arr_time),
-      baggage: returnRoute?.baggage || route?.return_baggage || fd?.baggage || "",
+      baggage:
+        returnRoute?.baggage || route?.return_baggage || fd?.baggage || "",
       meal: normalizeMeal(returnRoute?.meal || route?.return_meal || fd?.meal),
     });
   }
@@ -215,27 +283,39 @@ const normalizeAbidAirGroup = (group) => {
         : "flight"),
     isOwnGroup: false,
 
-    groupName: String(group?.package_name || payload?.package_name || fd?.type || group?.groupName || "") || null,
-    packageName: String(group?.package_name || payload?.package_name || fd?.type || group?.groupName || "") || null,
+    groupName:
+      String(
+        group?.package_name ||
+          payload?.package_name ||
+          fd?.type ||
+          group?.groupName ||
+          "",
+      ) || null,
+    packageName:
+      String(
+        group?.package_name ||
+          payload?.package_name ||
+          fd?.type ||
+          group?.groupName ||
+          "",
+      ) || null,
     hotels: group?.hotels || payload?.hotels || null,
     rates: group?.rates || payload?.rates || null,
 
-    sector:
-      sector ||
-      (origin && destination ? `${origin}-${destination}` : ""),
+    sector: sector || (origin && destination ? `${origin}-${destination}` : ""),
 
     type: normalizeAbidAirType(fd?.type, group),
 
     available_no_of_pax: Number(
       group?.available_no_of_pax ??
-      fd?.available_no_of_pax ??
-      fd?.remain_seats ??
-      fd?.availableSeats ??
-      fd?.available_seats ??
-      group?.availableSeats ??
-      group?.seats ??
-      group?.available_seats ??
-      0
+        fd?.available_no_of_pax ??
+        fd?.remain_seats ??
+        fd?.availableSeats ??
+        fd?.available_seats ??
+        group?.availableSeats ??
+        group?.seats ??
+        group?.available_seats ??
+        0,
     ),
 
     showSeat: true,
@@ -263,7 +343,10 @@ const normalizeAbidAirGroup = (group) => {
 
 export const fetchNormalisedAbidAirGroups = async () => {
   const { baseURL: cleanBaseURL, headers } = getAbidAirClientConfig();
-  const candidates = [`${cleanBaseURL}/flight/active`, `${cleanBaseURL}/packages/active`];
+  const candidates = [
+    `${cleanBaseURL}/flight/active`,
+    `${cleanBaseURL}/packages/active`,
+  ];
   if (!/\/api$/i.test(cleanBaseURL)) {
     candidates.push(`${cleanBaseURL}/api/packages/active`);
   }
@@ -275,8 +358,8 @@ export const fetchNormalisedAbidAirGroups = async () => {
     candidates.map((url) =>
       axios.get(url, {
         headers,
-      })
-    )
+      }),
+    ),
   ).then((results) => {
     results.forEach((result, index) => {
       if (result.status === "fulfilled") {
@@ -285,10 +368,11 @@ export const fetchNormalisedAbidAirGroups = async () => {
         const rawGroups = Array.isArray(resultData)
           ? resultData
           : resultData?.data ||
-          resultData?.flights ||
-          resultData?.groups ||
-          resultData?.result ||
-          resultData?.items || [];
+            resultData?.flights ||
+            resultData?.groups ||
+            resultData?.result ||
+            resultData?.items ||
+            [];
 
         if (Array.isArray(rawGroups) && rawGroups.length > 0) {
           const bookingType = candidates[index].includes("/packages/")
@@ -319,7 +403,7 @@ export const fetchNormalisedAbidAirGroups = async () => {
     .filter((group) => group.id);
 
   const uniqueGroups = Array.from(
-    new Map(normalizedGroups.map((group) => [group.id, group])).values()
+    new Map(normalizedGroups.map((group) => [group.id, group])).values(),
   );
 
   return uniqueGroups;
@@ -368,12 +452,14 @@ const findRemainingSeats = (value, visited = new Set()) => {
  */
 export const getAbidAirFlightAvailability = async (flightId) => {
   const { baseURL, headers } = getAbidAirClientConfig();
-  const response = await axios.get(`${baseURL}/flight/${flightId}`, { headers });
+  const response = await axios.get(`${baseURL}/flight/${flightId}`, {
+    headers,
+  });
   const remainingSeats = findRemainingSeats(response.data);
 
   if (remainingSeats === null) {
     throw new Error(
-      "Unable to verify the latest Abid Air seat availability. Please try again.",
+      "Unable to verify the latest seat availability. Please try again.",
     );
   }
 
@@ -399,7 +485,7 @@ export const getAvailableAbidAirBookingsByGroup = async (req, res) => {
     const groups = await fetchNormalisedAbidAirGroups();
     res.status(200).json({ success: true, data: groups });
   } catch (error) {
-    console.error("ABID AIR API ERROR:", error.message || error);
+    console.error("API ERROR:", error.message || error);
     res.status(400).json({ success: false, message: error.message });
   }
 };
@@ -407,10 +493,7 @@ export const getAvailableAbidAirBookingsByGroup = async (req, res) => {
 export const checkAbidAirFlightAvailability = async (req, res) => {
   try {
     const requiredSeats = Number(req.query.requiredSeats);
-    if (
-      !Number.isInteger(requiredSeats) ||
-      requiredSeats < 0
-    ) {
+    if (!Number.isInteger(requiredSeats) || requiredSeats < 0) {
       return res.status(400).json({
         success: false,
         message: "requiredSeats must be a non-negative whole number.",
@@ -432,13 +515,13 @@ export const checkAbidAirFlightAvailability = async (req, res) => {
         : `Seats not available. You requested ${requiredSeats} seat(s), but only ${remainingSeats} remain.`,
     });
   } catch (error) {
-    console.error("ABID AIR AVAILABILITY ERROR:", error.message || error);
+    console.error("AVAILABILITY ERROR:", error.message || error);
     return res.status(400).json({
       success: false,
       message:
         error.response?.data?.message ||
         error.message ||
-        "Unable to check Abid Air seat availability.",
+        "Unable to check seat availability.",
     });
   }
 };

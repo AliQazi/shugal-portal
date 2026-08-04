@@ -23,7 +23,7 @@ export const createAlHaiderBooking = async (bookingData) => {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-    }
+    },
   );
 
   return response.data;
@@ -95,7 +95,9 @@ const normalizeAlHaiderType = (value) => {
 };
 
 const getAlHaiderTypeFilters = (category) => {
-  const key = String(category || "all").toLowerCase().trim();
+  const key = String(category || "all")
+    .toLowerCase()
+    .trim();
 
   const filters = {
     all: null,
@@ -115,23 +117,17 @@ const normalizeFlightDetail = (detail, fallbackDepDate = null) => {
       detail?.flight_date ||
       detail?.departure_date ||
       detail?.date ||
-      fallbackDepDate
+      fallbackDepDate,
   );
 
   return {
     sr: detail?.sr || detail?.serial || detail?.sequence || null,
     flight_no:
-      detail?.flight_no ||
-      detail?.flightNo ||
-      detail?.flight_number ||
-      "",
+      detail?.flight_no || detail?.flightNo || detail?.flight_number || "",
     dep_date: depDate,
     flight_date: depDate,
     dept_time:
-      detail?.dept_time ||
-      detail?.dep_time ||
-      detail?.departure_time ||
-      "",
+      detail?.dept_time || detail?.dep_time || detail?.departure_time || "",
     origin:
       detail?.origin ||
       detail?.from ||
@@ -148,13 +144,10 @@ const normalizeFlightDetail = (detail, fallbackDepDate = null) => {
       detail?.arv_date ||
         detail?.arr_date ||
         detail?.arrival_date ||
-        detail?.date_arrival
+        detail?.date_arrival,
     ),
     arv_time:
-      detail?.arv_time ||
-      detail?.arr_time ||
-      detail?.arrival_time ||
-      "",
+      detail?.arv_time || detail?.arr_time || detail?.arrival_time || "",
     baggage: detail?.baggage || detail?.baggage_allowance || "",
     meal: detail?.meal || detail?.meals || "",
   };
@@ -171,11 +164,11 @@ const normalizeAlHaiderGroup = (group) => {
     group?.dept_date ||
       group?.dep_date ||
       group?.departure_date ||
-      detailsSource[0]?.dep_date
+      detailsSource[0]?.dep_date,
   );
 
   const normalizedDetails = detailsSource.map((detail) =>
-    normalizeFlightDetail(detail, deptDate)
+    normalizeFlightDetail(detail, deptDate),
   );
 
   const firstDetail = normalizedDetails[0] || null;
@@ -204,14 +197,14 @@ const normalizeAlHaiderGroup = (group) => {
         : ""),
 
     type: normalizeAlHaiderType(
-      group?.type || group?.groupType || group?.group_type
+      group?.type || group?.groupType || group?.group_type,
     ),
 
     available_no_of_pax: Number(
       group?.available_no_of_pax ||
         group?.availableSeats ||
         group?.no_of_seat ||
-        0
+        0,
     ),
 
     showSeat: group?.showSeat ?? true,
@@ -227,7 +220,7 @@ const normalizeAlHaiderGroup = (group) => {
       group?.arv_date ||
         group?.arr_date ||
         group?.arrival_date ||
-        lastDetail?.arv_date
+        lastDetail?.arv_date,
     ),
 
     details: normalizedDetails,
@@ -260,7 +253,7 @@ export const fetchNormalisedAlHaiderGroups = async () => {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-    }
+    },
   );
 
   const payload = response.data;
@@ -303,8 +296,7 @@ export const getAvailableBookingsByGroup = async (req, res) => {
     if (alHaiderResult.status === "rejected") {
       console.error(
         "AL-HAIDER FETCH FAILED:",
-        alHaiderResult.reason?.response?.data ||
-          alHaiderResult.reason?.message
+        alHaiderResult.reason?.response?.data || alHaiderResult.reason?.message,
       );
     }
 
@@ -312,15 +304,14 @@ export const getAvailableBookingsByGroup = async (req, res) => {
       console.error(
         "TRAVEL NETWORK FETCH FAILED:",
         travelNetworkResult.reason?.response?.data ||
-          travelNetworkResult.reason?.message
+          travelNetworkResult.reason?.message,
       );
     }
 
     if (abidAirResult.status === "rejected") {
       console.error(
-        "ABID AIR FETCH FAILED:",
-        abidAirResult.reason?.response?.data ||
-          abidAirResult.reason?.message
+        "FETCH FAILED:",
+        abidAirResult.reason?.response?.data || abidAirResult.reason?.message,
       );
     }
 
@@ -353,10 +344,7 @@ export const getAvailableBookingsByGroup = async (req, res) => {
       data: combined,
     });
   } catch (error) {
-    console.error(
-      "API GROUPS ERROR:",
-      error.response?.data || error.message
-    );
+    console.error("API GROUPS ERROR:", error.response?.data || error.message);
 
     return res.status(500).json({
       success: false,
@@ -384,7 +372,7 @@ export const getAirlines = async (req, res) => {
   } catch (error) {
     console.error(
       "AL-HAIDER AIRLINES API ERROR:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
 
     return res.status(400).json({

@@ -512,10 +512,9 @@ export default function BookingForm({ user }) {
           if (requestId !== availabilityRequestRef.current) return;
 
           if (!response.data?.available) {
-            toast.error(
-              response.data?.message || "Seats not available.",
-              { toastId: "abid-air-seat-error" },
-            );
+            toast.error(response.data?.message || "Seats not available.", {
+              toastId: "abid-air-seat-error",
+            });
             return;
           }
 
@@ -527,7 +526,7 @@ export default function BookingForm({ user }) {
           if (requestId !== availabilityRequestRef.current) return;
           toast.error(
             error.response?.data?.message ||
-              "Unable to check Abid Air seat availability.",
+              "Unable to check seat availability.",
             { toastId: "abid-air-seat-error" },
           );
           return;
@@ -795,7 +794,7 @@ export default function BookingForm({ user }) {
 
     if (isAbidAirBooking && payingPassengers > ABID_AIR_PASSENGER_LIMIT) {
       toast.error(
-        `Abid Air bookings can have up to ${ABID_AIR_PASSENGER_LIMIT} passengers.`,
+        `this bookings can have up to ${ABID_AIR_PASSENGER_LIMIT} passengers.`,
       );
       return;
     }
