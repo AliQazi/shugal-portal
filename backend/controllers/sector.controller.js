@@ -9,6 +9,7 @@ import { fetchNormalisedTravelNetworkGroups } from "./travel-network.controller.
 import { fetchNormalisedAbidAirGroups } from "./abidair.controller.js";
 import { fetchNormalisedSabaoonGroups } from "./sabaoon.controller.js";
 import { getGroupBookingProducts } from "../utils/Group-Booking.js";
+import { fetchNormalisedMCTGroups } from "./mct.controller.js";
 
 const normalizeSector = (sector) => {
   if (!sector) return null;
@@ -637,13 +638,15 @@ export const getUnifiedGroups = async (req, res) => {
     let travelNetworkGroups = [];
     let abidAirGroups = [];
     let sabaoonGroups = [];
+    let mctGroups = [];
 
-    const [ahResult, tnResult, abidResult, sabaoonResult] =
+    const [ahResult, tnResult, abidResult, sabaoonResult, mctResult] =
       await Promise.allSettled([
         fetchNormalisedAlHaiderGroups(),
         fetchNormalisedTravelNetworkGroups(),
         fetchNormalisedAbidAirGroups(),
         fetchNormalisedSabaoonGroups(),
+        fetchNormalisedMCTGroups(),
       ]);
 
     if (ahResult.status === "fulfilled") {
@@ -714,6 +717,19 @@ export const getUnifiedGroups = async (req, res) => {
       );
     }
 
+    if (mctResult.status === "fulfilled") {
+      mctGroups = mctResult.value.map((g) => ({
+        ...g,
+        source: "mct",
+        isOwnGroup: false,
+      }));
+    } else {
+      console.error(
+        "MCT fetch for unified groups failed:",
+        mctResult.reason?.message,
+      );
+    }
+
     /* ===============================
        🆕 Fetch Group Booking (nct-groupbooking-adapter) Products
     =============================== */
@@ -740,6 +756,7 @@ export const getUnifiedGroups = async (req, res) => {
       ...abidAirGroups,
       ...sabaoonGroups,
       ...groupBookingGroups,
+      ...mctGroups,
     ];
 
     // Apply sector order to the full combined dataset (admin + al-haider + travel-network + abidair)

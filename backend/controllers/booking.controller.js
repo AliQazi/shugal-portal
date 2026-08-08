@@ -533,6 +533,7 @@ import {
   sendBookingStatusChangeEmail,
 } from "../utils/emailService.js";
 import { bookGroupNCT, formatBookingForNCT } from "../utils/Group-Booking.js";
+import { createMCTBooking, formatBookingForMCT } from "./mct.controller.js";
 
 const HOLD_DURATION = 2 * 60 * 60 * 1000;
 // -------------------------
@@ -586,6 +587,22 @@ const normalizeExternalSource = ({ source, groupId, groupPriceDetailId }) => {
     ].includes(normalizedRaw)
   ) {
     return "abidairtravel";
+  }
+
+  if (
+    [
+      "nct",
+      "group-booking",
+      "groupbooking",
+      "nct-group-booking",
+      "nct-groupbooking",
+    ].includes(normalizedRaw)
+  ) {
+    return "NCT";
+  }
+
+  if (["mct", "mct-travels", "mcttravels"].includes(normalizedRaw)) {
+    return "mct";
   }
 
   if (!normalizedRaw) {
@@ -896,6 +913,7 @@ export const createBooking = async (req, res) => {
     const isAbidAirGroup =
       bookingSource === "abidairtravel" && !isLocalGroup(groupId);
     const isNCTGroup = bookingSource === "NCT";
+    const isMCTGroup = bookingSource === "mct" && !isLocalGroup(groupId);
 
     // Unlike local bookings, Abid Air cannot be booked without the passenger
     // rows because its booking endpoint requires one row per passenger.
@@ -1162,7 +1180,7 @@ export const createBooking = async (req, res) => {
     }
 
     // ─── Handle NCT (Group Booking adapter) third-party API call ───
-    if (isNCTGroup) {
+    if (isNCTGroup && passengers.length > 0) {
       try {
         // Groups from this source are normalized as "nct_<productId>"
         const productId = String(groupId).replace(/^nct_/, "");
@@ -1174,7 +1192,7 @@ export const createBooking = async (req, res) => {
           productId,
           sealed,
           agencyCode: process.env.GROUP_BOOKING_AGENCY_CODE,
-          agencyName: BOOKING_CONTACT.agencyName,
+          agencyName: process.env.name || "Shaheen Wings Travel",
           bookStatus: "ON_HOLD",
           passengers: passengers.map((p) => ({
             type: p.type,
@@ -1221,6 +1239,59 @@ export const createBooking = async (req, res) => {
 
         await booking.save();
         console.log("⚠️ NCT booking marked as failed but local booking kept");
+      }
+    }
+
+    // ─── Call MCT (mcttravels.com) booking API for external MCT groups ───
+    if (isMCTGroup && passengers.length > 0) {
+      try {
+        const mctBookingData = formatBookingForMCT({
+          groupId,
+          agencyInfo: {
+            agent_name: process.env.name,
+            agency_name: process.env.name,
+            email: process.env.email,
+            mobile: process.env.mobile_no,
+            adults: adultsCount,
+            child: childrenCount,
+            infant: infantsCount,
+            agent_notes: null,
+          },
+          passengers,
+          pricing,
+        });
+
+        const mctResponse = await createMCTBooking(mctBookingData);
+        console.log(mctResponse);
+
+        if (mctResponse) {
+          const mctData = mctResponse.data || mctResponse;
+
+          booking.mctBookingId =
+            mctData?.bookingId || mctData?.id || mctData?.booking_id || null;
+
+          if (mctData?.pnr) {
+            booking.pnr = mctData.pnr;
+          }
+
+          booking.mctResponse = mctResponse;
+          booking.mctBookingStatus = "success";
+
+          await booking.save();
+          console.log("✅ MCT booking saved successfully");
+        }
+      } catch (mctError) {
+        console.error("❌ MCT API booking failed:", mctError.message);
+
+        booking.mctBookingStatus = "failed";
+        booking.mctErrorMessage = mctError.message;
+
+        if (mctError.mctResponseData) {
+          booking.mctResponse = mctError.mctResponseData;
+        }
+
+        await booking.save();
+        console.log("⚠️ MCT booking marked as failed but local booking kept");
       }
     }
 

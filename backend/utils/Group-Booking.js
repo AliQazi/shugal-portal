@@ -77,7 +77,11 @@ const authenticate = async () => {
     expiresAt: expiresAt.getTime(),
   };
 
-  await persistToken({ idToken: id_token, accessToken: access_token, expiresAt });
+  await persistToken({
+    idToken: id_token,
+    accessToken: access_token,
+    expiresAt,
+  });
 
   console.log(
     "[GROUP BOOKING] Token refreshed, valid until",
@@ -170,6 +174,7 @@ export const getGroupBookingProducts = async () => {
       filter: {},
       sortColumns: [],
     });
+    console.log(res);
     return res.data?.data?.list || [];
   } catch (error) {
     console.error("Error fetching Group Booking availList:", error.message);

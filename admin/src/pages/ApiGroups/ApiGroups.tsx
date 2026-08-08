@@ -636,7 +636,7 @@ export default function ApiGroups() {
       const shouldFetchTravelNetworkPackages =
         activeCategory === "all" || activeCategory === "umrah-packages";
 
-      const [combinedGroupsRes, sabaoonRes, travelNetworkPackagesRes] =
+      const [combinedGroupsRes, sabaoonRes, travelNetworkPackagesRes, unifiedGroupsRes] =
         await Promise.allSettled([
         axiosInstance.get("/al-haider/available-bookings-by-group", {
           params: activeCategory === "all" ? {} : { category: apiCategory },
@@ -645,6 +645,9 @@ export default function ApiGroups() {
         shouldFetchTravelNetworkPackages
           ? axiosInstance.get("/umrah-packages/travel-network")
           : Promise.resolve(null),
+        // NCT (Group Booking adapter) groups only surface via the unified
+        // groups endpoint today — filter down to the NCT-sourced rows below.
+        axiosInstance.get("/sector/getUnifiedGroups"),
       ]);
 
       const combinedGroups: ApiGroup[] =
@@ -673,10 +676,26 @@ export default function ApiGroups() {
             )
           : [];
 
+      const nctGroups: ApiGroup[] =
+        unifiedGroupsRes.status === "fulfilled" && unifiedGroupsRes.value.data?.success
+          ? (unifiedGroupsRes.value.data.data || [])
+              .filter((g: any) => String(g.source || "").toUpperCase() === "NCT")
+              .map((g: any) => ({ ...g, source: "NCT" }))
+          : [];
+
+      const mctGroups: ApiGroup[] =
+        unifiedGroupsRes.status === "fulfilled" && unifiedGroupsRes.value.data?.success
+          ? (unifiedGroupsRes.value.data.data || [])
+              .filter((g: any) => String(g.source || "").toLowerCase() === "mct")
+              .map((g: any) => ({ ...g, source: "mct" }))
+          : [];
+
       let merged = [
         ...combinedGroups,
         ...sabaoonGroups,
         ...travelNetworkPackages,
+        ...nctGroups,
+        ...mctGroups,
       ];
 
       if (activeCategory !== "all") {
@@ -1181,6 +1200,16 @@ export default function ApiGroups() {
                           {sources.includes("sabaoon") && (
                             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full tracking-wide border bg-sky-100 text-sky-700 border-sky-200">
                              AL-SABOOR
+                            </span>
+                          )}
+                          {sources.includes("NCT") && (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full tracking-wide border bg-indigo-100 text-indigo-700 border-indigo-200">
+                              NCT
+                            </span>
+                          )}
+                          {sources.includes("mct") && (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full tracking-wide border bg-rose-100 text-rose-700 border-rose-200">
+                              MCT
                             </span>
                           )}
                         </div>

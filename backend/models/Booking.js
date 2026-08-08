@@ -277,6 +277,25 @@ const bookingSchema = new mongoose.Schema(
       enum: ["flight", "package", null],
       default: null,
     },
+
+    // MCT specific fields
+    mctBookingId: {
+      type: String,
+      default: null,
+    },
+    mctBookingStatus: {
+      type: String,
+      enum: ["pending", "success", "failed", "not_applicable"],
+      default: "not_applicable",
+    },
+    mctErrorMessage: {
+      type: String,
+      default: null,
+    },
+    mctResponse: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
   },
   {
     timestamps: true,

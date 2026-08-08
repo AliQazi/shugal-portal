@@ -24,6 +24,7 @@ import transportRoutes from "./routes/transport.routes.js";
 import visaRoutes from "./routes/visa.routes.js";
 import umrahPackageRoutes from "./routes/umrahPackage.routes.js";
 import umrahPackageBookingRoutes from "./routes/umrahPackageBooking.routes.js";
+import mctAPIRoutes from "./routes/mct.routes.js";
 
 import { initializeSabaoonToken } from "./utils/sabaoonToken.js";
 import testEmail from "./utils/testEmail.js";
@@ -82,6 +83,7 @@ app.use("/api/transports", transportRoutes);
 app.use("/api/visas", visaRoutes);
 app.use("/api/umrah-packages", umrahPackageRoutes);
 app.use("/api/umrah-package-bookings", umrahPackageBookingRoutes);
+app.use("/api/mct", mctAPIRoutes);
 
 // Sabaoon integration removed. Only Al-Haider API is used for group data.
 
