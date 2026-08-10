@@ -37,6 +37,16 @@ const getConfiguredSabaoonAgentCode = () =>
   process.env.SABAOON_AGENT_CODE?.trim() ||
   "";
 
+// `agent_name` is a new field required by the updated Sabaoon booking API
+// docs. Falls back to the generic agency name used by the other providers
+// (Al-Haider, MCT) when no Sabaoon-specific override is set.
+const getConfiguredSabaoonAgentName = () =>
+  process.env.saboor_AgentName?.trim() ||
+  process.env.sabbor_AgentName?.trim() ||
+  process.env.SABAOON_AGENT_NAME?.trim() ||
+  process.env.name?.trim() ||
+  "";
+
 const getSabaoonBookingEndpoint = () => {
   const path =
     process.env.saboor_Booking_Path?.trim() ||
@@ -72,15 +82,27 @@ const normalizeSabaoonGroup = (group) => {
       : `${LOGO_BASE}${encodeURIComponent(airlineObj.logo_url)}`
     : null;
 
+  // Sabaoon only sends the bare flight number (e.g. "801"), not the airline
+  // code — prefix it with the airline's short_name (e.g. "SV") so it reads
+  // "SV 801", matching how flight numbers are shown for the other providers.
+  const airlineCode = String(airlineObj?.short_name || "").trim();
+
   const normalizedDetails = details.map((detail) => {
     const depDate = formatDate(
       detail?.flight_date || detail?.dep_date || deptDate,
     );
+    const rawFlightNo = String(detail?.flight_no || "").trim();
+    const flightNo =
+      airlineCode &&
+      rawFlightNo &&
+      !rawFlightNo.toUpperCase().startsWith(airlineCode.toUpperCase())
+        ? `${airlineCode} ${rawFlightNo}`
+        : rawFlightNo;
 
     return {
       ...detail,
       sr: detail?.sr || null,
-      flight_no: detail?.flight_no || "",
+      flight_no: flightNo,
       dep_date: depDate,
       flight_date: depDate,
       origin: detail?.origin || "",
@@ -171,7 +193,9 @@ export const fetchNormalisedSabaoonGroups = async (type) => {
   });
 
   if (response.data?.status === "error") {
-    throw new Error(response.data?.message || "Sabaoon groups API returned an error");
+    throw new Error(
+      response.data?.message || "Sabaoon groups API returned an error",
+    );
   }
 
   const payload = response.data;
@@ -325,6 +349,7 @@ const buildSabaoonBookingForm = ({
 
   form.append("token", token);
   form.append("agent_id", getConfiguredSabaoonAgentCode());
+  form.append("agent_name", getConfiguredSabaoonAgentName());
   form.append("roe", bookingReference);
   form.append("no_of_seat", String(totalSeats));
   form.append("group_id", String(groupId));
@@ -349,7 +374,7 @@ const buildSabaoonBookingForm = ({
     form.append("pass_no[]", p.passport || "");
     form.append("dob[]", formatDate(p.dateOfBirth));
     form.append("doi[]", ""); // passport issue date not collected
-    form.append("doe[]", formatDate(p.passportExpiry));     
+    form.append("doe[]", formatDate(p.passportExpiry));
   }
 
   // Price arrays — one entry per passenger of that type.
@@ -407,7 +432,9 @@ export const createSabaoonBooking = async (bookingParams) => {
         await invalidateSabaoonToken();
         return submit(true);
       }
-      throw new Error(message || "Sabaoon booking API returned a failure status");
+      throw new Error(
+        message || "Sabaoon booking API returned a failure status",
+      );
     }
 
     return { transactionId: transaction_id ?? booking_id ?? id ?? null };

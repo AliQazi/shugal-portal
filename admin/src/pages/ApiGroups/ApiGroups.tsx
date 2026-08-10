@@ -113,10 +113,10 @@ const getPackageName = (group: {
   return (
     String(
       group?.packageName ||
-        group?.package_name ||
-        group?.groupName ||
-        group?.flight?.type ||
-        ""
+      group?.package_name ||
+      group?.groupName ||
+      group?.flight?.type ||
+      ""
     ).trim() || null
   );
 };
@@ -235,10 +235,10 @@ const formatPackageDateTime = (date?: string, time?: string) => {
   const parsedDate = parsePackageDate(date || "");
   const formattedDate = parsedDate
     ? parsedDate.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })
     : date || "";
 
   return `${formattedDate}${time ? ` ${time}` : ""}`;
@@ -335,7 +335,7 @@ const getPackageDuration = (group: ApiGroup) => {
 
   return Math.max(
     0,
-    Math.round((returnArrival.getTime() - departure.getTime()) / (1000 * 60 * 60 * 24)) +1
+    Math.round((returnArrival.getTime() - departure.getTime()) / (1000 * 60 * 60 * 24)) + 1
   );
 };
 
@@ -442,10 +442,10 @@ const normalizeTravelNetworkUmrahPackage = (pkg: any): ApiGroup => {
     rates,
     airline: airline
       ? {
-          airline_name: airline.airline_name || "",
-          logo_url: airline.logo_url || null,
-          short_name: airline.short_name || "",
-        }
+        airline_name: airline.airline_name || "",
+        logo_url: airline.logo_url || null,
+        short_name: airline.short_name || "",
+      }
       : null,
     sector: pkg.sector || pkg.group?.sector || "",
     price: Number(rates.sharing || 0),
@@ -472,6 +472,21 @@ const normalizeTravelNetworkUmrahPackage = (pkg: any): ApiGroup => {
   };
 };
 
+// Raw `source` values are internal keys used for filtering/grouping — this
+// maps them to the provider-facing names shown in the UI (matches the badge
+// labels used elsewhere on this page).
+const SOURCE_DISPLAY_LABELS: Record<string, string> = {
+  "al-haider": "Al-Haider",
+  "travel-network": "Travel Network",
+  abidairtravel: "AbidAir Travels",
+  sabaoon: "Al Saboor",
+  NCT: "NCT",
+  mct: "MCT",
+};
+
+const getSourceDisplayLabel = (source?: string) =>
+  (source && SOURCE_DISPLAY_LABELS[source]) || source || "—";
+
 const isUmrahPackageGroup = (group: any) => {
   const source = String(group?.source || "").toLowerCase();
   const isAbidAirSource = source === "abidairtravel";
@@ -486,7 +501,7 @@ const isUmrahPackageGroup = (group: any) => {
 
   return Boolean(
     (isAbidAirSource || isTravelNetworkSource) &&
-      (hasPackageStructure || isFlightPackageType)
+    (hasPackageStructure || isFlightPackageType)
   );
 };
 
@@ -638,56 +653,56 @@ export default function ApiGroups() {
 
       const [combinedGroupsRes, sabaoonRes, travelNetworkPackagesRes, unifiedGroupsRes] =
         await Promise.allSettled([
-        axiosInstance.get("/al-haider/available-bookings-by-group", {
-          params: activeCategory === "all" ? {} : { category: apiCategory },
-        }),
-        axiosInstance.get("/sabaoon/admin-groups"),
-        shouldFetchTravelNetworkPackages
-          ? axiosInstance.get("/umrah-packages/travel-network")
-          : Promise.resolve(null),
-        // NCT (Group Booking adapter) groups only surface via the unified
-        // groups endpoint today — filter down to the NCT-sourced rows below.
-        axiosInstance.get("/sector/getUnifiedGroups"),
-      ]);
+          axiosInstance.get("/al-haider/available-bookings-by-group", {
+            params: activeCategory === "all" ? {} : { category: apiCategory },
+          }),
+          axiosInstance.get("/sabaoon/admin-groups"),
+          shouldFetchTravelNetworkPackages
+            ? axiosInstance.get("/umrah-packages/travel-network")
+            : Promise.resolve(null),
+          // NCT (Group Booking adapter) groups only surface via the unified
+          // groups endpoint today — filter down to the NCT-sourced rows below.
+          axiosInstance.get("/sector/getUnifiedGroups"),
+        ]);
 
       const combinedGroups: ApiGroup[] =
         combinedGroupsRes.status === "fulfilled" && combinedGroupsRes.value.data?.success
           ? (combinedGroupsRes.value.data.data || []).map((g: any) =>
-              g.package_id || g.flight?.flight_details?.type === "UMRAH GROUPS"
-                ? normalizeUmrahPackage(g)
-                : { ...g, source: g.source || "al-haider" }
-            )
+            g.package_id || g.flight?.flight_details?.type === "UMRAH GROUPS"
+              ? normalizeUmrahPackage(g)
+              : { ...g, source: g.source || "al-haider" }
+          )
           : [];
 
       const sabaoonGroups: ApiGroup[] =
         sabaoonRes.status === "fulfilled" && sabaoonRes.value.data?.success
           ? (sabaoonRes.value.data.data || []).map((g: any) =>
-              g.package_id || g.flight?.flight_details?.type === "UMRAH GROUPS"
-                ? normalizeUmrahPackage(g)
-                : { ...g, source: g.source || "sabaoon" }
-            )
+            g.package_id || g.flight?.flight_details?.type === "UMRAH GROUPS"
+              ? normalizeUmrahPackage(g)
+              : { ...g, source: g.source || "Al-Saboor" }
+          )
           : [];
 
       const travelNetworkPackages: ApiGroup[] =
         travelNetworkPackagesRes.status === "fulfilled" &&
-        travelNetworkPackagesRes.value?.data?.success
+          travelNetworkPackagesRes.value?.data?.success
           ? (travelNetworkPackagesRes.value.data.data || []).map(
-              normalizeTravelNetworkUmrahPackage
-            )
+            normalizeTravelNetworkUmrahPackage
+          )
           : [];
 
       const nctGroups: ApiGroup[] =
         unifiedGroupsRes.status === "fulfilled" && unifiedGroupsRes.value.data?.success
           ? (unifiedGroupsRes.value.data.data || [])
-              .filter((g: any) => String(g.source || "").toUpperCase() === "NCT")
-              .map((g: any) => ({ ...g, source: "NCT" }))
+            .filter((g: any) => String(g.source || "").toUpperCase() === "NCT")
+            .map((g: any) => ({ ...g, source: "NCT" }))
           : [];
 
       const mctGroups: ApiGroup[] =
         unifiedGroupsRes.status === "fulfilled" && unifiedGroupsRes.value.data?.success
           ? (unifiedGroupsRes.value.data.data || [])
-              .filter((g: any) => String(g.source || "").toLowerCase() === "mct")
-              .map((g: any) => ({ ...g, source: "mct" }))
+            .filter((g: any) => String(g.source || "").toLowerCase() === "mct")
+            .map((g: any) => ({ ...g, source: "mct" }))
           : [];
 
       let merged = [
@@ -960,80 +975,80 @@ export default function ApiGroups() {
                       return da.localeCompare(db);
                     })
                     .map((row) => {
-                    const details = row.details || [];
-                    const goingFlight = details[0] || {};
-                    const returnFlight = details[1] || {};
-                    const packageHotels = parseGroupHotels(row);
-                    const packageRates = normalizePackageRates(row);
+                      const details = row.details || [];
+                      const goingFlight = details[0] || {};
+                      const returnFlight = details[1] || {};
+                      const packageHotels = parseGroupHotels(row);
+                      const packageRates = normalizePackageRates(row);
 
-                    return (
-                      <tr
-                        key={`${row.package_id || row.id}-${row.pnr || ""}`}
-                        className="bg-white hover:bg-gray-50"
-                      >
-                        <td className="border border-gray-300 px-3 py-3 align-top leading-7 text-gray-700">
-                          <div>Makkah: {packageHotels?.makkah || "—"}</div>
-                          <div>Madina: {packageHotels?.madina || "—"}</div>
-                        </td>
+                      return (
+                        <tr
+                          key={`${row.package_id || row.id}-${row.pnr || ""}`}
+                          className="bg-white hover:bg-gray-50"
+                        >
+                          <td className="border border-gray-300 px-3 py-3 align-top leading-7 text-gray-700">
+                            <div>Makkah: {packageHotels?.makkah || "—"}</div>
+                            <div>Madina: {packageHotels?.madina || "—"}</div>
+                          </td>
 
-                        <td className="border border-gray-300 px-3 py-3 align-top leading-7 text-gray-700">
-                          <div>{goingFlight.origin || "—"}</div>
-                          <div>{returnFlight.origin || "—"}</div>
-                        </td>
+                          <td className="border border-gray-300 px-3 py-3 align-top leading-7 text-gray-700">
+                            <div>{goingFlight.origin || "—"}</div>
+                            <div>{returnFlight.origin || "—"}</div>
+                          </td>
 
-                        <td className="border border-gray-300 px-3 py-3 align-top leading-7 text-gray-700">
-                          <div>{goingFlight.destination || "—"}</div>
-                          <div>{returnFlight.destination || "—"}</div>
-                        </td>
+                          <td className="border border-gray-300 px-3 py-3 align-top leading-7 text-gray-700">
+                            <div>{goingFlight.destination || "—"}</div>
+                            <div>{returnFlight.destination || "—"}</div>
+                          </td>
 
-                        <td className="border border-gray-300 px-3 py-3 align-top leading-7 text-gray-700">
-                          <div>
-                            {formatPackageDateTime(
-                              goingFlight.dep_date,
-                              goingFlight.dept_time
-                            )}
-                          </div>
-                          <div>
-                            {formatPackageDateTime(
-                              returnFlight.dep_date,
-                              returnFlight.dept_time
-                            )}
-                          </div>
-                        </td>
+                          <td className="border border-gray-300 px-3 py-3 align-top leading-7 text-gray-700">
+                            <div>
+                              {formatPackageDateTime(
+                                goingFlight.dep_date,
+                                goingFlight.dept_time
+                              )}
+                            </div>
+                            <div>
+                              {formatPackageDateTime(
+                                returnFlight.dep_date,
+                                returnFlight.dept_time
+                              )}
+                            </div>
+                          </td>
 
-                        <td className="border border-gray-300 px-3 py-3 align-top leading-7 text-gray-700">
-                          <div>
-                            {formatPackageDateTime(
-                              goingFlight.arv_date,
-                              goingFlight.arv_time
-                            )}
-                          </div>
-                          <div>
-                            {formatPackageDateTime(
-                              returnFlight.arv_date,
-                              returnFlight.arv_time
-                            )}
-                          </div>
-                        </td>
+                          <td className="border border-gray-300 px-3 py-3 align-top leading-7 text-gray-700">
+                            <div>
+                              {formatPackageDateTime(
+                                goingFlight.arv_date,
+                                goingFlight.arv_time
+                              )}
+                            </div>
+                            <div>
+                              {formatPackageDateTime(
+                                returnFlight.arv_date,
+                                returnFlight.arv_time
+                              )}
+                            </div>
+                          </td>
 
-                        <td className="border border-gray-300 px-3 py-3 align-top text-blue-600">
-                          {packageRates.sharing ? packageRates.sharing.toLocaleString() : "—"}
-                        </td>
+                          <td className="border border-gray-300 px-3 py-3 align-top text-blue-600">
+                            {packageRates.sharing ? packageRates.sharing.toLocaleString() : "—"}
+                          </td>
 
-                        <td className="border border-gray-300 px-3 py-3 align-top text-blue-600">
-                          {packageRates.quad ? packageRates.quad.toLocaleString() : "—"}
-                        </td>
+                          <td className="border border-gray-300 px-3 py-3 align-top text-blue-600">
+                            {packageRates.quad ? packageRates.quad.toLocaleString() : "—"}
+                          </td>
 
-                        <td className="border border-gray-300 px-3 py-3 align-top text-blue-600">
-                          {packageRates.triple ? packageRates.triple.toLocaleString() : "—"}
-                        </td>
+                          <td className="border border-gray-300 px-3 py-3 align-top text-blue-600">
+                            {packageRates.triple ? packageRates.triple.toLocaleString() : "—"}
+                          </td>
 
-                        <td className="border border-gray-300 px-3 py-3 align-top text-blue-600">
-                          {packageRates.double ? packageRates.double.toLocaleString() : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          <td className="border border-gray-300 px-3 py-3 align-top text-blue-600">
+                            {packageRates.double ? packageRates.double.toLocaleString() : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>
@@ -1092,11 +1107,10 @@ export default function ApiGroups() {
               <Link
                 key={category.key}
                 to={target}
-                className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                  activeCategory === category.key
+                className={`rounded-full border px-4 py-2 text-sm font-medium transition ${activeCategory === category.key
                     ? "border-blue-600 bg-blue-600 text-white"
                     : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-                }`}
+                  }`}
               >
                 {category.label}
               </Link>
@@ -1199,7 +1213,7 @@ export default function ApiGroups() {
                           )}
                           {sources.includes("sabaoon") && (
                             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full tracking-wide border bg-sky-100 text-sky-700 border-sky-200">
-                             AL-SABOOR
+                              AL-SABOOR
                             </span>
                           )}
                           {sources.includes("NCT") && (
@@ -1265,11 +1279,10 @@ export default function ApiGroups() {
                             return (
                               <tr
                                 key={`${group.source}-${group.id}`}
-                                className={`border-b border-gray-100 transition-colors ${
-                                  categoryHasOverride(groupCat)
+                                className={`border-b border-gray-100 transition-colors ${categoryHasOverride(groupCat)
                                     ? "bg-orange-50/40 hover:bg-orange-50"
                                     : "bg-white hover:bg-blue-50/40"
-                                }`}
+                                  }`}
                               >
                                 <td className="px-4 py-3 text-xs font-medium text-gray-600 align-top">
                                   {isMultiLeg ? (
@@ -1280,9 +1293,8 @@ export default function ApiGroups() {
                                         return (
                                           <div
                                             key={i}
-                                            className={`font-bold text-xs whitespace-nowrap ${
-                                              i > 0 ? "pt-2" : "pb-2"
-                                            }`}
+                                            className={`font-bold text-xs whitespace-nowrap ${i > 0 ? "pt-2" : "pb-2"
+                                              }`}
                                           >
                                             {formatDate(rawDate)}
                                           </div>
@@ -1336,7 +1348,7 @@ export default function ApiGroups() {
                                 </td>
 
                                 <td className="px-4 py-3 text-xs font-medium text-gray-700 align-top">
-                                  {group.source || "—"}
+                                  {getSourceDisplayLabel(group.source)}
                                 </td>
 
                                 <td className="px-4 py-3 text-xs font-bold text-center text-gray-700 align-top">

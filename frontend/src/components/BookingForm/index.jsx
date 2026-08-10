@@ -219,6 +219,7 @@ export default function BookingForm({ user }) {
   const [loadingBooking, setLoadingBooking] = useState(isEditMode);
   // const [existingBooking, setExistingBooking] = useState(null);
   const [groupData, setGroupData] = useState(location.state?.groupData || null);
+  console.log(groupData);
   // const [totalSeats, setTotalSeats] = useState(null);
 
   const [mrzModal, setMrzModal] = useState({ open: false, index: null });
