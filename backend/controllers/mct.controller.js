@@ -78,6 +78,47 @@ MCT.interceptors.response.use(
   },
 );
 
+// MCT sends its own free-text `type` values (case/spacing vary, e.g. "Umrah",
+// "umrah_group") which almost never match the canonical strings the frontend
+// filters on. Normalise the same way the other providers (Al-Haider, Travel
+// Network) do so MCT groups land under the correct tab (e.g. Umrah Tickets).
+const normalizeMCTType = (value) => {
+  const rawType = String(value || "")
+    .toUpperCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const typeMap = {
+    UAE: "UAE ONE WAY GROUP",
+    "UAE ONEWAY": "UAE ONE WAY GROUP",
+    "UAE ONE WAY": "UAE ONE WAY GROUP",
+
+    KSA: "ONE WAY GROUP",
+    "KSA ONEWAY": "ONE WAY GROUP",
+    "KSA ONE WAY": "ONE WAY GROUP",
+    SAUDI: "ONE WAY GROUP",
+    "SAUDI ARABIA": "ONE WAY GROUP",
+
+    OMAN: "OMAN ONE WAY GROUP",
+    "OMAN ONEWAY": "OMAN ONE WAY GROUP",
+    "OMAN ONE WAY": "OMAN ONE WAY GROUP",
+    MUSCAT: "OMAN ONE WAY GROUP",
+    MASCAT: "OMAN ONE WAY GROUP",
+
+    UMRAH: "UMRAH GROUP",
+    "UMRAH GROUPS": "UMRAH GROUP",
+
+    UK: "UK ONE WAY GROUP",
+    "UK ONEWAY": "UK ONE WAY GROUP",
+    "UK ONE WAY": "UK ONE WAY GROUP",
+    "UNITED KINGDOM": "UK ONE WAY GROUP",
+    LONDON: "UK ONE WAY GROUP",
+  };
+
+  return typeMap[rawType] || rawType;
+};
+
 const toNumber = (value, fallback = 0) => {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
@@ -177,7 +218,7 @@ export const normalizeMCTGroup = (group = {}, index = 0) => {
     isOwnGroup: false,
     sector: group.sector || "",
     sectorKey: group.sector || "",
-    type: group.type || "",
+    type: normalizeMCTType(group.type),
     available_no_of_pax: availableSeats,
     available_package_seats: toNumber(group.available_package_seats),
     showSeat: true,
