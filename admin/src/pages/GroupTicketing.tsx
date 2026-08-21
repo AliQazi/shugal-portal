@@ -55,6 +55,13 @@ interface Payment {
   paymentDate?: string;
 }
 
+interface PriceOnCall {
+  seats?: boolean;
+  adult?: boolean;
+  child?: boolean;
+  infant?: boolean;
+}
+
 interface GroupTicketing {
   _id: string;
   voucher_id: string;
@@ -67,6 +74,7 @@ interface GroupTicketing {
   groupCategory?: string;
   groupName?: string;
   showSeat?: boolean;
+  priceOnCall?: PriceOnCall;
   groupType: string;
   flights: Flight[];
   passengers: Passenger;
@@ -308,17 +316,29 @@ const GroupTicketing = () => {
 
                       {/* Seats */}
                       <td className="px-4 py-4 text-sm text-center md:text-left">
-                        <div className="text-gray-800 dark:text-white font-bold text-base">
-                          {booking.totalSeats}
-                        </div>
+                        {booking.priceOnCall?.seats ? (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                            On Call
+                          </span>
+                        ) : (
+                          <div className="text-gray-800 dark:text-white font-bold text-base">
+                            {booking.totalSeats}
+                          </div>
+                        )}
                         <div className="text-[10px] text-gray-500 uppercase tracking-tighter">Total Capacity</div>
                       </td>
 
                       {/* Pricing */}
                       <td className="px-4 py-4 text-sm">
-                        <div className="text-green-600 dark:text-green-400 font-bold">
-                          PKR {booking.price.sellingAdultPriceB2B?.toLocaleString()}
-                        </div>
+                        {booking.priceOnCall?.adult ? (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                            On Call
+                          </span>
+                        ) : (
+                          <div className="text-green-600 dark:text-green-400 font-bold">
+                            PKR {booking.price.sellingAdultPriceB2B?.toLocaleString()}
+                          </div>
+                        )}
                         <div className="text-[10px] text-gray-500 uppercase tracking-tighter">Per Adult</div>
                       </td>
 

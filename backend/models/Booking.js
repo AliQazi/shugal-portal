@@ -158,6 +158,13 @@ const bookingSchema = new mongoose.Schema(
         type: Number,
         required: true,
       },
+      // Snapshot of the group's "Price on Call" flags at the time of booking.
+      // Keeps the price hidden from the agent even if the group is edited later.
+      priceOnCall: {
+        adult: { type: Boolean, default: false },
+        child: { type: Boolean, default: false },
+        infant: { type: Boolean, default: false },
+      },
     },
 
     // Passenger Details

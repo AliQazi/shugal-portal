@@ -51,6 +51,16 @@ const PriceSchema = new mongoose.Schema({
 }, { _id: false });
 
 /* ===========================
+   PRICE ON CALL FLAGS
+=========================== */
+const PriceOnCallSchema = new mongoose.Schema({
+  seats: { type: Boolean, default: false },
+  adult: { type: Boolean, default: false },
+  child: { type: Boolean, default: false },
+  infant: { type: Boolean, default: false }
+}, { _id: false });
+
+/* ===========================
    PAYMENT SUB-SCHEMA
 =========================== */
 const PaymentSchema = new mongoose.Schema({
@@ -111,6 +121,9 @@ const GroupTicketingSchema = new mongoose.Schema(
   passengers: PassengerSchema,
 
   price: PriceSchema,
+
+  // Toggle "On Call" display for seats / selling prices shown to agents
+  priceOnCall: { type: PriceOnCallSchema, default: () => ({}) },
 
   payments: [PaymentSchema],
   

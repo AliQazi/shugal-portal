@@ -198,6 +198,18 @@ export default function MyBookings() {
     );
   };
 
+  // A booking's price stays hidden from the agent if any passenger type it
+  // actually has was booked while that group's price was "On Call"
+  const isBookingPriceOnCall = (booking) => {
+    const priceOnCall = booking.pricing?.priceOnCall;
+    if (!priceOnCall) return false;
+    return Boolean(
+      priceOnCall.adult ||
+        ((booking.childrenCount || 0) > 0 && priceOnCall.child) ||
+        ((booking.infantsCount || 0) > 0 && priceOnCall.infant),
+    );
+  };
+
   const formatDate = (dateStr) => {
     if (!dateStr) return "N/A";
     return new Date(dateStr).toLocaleDateString("en-GB", {
@@ -377,11 +389,13 @@ export default function MyBookings() {
                       {/* Booking Details */}
                       <td className="px-4 py-4 align-middle border-r border-gray-300">
                         <div className="space-y-1.5">
-                          <div className="flex items-center gap-2">
-                            <span className="inline-block bg-linear-to-r from-amber-600 to-amber-700 text-white px-3 py-1.5 rounded-md text-xs font-semibold shadow-md">
-                              Airline PNR #: {booking.pnr || "N/A"}
-                            </span>
-                          </div>
+                          {booking.status === "confirmed" && (
+                            <div className="flex items-center gap-2">
+                              <span className="inline-block bg-linear-to-r from-amber-600 to-amber-700 text-white px-3 py-1.5 rounded-md text-xs font-semibold shadow-md">
+                                Airline PNR #: {booking.pnr || "N/A"}
+                              </span>
+                            </div>
+                          )}
                           <div className="text-xs text-gray-700 leading-relaxed">
                             <span className="font-semibold text-gray-800">
                               Agency:
@@ -530,6 +544,10 @@ export default function MyBookings() {
                               <br />
                               Required
                             </div>
+                          ) : isBookingPriceOnCall(booking) ? (
+                            <span className="text-red-500 font-semibold text-sm">
+                              Price on Call
+                            </span>
                           ) : (
                             `PKR ${booking.pricing?.grandTotal?.toLocaleString() || "0"}`
                           )}

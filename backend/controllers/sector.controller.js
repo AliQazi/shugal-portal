@@ -492,6 +492,14 @@ export const getUnifiedGroups = async (req, res) => {
         childPrice: g.price?.sellingChildPriceB2B || 0,
         infantPrice: g.price?.sellingInfantPriceB2B || 0,
 
+        // "On Call" display flags set by admin at group creation
+        priceOnCall: {
+          seats: g.priceOnCall?.seats || false,
+          adult: g.priceOnCall?.adult || false,
+          child: g.priceOnCall?.child || false,
+          infant: g.priceOnCall?.infant || false,
+        },
+
         pnr: g.pnr,
 
         dept_date: g.flights?.[0]?.depDate || null,

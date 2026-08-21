@@ -100,6 +100,7 @@ export const printUmrahPackageBooking = (booking) => {
             : [];
     const flight = itinerary[0] || {};
     const pnr = safeValue(booking.pnr || packageData.pnr || flight.pnr, "N/A");
+    const showPNR = /confirmed/i.test(booking.status || booking.bookingStatus || "");
 
     const companyLogoUrl = companyLogo;
     const umrahPrintBgUrl = umrahPrintBg;
@@ -215,10 +216,10 @@ export const printUmrahPackageBooking = (booking) => {
                     <span>TICKET#</span>
                     <span>${ticketNumber}</span>
                 </div>
-                <div class="ref-row">
+                ${showPNR ? `<div class="ref-row">
                     <span>PNR:</span>
                     <span>${pnr}</span>
-                </div>
+                </div>` : ""}
             </div>
         </div>
 

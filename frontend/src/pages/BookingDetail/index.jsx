@@ -56,6 +56,18 @@ export default function BookingDetail() {
     return colors[status] || "bg-gray-100 text-gray-800";
   };
 
+  // A booking's price stays hidden from the agent if any passenger type it
+  // actually has was booked while that group's price was "On Call"
+  const isBookingPriceOnCall = (b) => {
+    const priceOnCall = b?.pricing?.priceOnCall;
+    if (!priceOnCall) return false;
+    return Boolean(
+      priceOnCall.adult ||
+        ((b?.childrenCount || 0) > 0 && priceOnCall.child) ||
+        ((b?.infantsCount || 0) > 0 && priceOnCall.infant),
+    );
+  };
+
   const handleCancelBooking = async () => {
     if (!window.confirm("Are you sure you want to cancel this booking?")) {
       return;
@@ -178,7 +190,9 @@ export default function BookingDetail() {
                 <div>
                   <label className="text-sm text-gray-600">PNR</label>
                   <p className="text-gray-900 font-medium">
-                    {booking.pnr || "N/A"}
+                    {booking.status === "confirmed"
+                      ? booking.pnr || "N/A"
+                      : "Pending Confirmation"}
                   </p>
                 </div>
                 <div>
@@ -242,13 +256,25 @@ export default function BookingDetail() {
                     Adult Price (x{booking.adultsCount})
                   </span>
                   <span className="font-medium">
-                    PKR {(booking.pricing?.adultPrice || 0).toLocaleString()}
+                    {booking.pricing?.priceOnCall?.adult ? (
+                      <span className="text-red-500 font-semibold">
+                        Price on Call
+                      </span>
+                    ) : (
+                      `PKR ${(booking.pricing?.adultPrice || 0).toLocaleString()}`
+                    )}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-700">Adult Total</span>
                   <span className="font-medium text-blue-600">
-                    PKR {(booking.pricing?.adultTotal || 0).toLocaleString()}
+                    {booking.pricing?.priceOnCall?.adult ? (
+                      <span className="text-red-500 font-semibold">
+                        Price on Call
+                      </span>
+                    ) : (
+                      `PKR ${(booking.pricing?.adultTotal || 0).toLocaleString()}`
+                    )}
                   </span>
                 </div>
                 {booking.childrenCount > 0 && (
@@ -258,15 +284,25 @@ export default function BookingDetail() {
                         Child Price (x{booking.childrenCount})
                       </span>
                       <span className="font-medium">
-                        PKR{" "}
-                        {(booking.pricing?.childPrice || 0).toLocaleString()}
+                        {booking.pricing?.priceOnCall?.child ? (
+                          <span className="text-red-500 font-semibold">
+                            Price on Call
+                          </span>
+                        ) : (
+                          `PKR ${(booking.pricing?.childPrice || 0).toLocaleString()}`
+                        )}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-700">Child Total</span>
                       <span className="font-medium text-green-600">
-                        PKR{" "}
-                        {(booking.pricing?.childTotal || 0).toLocaleString()}
+                        {booking.pricing?.priceOnCall?.child ? (
+                          <span className="text-red-500 font-semibold">
+                            Price on Call
+                          </span>
+                        ) : (
+                          `PKR ${(booking.pricing?.childTotal || 0).toLocaleString()}`
+                        )}
                       </span>
                     </div>
                   </>
@@ -278,15 +314,25 @@ export default function BookingDetail() {
                         Infant Price (x{booking.infantsCount})
                       </span>
                       <span className="font-medium">
-                        PKR{" "}
-                        {(booking.pricing?.infantPrice || 0).toLocaleString()}
+                        {booking.pricing?.priceOnCall?.infant ? (
+                          <span className="text-red-500 font-semibold">
+                            Price on Call
+                          </span>
+                        ) : (
+                          `PKR ${(booking.pricing?.infantPrice || 0).toLocaleString()}`
+                        )}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-700">Infant Total</span>
                       <span className="font-medium text-purple-600">
-                        PKR{" "}
-                        {(booking.pricing?.infantTotal || 0).toLocaleString()}
+                        {booking.pricing?.priceOnCall?.infant ? (
+                          <span className="text-red-500 font-semibold">
+                            Price on Call
+                          </span>
+                        ) : (
+                          `PKR ${(booking.pricing?.infantTotal || 0).toLocaleString()}`
+                        )}
                       </span>
                     </div>
                   </>
@@ -297,7 +343,13 @@ export default function BookingDetail() {
                       Grand Total
                     </span>
                     <span className="text-lg font-bold text-blue-600">
-                      PKR {(booking.pricing?.grandTotal || 0).toLocaleString()}
+                      {isBookingPriceOnCall(booking) ? (
+                        <span className="text-red-500 font-semibold">
+                          Price on Call
+                        </span>
+                      ) : (
+                        `PKR ${(booking.pricing?.grandTotal || 0).toLocaleString()}`
+                      )}
                     </span>
                   </div>
                 </div>
@@ -482,7 +534,11 @@ export default function BookingDetail() {
                 <div className="border-t border-gray-200 pt-4">
                   <label className="text-gray-600">Grand Total</label>
                   <p className="text-2xl font-bold text-blue-600">
-                    PKR {(booking.pricing?.grandTotal || 0).toLocaleString()}
+                    {isBookingPriceOnCall(booking) ? (
+                      <span className="text-red-500">Price on Call</span>
+                    ) : (
+                      `PKR ${(booking.pricing?.grandTotal || 0).toLocaleString()}`
+                    )}
                   </p>
                 </div>
                 <div className="border-t border-gray-200 pt-4">

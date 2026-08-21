@@ -392,12 +392,16 @@ export default function BookingForm({ user }) {
     (parseInt(formData.children) || 0) +
     (parseInt(formData.infants) || 0);
 
+  const isAdultPriceAvailable = () => !groupData?.priceOnCall?.adult;
+
   const isChildPriceAvailable = () => {
+    if (groupData?.priceOnCall?.child) return false;
     const price = groupData?.childPrice;
     return price !== null && price !== undefined && price > 0;
   };
 
   const isInfantPriceAvailable = () => {
+    if (groupData?.priceOnCall?.infant) return false;
     const price = groupData?.infantPrice;
     return price !== null && price !== undefined && price > 0;
   };
@@ -875,6 +879,13 @@ export default function BookingForm({ user }) {
           childTotal: calculateChildTotal(),
           infantTotal: Math.round(calculateInfantTotal()),
           grandTotal: Math.round(calculateTotalPrice()),
+          // Snapshot so the price stays hidden from the agent even if the
+          // group's "On Call" flags change later
+          priceOnCall: {
+            adult: !isAdultPriceAvailable(),
+            child: !isChildPriceAvailable(),
+            infant: !isInfantPriceAvailable(),
+          },
         },
         passengers: passengersWithDocs,
         flights:
@@ -967,6 +978,11 @@ export default function BookingForm({ user }) {
           childTotal: calculateChildTotal(),
           infantTotal: Math.round(calculateInfantTotal()),
           grandTotal: Math.round(calculateTotalPrice()),
+          priceOnCall: {
+            adult: !isAdultPriceAvailable(),
+            child: !isChildPriceAvailable(),
+            infant: !isInfantPriceAvailable(),
+          },
         },
       };
 
@@ -1133,9 +1149,9 @@ export default function BookingForm({ user }) {
                     Adult Price
                   </p>
                   <p
-                    className={`${user?.priceOnCall ? "text-white bg-red-600" : "text-[#3d6a8f] bg-blue-50"} text-sm font-extrabold px-2 py-1 rounded-2xl whitespace-nowrap`}
+                    className={`${user?.priceOnCall || !isAdultPriceAvailable() ? "text-white bg-red-600" : "text-[#3d6a8f] bg-blue-50"} text-sm font-extrabold px-2 py-1 rounded-2xl whitespace-nowrap`}
                   >
-                    {user?.priceOnCall
+                    {user?.priceOnCall || !isAdultPriceAvailable()
                       ? "Price on Call"
                       : `PKR ${calculateB2BPrice(groupData.price, groupData)?.toLocaleString()}`}
                     {/* 
@@ -1215,9 +1231,9 @@ export default function BookingForm({ user }) {
                   <td className="px-3 py-2 text-xs font-medium text-gray-900 border-r border-gray-200">
                     {/* PKR {groupData?.price?.toLocaleString() || 0} */}
                     <span
-                      className={`${user?.priceOnCall ? "text-red-500" : "text-[#3d6a8f]"} inline-block text-xs font-extrabold px-2 py-1 rounded-2xl`}
+                      className={`${user?.priceOnCall || !isAdultPriceAvailable() ? "text-red-500" : "text-[#3d6a8f]"} inline-block text-xs font-extrabold px-2 py-1 rounded-2xl`}
                     >
-                      {user?.priceOnCall
+                      {user?.priceOnCall || !isAdultPriceAvailable()
                         ? "Price on Call"
                         : `PKR ${calculateB2BPrice(groupData?.price, groupData)?.toLocaleString()}`}
                     </span>
@@ -1226,7 +1242,7 @@ export default function BookingForm({ user }) {
                     {formData.adults}
                   </td>
                   <td className="px-3 py-2 text-right text-xs font-bold text-gray-900">
-                    {user?.priceOnCall ? (
+                    {user?.priceOnCall || !isAdultPriceAvailable() ? (
                       <span className="text-red-500 font-semibold">
                         Price on Call
                       </span>
@@ -1345,6 +1361,7 @@ export default function BookingForm({ user }) {
                   </td>
                   <td className="px-3 py-2 text-right text-xs font-bold">
                     {user?.priceOnCall ||
+                    !isAdultPriceAvailable() ||
                     ((parseInt(formData.children) || 0) > 0 &&
                       !isChildPriceAvailable()) ||
                     ((parseInt(formData.infants) || 0) > 0 &&

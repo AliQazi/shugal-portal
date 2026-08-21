@@ -550,6 +550,18 @@ export const sendAgentRegistrationNotificationEmail = async (payload) => {
   }
 };
 
+// A booking's price stays hidden from the agent if any passenger type it
+// actually has was booked while that group's price was "On Call"
+const isBookingPriceOnCall = (booking) => {
+  const priceOnCall = booking?.pricing?.priceOnCall;
+  if (!priceOnCall) return false;
+  return Boolean(
+    priceOnCall.adult ||
+      ((booking?.childrenCount || 0) > 0 && priceOnCall.child) ||
+      ((booking?.infantsCount || 0) > 0 && priceOnCall.infant),
+  );
+};
+
 const getBookingNotificationHTML = ({
   bookingType,
   bookingReference,
@@ -562,6 +574,7 @@ const getBookingNotificationHTML = ({
   status,
   totalPassengers,
   totalAmount,
+  priceOnCall,
   agentName,
   agentEmail,
   agencyCode,
@@ -598,7 +611,7 @@ const getBookingNotificationHTML = ({
             <div class="row"><span class="label">Sector / Source</span><div class="value">${sector || source || "N/A"}</div></div>
             <div class="row"><span class="label">Status</span><div class="value">${status || "N/A"}</div></div>
             <div class="row"><span class="label">Passengers</span><div class="value">${totalPassengers || 0}</div></div>
-            <div class="row"><span class="label">Total Amount</span><div class="value">${totalAmount ? `PKR ${Number(totalAmount).toLocaleString()}` : "N/A"}</div></div>
+            <div class="row"><span class="label">Total Amount</span><div class="value">${priceOnCall ? "Price on Call" : totalAmount ? `PKR ${Number(totalAmount).toLocaleString()}` : "N/A"}</div></div>
             <hr />
             <div class="row"><span class="label">Agent / Agency</span><div class="value">${agentName || "N/A"}${companyName ? ` (${companyName})` : ""}</div></div>
             <div class="row"><span class="label">Agent Email</span><div class="value">${agentEmail || "N/A"}</div></div>
@@ -618,8 +631,8 @@ export const sendBookingNotificationEmail = async ({
   agent,
 }) => {
   try {
-    const recipients = [
-      agent?.email,
+    // Admin/internal recipients see the PNR. Agent-facing copy never includes it.
+    const adminRecipients = [
       process.env.EMAIL_USER,
       process.env.ADMIN_EMAIL,
       process.env.INTERNAL_ALERT_EMAIL,
@@ -629,60 +642,106 @@ export const sendBookingNotificationEmail = async ({
       .map((value) => value.trim())
       .filter(Boolean);
 
-    const uniqueRecipients = [...new Set(recipients)];
+    const uniqueAdminRecipients = [...new Set(adminRecipients)];
 
-    if (!uniqueRecipients.length) {
+    const agentEmails = String(agent?.email || "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .filter((email) => !uniqueAdminRecipients.includes(email));
+    const uniqueAgentRecipients = [...new Set(agentEmails)];
+
+    if (!uniqueAdminRecipients.length && !uniqueAgentRecipients.length) {
       throw new Error("EMAIL_USER is not configured in environment variables");
     }
 
-    const mailOptions = {
-      from: {
-        name: process.env.EMAIL_FROM_NAME || "Shaheen Wings travel and tours",
-        address: process.env.EMAIL_USER,
-      },
-      to: uniqueRecipients,
-      subject: `New ${bookingType} Booking: ${booking.bookingReference || booking.bookingNumber || booking._id}`,
-      html: getBookingNotificationHTML({
-        bookingType,
-        bookingReference: booking.bookingReference,
-        bookingNumber: booking.bookingNumber,
-        pnr: booking.pnr,
-        sector: booking.sector,
-        packageName: booking.packageName,
-        groupId: booking.groupId,
-        source: booking.source,
-        status: booking.status,
-        totalPassengers:
-          (booking.adultsCount || 0) +
-          (booking.childrenCount || 0) +
-          (booking.infantsCount || 0),
-        totalAmount:
-          booking.pricing?.grandTotal || booking.pricing?.totalAmount || 0,
-        agentName: agent?.name || agent?.email || "Agent",
-        agentEmail: agent?.email || "N/A",
-        agencyCode: agent?.agencyCode || "N/A",
-        companyName: agent?.companyName || "N/A",
-        createdAt: booking.createdAt,
-      }),
-      text: `A new ${bookingType} booking was created.
+    const priceOnCall = isBookingPriceOnCall(booking);
 
-Reference: ${booking.bookingReference || booking.bookingNumber || booking._id}
-PNR / Package: ${booking.pnr || booking.packageName || "N/A"}
-Sector / Source: ${booking.sector || booking.source || "N/A"}
+    const commonFields = {
+      bookingType,
+      bookingReference: booking.bookingReference,
+      bookingNumber: booking.bookingNumber,
+      sector: booking.sector,
+      packageName: booking.packageName,
+      groupId: booking.groupId,
+      source: booking.source,
+      status: booking.status,
+      totalPassengers:
+        (booking.adultsCount || 0) +
+        (booking.childrenCount || 0) +
+        (booking.infantsCount || 0),
+      totalAmount:
+        booking.pricing?.grandTotal || booking.pricing?.totalAmount || 0,
+      agentName: agent?.name || agent?.email || "Agent",
+      agentEmail: agent?.email || "N/A",
+      agencyCode: agent?.agencyCode || "N/A",
+      companyName: agent?.companyName || "N/A",
+      createdAt: booking.createdAt,
+    };
+
+    const commonTextFields = `Sector / Source: ${booking.sector || booking.source || "N/A"}
 Status: ${booking.status}
-Passengers: ${(booking.adultsCount || 0) + (booking.childrenCount || 0) + (booking.infantsCount || 0)}
-Total Amount: ${booking.pricing?.grandTotal || booking.pricing?.totalAmount || 0}
+Passengers: ${commonFields.totalPassengers}
 Agent: ${agent?.name || "Agent"}
 Agent Email: ${agent?.email || "N/A"}
 Agency Code: ${agent?.agencyCode || "N/A"}
 Company: ${agent?.companyName || "N/A"}
 Created At: ${booking.createdAt || new Date().toISOString()}
-`,
+`;
+
+    const subject = `New ${bookingType} Booking: ${booking.bookingReference || booking.bookingNumber || booking._id}`;
+    const reference = booking.bookingReference || booking.bookingNumber || booking._id;
+    const from = {
+      name: process.env.EMAIL_FROM_NAME || "Shaheen Wings travel and tours",
+      address: process.env.EMAIL_USER,
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Booking notification email sent:", info.messageId);
-    return { success: true, messageId: info.messageId };
+    const sends = [];
+
+    if (uniqueAdminRecipients.length) {
+      sends.push(
+        transporter.sendMail({
+          from,
+          to: uniqueAdminRecipients,
+          subject,
+          html: getBookingNotificationHTML({
+            ...commonFields,
+            pnr: booking.pnr,
+            priceOnCall: false,
+          }),
+          text: `A new ${bookingType} booking was created.
+
+Reference: ${reference}
+PNR / Package: ${booking.pnr || booking.packageName || "N/A"}
+Total Amount: ${commonFields.totalAmount}
+${commonTextFields}`,
+        }),
+      );
+    }
+
+    if (uniqueAgentRecipients.length) {
+      sends.push(
+        transporter.sendMail({
+          from,
+          to: uniqueAgentRecipients,
+          subject,
+          html: getBookingNotificationHTML({ ...commonFields, priceOnCall }),
+          text: `A new ${bookingType} booking was created.
+
+Reference: ${reference}
+Package: ${booking.packageName || "N/A"}
+Total Amount: ${priceOnCall ? "Price on Call" : commonFields.totalAmount}
+${commonTextFields}`,
+        }),
+      );
+    }
+
+    const results = await Promise.all(sends);
+    console.log(
+      "✅ Booking notification email sent:",
+      results.map((r) => r.messageId),
+    );
+    return { success: true, messageId: results.map((r) => r.messageId) };
   } catch (error) {
     console.error(
       "❌ Error sending booking notification email:",
@@ -701,8 +760,8 @@ export const sendBookingStatusChangeEmail = async ({
   changedBy,
 }) => {
   try {
-    const recipients = [
-      agent?.email,
+    // Admin/internal recipients see the PNR. Agent-facing copy never includes it.
+    const adminRecipients = [
       process.env.EMAIL_USER,
       process.env.ADMIN_EMAIL,
       process.env.INTERNAL_ALERT_EMAIL,
@@ -712,9 +771,16 @@ export const sendBookingStatusChangeEmail = async ({
       .map((value) => value.trim())
       .filter(Boolean);
 
-    const uniqueRecipients = [...new Set(recipients)];
+    const uniqueAdminRecipients = [...new Set(adminRecipients)];
 
-    if (!uniqueRecipients.length) {
+    const agentEmails = String(agent?.email || "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .filter((email) => !uniqueAdminRecipients.includes(email));
+    const uniqueAgentRecipients = [...new Set(agentEmails)];
+
+    if (!uniqueAdminRecipients.length && !uniqueAgentRecipients.length) {
       throw new Error("No booking status email recipients are configured");
     }
 
@@ -726,51 +792,90 @@ export const sendBookingStatusChangeEmail = async ({
       (booking.infantsCount || 0);
     const totalAmount =
       booking.pricing?.grandTotal || booking.pricing?.totalAmount || 0;
+    const priceOnCall = isBookingPriceOnCall(booking);
 
-    const mailOptions = {
-      from: {
-        name: process.env.EMAIL_FROM_NAME || "Shaheen Wings travel and tours",
-        address: process.env.EMAIL_USER,
-      },
-      to: uniqueRecipients,
-      subject: `${bookingType} Booking ${reference} status changed to ${newStatus}`,
-      html: getBookingNotificationHTML({
-        bookingType,
-        bookingReference: booking.bookingReference,
-        bookingNumber: booking.bookingNumber,
-        pnr: booking.pnr,
-        sector: booking.sector,
-        packageName: booking.packageName,
-        groupId: booking.groupId,
-        source: booking.source,
-        status: `${oldStatus || "N/A"} -> ${newStatus || "N/A"}`,
-        totalPassengers,
-        totalAmount,
-        agentName: agent?.name || agent?.email || "Agent",
-        agentEmail: agent?.email || "N/A",
-        agencyCode: agent?.agencyCode || "N/A",
-        companyName: agent?.companyName || "N/A",
-        createdAt: booking.updatedAt || new Date(),
-      }),
-      text: `Booking status changed.
+    const commonFields = {
+      bookingType,
+      bookingReference: booking.bookingReference,
+      bookingNumber: booking.bookingNumber,
+      sector: booking.sector,
+      packageName: booking.packageName,
+      groupId: booking.groupId,
+      source: booking.source,
+      status: `${oldStatus || "N/A"} -> ${newStatus || "N/A"}`,
+      totalPassengers,
+      totalAmount,
+      agentName: agent?.name || agent?.email || "Agent",
+      agentEmail: agent?.email || "N/A",
+      agencyCode: agent?.agencyCode || "N/A",
+      companyName: agent?.companyName || "N/A",
+      createdAt: booking.updatedAt || new Date(),
+    };
+
+    const commonTextFields = `Sector / Source: ${booking.sector || booking.source || "N/A"}
+Passengers: ${totalPassengers}
+Agent: ${agent?.name || "Agent"}
+Agent Email: ${agent?.email || "N/A"}
+Changed By: ${changedBy || "System"}
+Changed At: ${new Date().toISOString()}
+`;
+
+    const subject = `${bookingType} Booking ${reference} status changed to ${newStatus}`;
+    const from = {
+      name: process.env.EMAIL_FROM_NAME || "Shaheen Wings travel and tours",
+      address: process.env.EMAIL_USER,
+    };
+
+    const sends = [];
+
+    if (uniqueAdminRecipients.length) {
+      sends.push(
+        transporter.sendMail({
+          from,
+          to: uniqueAdminRecipients,
+          subject,
+          html: getBookingNotificationHTML({
+            ...commonFields,
+            pnr: booking.pnr,
+            priceOnCall: false,
+          }),
+          text: `Booking status changed.
 
 Reference: ${reference}
 Old Status: ${oldStatus || "N/A"}
 New Status: ${newStatus || "N/A"}
 PNR / Package: ${booking.pnr || booking.packageName || "N/A"}
-Sector / Source: ${booking.sector || booking.source || "N/A"}
-Passengers: ${totalPassengers}
 Total Amount: ${totalAmount}
-Agent: ${agent?.name || "Agent"}
-Agent Email: ${agent?.email || "N/A"}
-Changed By: ${changedBy || "System"}
-Changed At: ${new Date().toISOString()}
-`,
-    };
+${commonTextFields}`,
+        }),
+      );
+    }
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Booking status change email sent:", info.messageId);
-    return { success: true, messageId: info.messageId };
+    if (uniqueAgentRecipients.length) {
+      sends.push(
+        transporter.sendMail({
+          from,
+          to: uniqueAgentRecipients,
+          subject,
+          html: getBookingNotificationHTML({ ...commonFields, priceOnCall }),
+          text: `Booking status changed.
+
+Reference: ${reference}
+Old Status: ${oldStatus || "N/A"}
+New Status: ${newStatus || "N/A"}
+Package: ${booking.packageName || "N/A"}
+Total Amount: ${priceOnCall ? "Price on Call" : totalAmount}
+${commonTextFields}`,
+        }),
+      );
+    }
+
+    const results = await Promise.all(sends);
+    console.log(
+      "✅ Booking status change email sent:",
+      results.map((r) => r.messageId),
+    );
+    return { success: true, messageId: results.map((r) => r.messageId) };
   } catch (error) {
     console.error(
       "❌ Error sending booking status change email:",

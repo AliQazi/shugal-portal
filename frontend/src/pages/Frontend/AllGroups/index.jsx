@@ -369,11 +369,15 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
           return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}`;
         }).filter(Boolean);
         if (!legs.length) return null;
-        const price = calculatePriceAfterMargin(g.price, g) ?? (g.price || 0);
-        if (legs.length === 1) return `${legs[0]}..... *PKR ${price.toLocaleString()}*`;
+        const priceAfterMargin = calculatePriceAfterMargin(g.price, g);
+        const priceText =
+          priceAfterMargin === null
+            ? "On Call"
+            : `PKR ${priceAfterMargin.toLocaleString()}`;
+        if (legs.length === 1) return `${legs[0]}..... *${priceText}*`;
         const labeledLegs = legs.map((leg, i) => {
           if (i === 0) return `*Departure:* ${leg}`;
-          if (i === legs.length - 1) return `*Arrival:* ${leg}..... *PKR ${price.toLocaleString()}*`;
+          if (i === legs.length - 1) return `*Arrival:* ${leg}..... *${priceText}*`;
           return `*LEG ${i + 1}:* ${leg}`;
         });
         return labeledLegs.join("\n");
@@ -418,15 +422,19 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
       return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}`;
     }).filter(Boolean);
     if (!legs.length) return "";
-    const price = calculatePriceAfterMargin(group.price, group) ?? (group.price || 0);
+    const priceAfterMargin = calculatePriceAfterMargin(group.price, group);
+    const priceText =
+      priceAfterMargin === null
+        ? "On Call"
+        : `PKR ${priceAfterMargin.toLocaleString()}`;
     const footer = `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*\n=======================\nShaheen Wings Travels\nMobile: 0309-9802154\nAddress: MA Plaza Ground Floor Shop # 3, Kahror Pacca.\nPtcl: 0608340174\nWebsite: shaheenwingstravels.com`;
     let flightLines;
     if (legs.length === 1) {
-      flightLines = `${legs[0]}..... *PKR ${price.toLocaleString()}*`;
+      flightLines = `${legs[0]}..... *${priceText}*`;
     } else {
       const labeledLegs = legs.map((leg, i) => {
         if (i === 0) return `*Departure:* ${leg}`;
-        if (i === legs.length - 1) return `*Arrival:* ${leg}..... *PKR ${price.toLocaleString()}*`;
+        if (i === legs.length - 1) return `*Arrival:* ${leg}..... *${priceText}*`;
         return `*LEG ${i + 1}:* ${leg}`;
       });
       flightLines = labeledLegs.join("\n");
@@ -475,11 +483,15 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
           return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}`;
         }).filter(Boolean);
         if (!legs.length) return null;
-        const price = calculatePriceAfterMargin(g.price, g) ?? (g.price || 0);
-        if (legs.length === 1) return `${legs[0]}..... *PKR ${price.toLocaleString()}*`;
+        const priceAfterMargin = calculatePriceAfterMargin(g.price, g);
+        const priceText =
+          priceAfterMargin === null
+            ? "On Call"
+            : `PKR ${priceAfterMargin.toLocaleString()}`;
+        if (legs.length === 1) return `${legs[0]}..... *${priceText}*`;
         const labeledLegs = legs.map((leg, i) => {
           if (i === 0) return `*Departure:* ${leg}`;
-          if (i === legs.length - 1) return `*Arrival:* ${leg}..... *PKR ${price.toLocaleString()}*`;
+          if (i === legs.length - 1) return `*Arrival:* ${leg}..... *${priceText}*`;
           return `*LEG ${i + 1}:* ${leg}`;
         });
         return labeledLegs.join("\n");
@@ -594,7 +606,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
   const [sectors, setSectors] = useState([]);
 
   const calculateB2BPrice = (groupPrice, group = {}) => {
-    if (user?.priceOnCall) return null;
+    if (user?.priceOnCall || group?.priceOnCall?.adult) return null;
 
     let finalPrice = groupPrice || 0;
 
@@ -666,7 +678,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
 
   // Shows the price right after margin application (before any user discount)
   const calculatePriceAfterMargin = (groupPrice, group = {}) => {
-    if (user?.priceOnCall) return null;
+    if (user?.priceOnCall || group?.priceOnCall?.adult) return null;
 
     let priceAfterMargin = groupPrice || 0;
 
@@ -713,7 +725,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
 
   // ─── ADDED: Helper to compute effective available seats ─────────────────────────
   const getEffectiveSeats = (group) => {
-    if (isAbidAirGroup(group)) {
+    if (isAbidAirGroup(group) || group?.priceOnCall?.seats) {
       return "Seats on call";
     }
 
@@ -945,7 +957,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     // Abid Air never sends seat counts (always defaults to 0), so it's excluded
     // from this filter to keep its groups visible.
     filtered = filtered.filter((g) => {
-      if (isAbidAirGroup(g)) return true;
+      if (isAbidAirGroup(g) || g?.priceOnCall?.seats) return true;
       const seats = getEffectiveSeats(g);
       return seats > 0;
     });
@@ -1616,7 +1628,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
 
                                   {/* Seats */}
                                   <td className="px-4 py-3 text-center align-middle">
-                                    {isAbidAirGroup(group) ? (
+                                    {isAbidAirGroup(group) || group.priceOnCall?.seats ? (
                                       <span className="text-sm font-bold text-red-500">
                                         Seats on call
                                       </span>
@@ -1637,7 +1649,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
 
                                   {/* Fare */}
                                   <td className="px-4 py-3 text-center whitespace-nowrap align-middle">
-                                    {user?.priceOnCall ? (
+                                    {user?.priceOnCall || group.priceOnCall?.adult ? (
                                       <span className="text-sm font-bold text-red-500">On Call</span>
                                     ) : (
                                       <div className="text-lg font-black" style={{ color: theme.colors.ublGradientStart, fontFamily: 'sans-serif' }}>

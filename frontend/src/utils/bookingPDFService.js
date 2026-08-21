@@ -179,7 +179,7 @@ export const printGDSBooking = (booking, showPrice = true) => {
         "N/A";
 
     // --- 3. Build the HTML Ticket String ---
-    const showPNR = !/hold/i.test(bookingStatusRaw);
+    const showPNR = /confirmed/i.test(bookingStatusRaw);
 
     const pnrHTML = showPNR ? `<div class="sum-card">
         <div class="sum-label">PNR</div>
