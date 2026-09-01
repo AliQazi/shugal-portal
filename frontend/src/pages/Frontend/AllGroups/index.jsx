@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useContext } from "react";
+import jsPDF from "jspdf";
 import { FaRegCopy, FaCheck } from "react-icons/fa";
 import { DashboardUIContext } from "../../../components/Dashboard/DashboardLayout";
 import { Ticket, Menu, X } from "lucide-react";
@@ -17,12 +18,13 @@ import MaskedDatePicker from "../../../components/MaskedDatePicker";
 import { theme } from "../../../theme/theme";
 import TopBar from "../../../components/TopBar/TopBar";
 import { groupTypes } from "../../../data/groupTypes";
+import companyLogo from "../../../assets/images/logo2.png";
 import citiesData from "./cities.json";
 
 // ─── ADDED: Airline name standardisation mapping (copied from AllGroupsPackages) ───
 const AIRLINE_NAME_MAPPING = {
   // Air Sial variations
-  "airsial": "Air Sial",
+  airsial: "Air Sial",
   "air sial": "Air Sial",
   "airsial lhe-dxb": "Air Sial",
   "airsial isb-dxb": "Air Sial",
@@ -31,31 +33,31 @@ const AIRLINE_NAME_MAPPING = {
 
   // Air Arabia variations
   "air arabia": "Air Arabia",
-  "airarabia": "Air Arabia",
+  airarabia: "Air Arabia",
   "air arabia pew-shj": "Air Arabia",
   "air arabia lyp-shj": "Air Arabia",
 
   // Fly Jinnah variations
   "fly jinnah": "Fly Jinnah",
-  "flyjinnah": "Fly Jinnah",
+  flyjinnah: "Fly Jinnah",
   "fly jinnah lhe-dxb": "Fly Jinnah",
   "fly jinnah isb-shj": "Fly Jinnah",
   "fly jinnah lhe-dmm": "Fly Jinnah",
   "fly jinnah isb-dmm": "Fly Jinnah",
   "Air Blue": "Air Blue",
   "air blue": "Air Blue",
-  "airblue": "Air Blue",
-  "air_blue": "Air Blue",
-  "AIRBLUE": "Air Blue",
+  airblue: "Air Blue",
+  air_blue: "Air Blue",
+  AIRBLUE: "Air Blue",
   "AIR BLUE": "Air Blue",
 
   // FlyDubai variations
-  "flydubai": "FlyDubai",
+  flydubai: "FlyDubai",
   "fly dubai": "FlyDubai",
   "flydubai lyp-ruh": "FlyDubai",
 
   // flyadeal variations
-  "flyadeal": "flyadeal",
+  flyadeal: "flyadeal",
   "fly adeal": "flyadeal",
   "flyadeal skt-ruh": "flyadeal",
   "flyadeal pew-ruh": "flyadeal",
@@ -64,27 +66,27 @@ const AIRLINE_NAME_MAPPING = {
 
   // Saudi Airline variations
   "saudi airline": "Saudi Airline",
-  "saudiairline": "Saudi Airline",
+  saudiairline: "Saudi Airline",
   "saudi airline pew-ruh": "Saudi Airline",
   "saudi airline isb-ruh": "Saudi Airline",
   "saudi airline lhe-ruh": "Saudi Airline",
   "saudi airline umrah mux": "Saudi Airline",
 
   // Flynas variations
-  "flynas": "Flynas",
+  flynas: "Flynas",
   "fly nas": "Flynas",
   "fly nas lhe-ruh": "Flynas",
 
   // Salam Air variations
   "salam air": "Salam Air",
-  "salamair": "Salam Air",
+  salamair: "Salam Air",
   "salam air mux-mct-jed": "Salam Air",
   "salam air lhe-mct-jed": "Salam Air",
   "salam air pew-mct-jed": "Salam Air",
   "salam air isb-mct-jed": "Salam Air",
 
   // PIA variations
-  "pia": "PIA",
+  pia: "PIA",
   "pakistan international airlines": "PIA",
   "pia mux-jed": "PIA",
   "pia lhe-jed": "PIA",
@@ -94,8 +96,8 @@ const AIRLINE_NAME_MAPPING = {
 
 // ─── ADDED: Standardise airline name helper ──────────────────────────────────────────
 const standardizeAirlineName = (airlineName) => {
-  if (!airlineName || typeof airlineName !== 'string') {
-    return 'Unknown Airline';
+  if (!airlineName || typeof airlineName !== "string") {
+    return "Unknown Airline";
   }
 
   const normalizedInput = airlineName.trim().toLowerCase();
@@ -107,7 +109,10 @@ const standardizeAirlineName = (airlineName) => {
 
   // Partial match
   for (const [key, value] of Object.entries(AIRLINE_NAME_MAPPING)) {
-    if (normalizedInput.includes(key) || key.includes(normalizedInput.split(' ')[0])) {
+    if (
+      normalizedInput.includes(key) ||
+      key.includes(normalizedInput.split(" ")[0])
+    ) {
       return value;
     }
   }
@@ -116,7 +121,7 @@ const standardizeAirlineName = (airlineName) => {
   const numberedPattern = /^\d+\.\s*(.+)$/i;
   const match = normalizedInput.match(numberedPattern);
   if (match) {
-    const extractedName = match[1].split(' ')[0];
+    const extractedName = match[1].split(" ")[0];
     if (AIRLINE_NAME_MAPPING[extractedName]) {
       return AIRLINE_NAME_MAPPING[extractedName];
     }
@@ -138,46 +143,74 @@ const TYPE_TO_CATEGORY = {
 
 // City to Airport Code Mapping
 const CITY_TO_AIRPORT = {
-  "FAISALABAD": "LYP",
-  "JEDDAH": "JED",
-  "MEDINA": "MED",
-  "MADINAH": "MED",
-  "ISLAMABAD": "ISB",
-  "DAMMAM": "DMM",
-  "MUSCAT": "MCT",
-  "RIYADH": "RUH",
-  "LAHORE": "LHE",
-  "DUBAI": "DXB",
-  "MULTAN": "MUX",
-  "PESHAWAR": "PEW",
-  "SIALKOT": "SKT",
-  "SHARJAH": "SHJ",
+  FAISALABAD: "LYP",
+  JEDDAH: "JED",
+  MEDINA: "MED",
+  MADINAH: "MED",
+  ISLAMABAD: "ISB",
+  DAMMAM: "DMM",
+  MUSCAT: "MCT",
+  RIYADH: "RUH",
+  LAHORE: "LHE",
+  DUBAI: "DXB",
+  MULTAN: "MUX",
+  PESHAWAR: "PEW",
+  SIALKOT: "SKT",
+  SHARJAH: "SHJ",
   // Already airport codes (3-letter) - keep as is
-  "LYP": "LYP",
-  "JED": "JED",
-  "MED": "MED",
-  "ISB": "ISB",
-  "DMM": "DMM",
-  "MCT": "MCT",
-  "RUH": "RUH",
-  "LHE": "LHE",
-  "DXB": "DXB",
-  "MUX": "MUX",
-  "PEW": "PEW",
-  "SKT": "SKT",
-  "SHJ": "SHJ",
+  LYP: "LYP",
+  JED: "JED",
+  MED: "MED",
+  ISB: "ISB",
+  DMM: "DMM",
+  MCT: "MCT",
+  RUH: "RUH",
+  LHE: "LHE",
+  DXB: "DXB",
+  MUX: "MUX",
+  PEW: "PEW",
+  SKT: "SKT",
+  SHJ: "SHJ",
+};
+
+// Strip optional parenthesized airport code, then resolve the remaining city name or raw code to a 3-letter IATA code.
+const normalizeLocationToken = (value = "") => {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+
+  const parenthesizedMatch = raw.match(/\(([A-Z]{3})\)$/i);
+  const codeOnly = parenthesizedMatch
+    ? parenthesizedMatch[1].toUpperCase()
+    : raw;
+
+  const cleaned = codeOnly
+    .replace(/\s*\([A-Z]{3}\)\s*$/i, "")
+    .trim()
+    .toUpperCase();
+
+  if (!cleaned) return codeOnly.toUpperCase();
+  if (CITY_TO_AIRPORT[cleaned]) return CITY_TO_AIRPORT[cleaned];
+
+  const directMatch = raw.match(/\(([A-Z]{3})\)$/i);
+  if (directMatch) return directMatch[1].toUpperCase();
+
+  return CITY_TO_AIRPORT[cleaned] || cleaned;
 };
 
 // Convert sector string to airport codes (e.g., "FAISALABAD-JEDDAH" → "LYP-JED")
 const normalizeSector = (sector = "") => {
   const parts = String(sector)
     .split("-")
-    .map((part) => part.trim().toUpperCase())
+    .map((part) => normalizeLocationToken(part))
     .filter(Boolean);
 
-  return parts
-    .map((part) => CITY_TO_AIRPORT[part] || part)
-    .join("-");
+  return parts.join("-");
+};
+
+// Resolve a single origin/destination value (city name or code) to its 3-letter airport code
+const toAirportCode = (value = "") => {
+  const normalized = normalizeLocationToken(value);
+  return normalized || String(value || "").trim() || "";
 };
 
 const getSectorStops = (sector = "") =>
@@ -187,13 +220,19 @@ const getSectorStops = (sector = "") =>
     .filter(Boolean);
 
 const deriveSectorFromDetails = (group = {}) => {
-  const details = Array.isArray(group?.details) ? group.details.filter(Boolean) : [];
+  const details = Array.isArray(group?.details)
+    ? group.details.filter(Boolean)
+    : [];
   if (details.length === 0) return "";
 
   const stops = [];
   details.forEach((detail) => {
-    const origin = String(detail.origin || detail.from || "").trim().toUpperCase();
-    const destination = String(detail.destination || detail.to || "").trim().toUpperCase();
+    const origin = String(detail.origin || detail.from || "")
+      .trim()
+      .toUpperCase();
+    const destination = String(detail.destination || detail.to || "")
+      .trim()
+      .toUpperCase();
 
     if (origin && stops[stops.length - 1] !== origin) {
       stops.push(origin);
@@ -235,15 +274,20 @@ const getGroupDuration = (group = {}) => {
     return value;
   }
 
-  const details = Array.isArray(group?.details) ? group.details.filter(Boolean) : [];
-  const firstRaw = details[0]?.dep_date || details[0]?.flight_date || group?.dept_date;
+  const details = Array.isArray(group?.details)
+    ? group.details.filter(Boolean)
+    : [];
+  const firstRaw =
+    details[0]?.dep_date || details[0]?.flight_date || group?.dept_date;
   const lastRaw =
     details[details.length - 1]?.dep_date ||
     details[details.length - 1]?.flight_date ||
     group?.arv_date;
 
   if (firstRaw && lastRaw) {
-    const diff = Math.round((new Date(lastRaw) - new Date(firstRaw)) / (1000 * 60 * 60 * 24));
+    const diff = Math.round(
+      (new Date(lastRaw) - new Date(firstRaw)) / (1000 * 60 * 60 * 24),
+    );
     return diff > 0 ? diff : null;
   }
 
@@ -253,29 +297,36 @@ const getGroupDuration = (group = {}) => {
 const getCategoryFromGroup = (group = {}) => {
   if (isUmrahPackageGroup(group)) return "umrah-packages";
 
-  const type = String(group?.type || "").toUpperCase().trim();
+  const type = String(group?.type || "")
+    .toUpperCase()
+    .trim();
   return TYPE_TO_CATEGORY[type] || "";
 };
 
 const isUmrahPackageGroup = (group = {}) =>
-  String(group?.source || group?.packageSource || "").toLowerCase() === "abidairtravel"
+  String(group?.source || group?.packageSource || "").toLowerCase() ===
+  "abidairtravel"
     ? Boolean(group?.hotels || group?.rates)
     : Boolean(
-    group?.packageName ||
-    group?.hotels ||
-    group?.rates ||
-    group?.packageId ||
-    group?.package_id,
-    );
+        group?.packageName ||
+        group?.hotels ||
+        group?.rates ||
+        group?.packageId ||
+        group?.package_id,
+      );
 
 const isAbidAirGroup = (group = {}) => {
-  const source = String(group?.source || group?.packageSource || "").toLowerCase();
+  const source = String(
+    group?.source || group?.packageSource || "",
+  ).toLowerCase();
   const airlineName = String(group?.airline?.airline_name || "").toLowerCase();
   return source === "abidairtravel" || airlineName.includes("abid");
 };
 
 const getDisplayDetails = (group = {}) => {
-  const details = Array.isArray(group?.details) ? group.details.filter(Boolean) : [];
+  const details = Array.isArray(group?.details)
+    ? group.details.filter(Boolean)
+    : [];
   const sectorStops = getSectorStops(getEffectiveSector(group));
 
   if (sectorStops.length < 3) {
@@ -291,19 +342,23 @@ const getDisplayDetails = (group = {}) => {
   const baseDetail = details[0] || {};
   const departureDate =
     baseDetail.dep_date || baseDetail.flight_date || group?.dept_date || null;
-  const arrivalDate =
-    baseDetail.arv_date || group?.arv_date || departureDate;
+  const arrivalDate = baseDetail.arv_date || group?.arv_date || departureDate;
 
   return sectorStops.slice(0, -1).map((origin, index) => {
     const isFirstLeg = index === 0;
     const isLastLeg = index === sectorStops.length - 2;
     const detail = details[index] || details[details.length - 1] || baseDetail;
 
+    const normalizedOrigin = normalizeLocationToken(origin);
+    const normalizedDestination = normalizeLocationToken(
+      sectorStops[index + 1],
+    );
+
     return {
       ...detail,
       sr: index + 1,
-      origin,
-      destination: sectorStops[index + 1],
+      origin: normalizedOrigin,
+      destination: normalizedDestination,
       flight_no: detail.flight_no || detail.flightNo || "",
       dep_date: isFirstLeg ? departureDate : arrivalDate,
       flight_date: isFirstLeg ? departureDate : arrivalDate,
@@ -351,23 +406,33 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     const lines = groupsList
       .map((g) => {
         const details = g.details && g.details.length > 0 ? g.details : [{}];
-        const legs = details.map((d) => {
-          const rawDate = d.dep_date || d.flight_date || g.dept_date;
-          if (!rawDate) return null;
-          const date = new Date(rawDate);
-          if (isNaN(date.getTime())) return null;
-          const dd = String(date.getDate()).padStart(2, "0");
-          const mon = MONTHS_TITLE[date.getMonth()];
-          const year = date.getFullYear();
-          const flightNo = (d.flight_no || d.flightNo || "").toUpperCase();
-          const origin = d.origin || d.from || "";
-          const dest = d.destination || d.to || "";
-          const depTime = (d.dept_time || d.dep_time || d.depTime || "").slice(0, 5);
-          const arvTime = (d.arv_time || d.arr_time || d.arrTime || "").slice(0, 5);
-          const depPart = depTime ? ` (${depTime})` : "";
-          const arvPart = arvTime ? ` (${arvTime})` : "";
-          return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}`;
-        }).filter(Boolean);
+        const legs = details
+          .map((d) => {
+            const rawDate = d.dep_date || d.flight_date || g.dept_date;
+            if (!rawDate) return null;
+            const date = new Date(rawDate);
+            if (isNaN(date.getTime())) return null;
+            const dd = String(date.getDate()).padStart(2, "0");
+            const mon = MONTHS_TITLE[date.getMonth()];
+            const year = date.getFullYear();
+            const flightNo = (d.flight_no || d.flightNo || "").toUpperCase();
+            const origin = d.origin || d.from || "";
+            const dest = d.destination || d.to || "";
+            const depTime = (
+              d.dept_time ||
+              d.dep_time ||
+              d.depTime ||
+              ""
+            ).slice(0, 5);
+            const arvTime = (d.arv_time || d.arr_time || d.arrTime || "").slice(
+              0,
+              5,
+            );
+            const depPart = depTime ? ` (${depTime})` : "";
+            const arvPart = arvTime ? ` (${arvTime})` : "";
+            return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}`;
+          })
+          .filter(Boolean);
         if (!legs.length) return null;
         const priceAfterMargin = calculatePriceAfterMargin(g.price, g);
         const priceText =
@@ -377,7 +442,8 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         if (legs.length === 1) return `${legs[0]}..... *${priceText}*`;
         const labeledLegs = legs.map((leg, i) => {
           if (i === 0) return `*Departure:* ${leg}`;
-          if (i === legs.length - 1) return `*Arrival:* ${leg}..... *${priceText}*`;
+          if (i === legs.length - 1)
+            return `*Arrival:* ${leg}..... *${priceText}*`;
           return `*LEG ${i + 1}:* ${leg}`;
         });
         return labeledLegs.join("\n");
@@ -403,24 +469,33 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
       "Nov",
       "Dec",
     ];
-    const details = group.details && group.details.length > 0 ? group.details : [{}];
-    const legs = details.map((d) => {
-      const rawDate = d.dep_date || d.flight_date || group.dept_date;
-      if (!rawDate) return null;
-      const date = new Date(rawDate);
-      if (isNaN(date.getTime())) return null;
-      const dd = String(date.getDate()).padStart(2, "0");
-      const mon = MONTHS_TITLE[date.getMonth()];
-      const year = date.getFullYear();
-      const flightNo = (d.flight_no || d.flightNo || "").toUpperCase();
-      const origin = d.origin || d.from || "";
-      const dest = d.destination || d.to || "";
-      const depTime = (d.dept_time || d.dep_time || d.depTime || "").slice(0, 5);
-      const arvTime = (d.arv_time || d.arr_time || d.arrTime || "").slice(0, 5);
-      const depPart = depTime ? ` (${depTime})` : "";
-      const arvPart = arvTime ? ` (${arvTime})` : "";
-      return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}`;
-    }).filter(Boolean);
+    const details =
+      group.details && group.details.length > 0 ? group.details : [{}];
+    const legs = details
+      .map((d) => {
+        const rawDate = d.dep_date || d.flight_date || group.dept_date;
+        if (!rawDate) return null;
+        const date = new Date(rawDate);
+        if (isNaN(date.getTime())) return null;
+        const dd = String(date.getDate()).padStart(2, "0");
+        const mon = MONTHS_TITLE[date.getMonth()];
+        const year = date.getFullYear();
+        const flightNo = (d.flight_no || d.flightNo || "").toUpperCase();
+        const origin = d.origin || d.from || "";
+        const dest = d.destination || d.to || "";
+        const depTime = (d.dept_time || d.dep_time || d.depTime || "").slice(
+          0,
+          5,
+        );
+        const arvTime = (d.arv_time || d.arr_time || d.arrTime || "").slice(
+          0,
+          5,
+        );
+        const depPart = depTime ? ` (${depTime})` : "";
+        const arvPart = arvTime ? ` (${arvTime})` : "";
+        return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}`;
+      })
+      .filter(Boolean);
     if (!legs.length) return "";
     const priceAfterMargin = calculatePriceAfterMargin(group.price, group);
     const priceText =
@@ -434,7 +509,8 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     } else {
       const labeledLegs = legs.map((leg, i) => {
         if (i === 0) return `*Departure:* ${leg}`;
-        if (i === legs.length - 1) return `*Arrival:* ${leg}..... *${priceText}*`;
+        if (i === legs.length - 1)
+          return `*Arrival:* ${leg}..... *${priceText}*`;
         return `*LEG ${i + 1}:* ${leg}`;
       });
       flightLines = labeledLegs.join("\n");
@@ -465,23 +541,33 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     const lines = sectorGroups
       .map((g) => {
         const details = g.details && g.details.length > 0 ? g.details : [{}];
-        const legs = details.map((d) => {
-          const rawDate = d.dep_date || d.flight_date || g.dept_date;
-          if (!rawDate) return null;
-          const date = new Date(rawDate);
-          if (isNaN(date.getTime())) return null;
-          const dd = String(date.getDate()).padStart(2, "0");
-          const mon = MONTHS_TITLE[date.getMonth()];
-          const year = date.getFullYear();
-          const flightNo = (d.flight_no || d.flightNo || "").toUpperCase();
-          const origin = d.origin || d.from || "";
-          const dest = d.destination || d.to || "";
-          const depTime = (d.dept_time || d.dep_time || d.depTime || "").slice(0, 5);
-          const arvTime = (d.arv_time || d.arr_time || d.arrTime || "").slice(0, 5);
-          const depPart = depTime ? ` (${depTime})` : "";
-          const arvPart = arvTime ? ` (${arvTime})` : "";
-          return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}`;
-        }).filter(Boolean);
+        const legs = details
+          .map((d) => {
+            const rawDate = d.dep_date || d.flight_date || g.dept_date;
+            if (!rawDate) return null;
+            const date = new Date(rawDate);
+            if (isNaN(date.getTime())) return null;
+            const dd = String(date.getDate()).padStart(2, "0");
+            const mon = MONTHS_TITLE[date.getMonth()];
+            const year = date.getFullYear();
+            const flightNo = (d.flight_no || d.flightNo || "").toUpperCase();
+            const origin = d.origin || d.from || "";
+            const dest = d.destination || d.to || "";
+            const depTime = (
+              d.dept_time ||
+              d.dep_time ||
+              d.depTime ||
+              ""
+            ).slice(0, 5);
+            const arvTime = (d.arv_time || d.arr_time || d.arrTime || "").slice(
+              0,
+              5,
+            );
+            const depPart = depTime ? ` (${depTime})` : "";
+            const arvPart = arvTime ? ` (${arvTime})` : "";
+            return `${flightNo} *${dd} ${mon} ${year}* ${origin}${depPart} ${dest}${arvPart}`;
+          })
+          .filter(Boolean);
         if (!legs.length) return null;
         const priceAfterMargin = calculatePriceAfterMargin(g.price, g);
         const priceText =
@@ -491,7 +577,8 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         if (legs.length === 1) return `${legs[0]}..... *${priceText}*`;
         const labeledLegs = legs.map((leg, i) => {
           if (i === 0) return `*Departure:* ${leg}`;
-          if (i === legs.length - 1) return `*Arrival:* ${leg}..... *${priceText}*`;
+          if (i === legs.length - 1)
+            return `*Arrival:* ${leg}..... *${priceText}*`;
           return `*LEG ${i + 1}:* ${leg}`;
         });
         return labeledLegs.join("\n");
@@ -590,6 +677,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
   const [groupMargins, setGroupMargins] = useState({});
   const [bookingList, setBookingList] = useState([]);
   const [bookedSeatsMap, setBookedSeatsMap] = useState({});
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const [filters, setFilters] = useState({
     sectors: [],
@@ -735,7 +823,9 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     }
 
     // For other groups, subtract booked seats for the first flight (or minimum over all legs)
-    const details = Array.isArray(group?.details) ? group.details.filter(Boolean) : [];
+    const details = Array.isArray(group?.details)
+      ? group.details.filter(Boolean)
+      : [];
     if (details.length === 0) {
       return Number(group.available_no_of_pax) || 0;
     }
@@ -752,7 +842,9 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     }
 
     // If no valid flight found, fallback to available_no_of_pax
-    return Number.isFinite(minAvailable) ? Math.max(minAvailable, 0) : Number(group.available_no_of_pax) || 0;
+    return Number.isFinite(minAvailable)
+      ? Math.max(minAvailable, 0)
+      : Number(group.available_no_of_pax) || 0;
   };
 
   useEffect(() => {
@@ -772,8 +864,9 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
       const passengersLength = booking.passengers?.length || 0;
 
       booking.flights?.forEach((flight) => {
-        const key = `${flight.flightNo}_${new Date(flight.depDate).toISOString().split("T")[0]
-          }`;
+        const key = `${flight.flightNo}_${
+          new Date(flight.depDate).toISOString().split("T")[0]
+        }`;
 
         // ignore cancelled if needed
         if (booking.status !== "cancelled") {
@@ -835,7 +928,8 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
           }
 
           if (groupType === "Umrah Tickets") {
-            if (g.type === "UMRAH GROUP" && !isUmrahPackageGroup(g)) return true;
+            if (g.type === "UMRAH GROUP" && !isUmrahPackageGroup(g))
+              return true;
             return g.type === groupType;
           }
 
@@ -848,26 +942,26 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
       }
 
       // ─── MODIFIED: Standardise airline names ──────────────────────────────────────
-      const standardizedGroups = fetchedGroups.map(group => ({
+      const standardizedGroups = fetchedGroups.map((group) => ({
         ...group,
         airline: {
           ...group.airline,
           airline_name: group.airline?.airline_name
             ? standardizeAirlineName(group.airline.airline_name)
-            : group.airline?.airline_name
-        }
+            : group.airline?.airline_name,
+        },
       }));
 
       const uniqueAirlines = [
         ...new Set(
-          standardizedGroups.map((g) => g.airline?.airline_name).filter(Boolean),
+          standardizedGroups
+            .map((g) => g.airline?.airline_name)
+            .filter(Boolean),
         ),
       ];
       const uniqueSectors = [
         ...new Set(
-          standardizedGroups
-            .map((g) => getEffectiveSector(g))
-            .filter(Boolean),
+          standardizedGroups.map((g) => getEffectiveSector(g)).filter(Boolean),
         ),
       ];
 
@@ -1000,6 +1094,170 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     }
   };
 
+  const pdfText = (value, fallback = "-") =>
+    String(value ?? fallback)
+      .replace(/\s+/g, " ")
+      .trim() || fallback;
+
+  const formatPdfDate = (date) => {
+    if (!date) return "-";
+    const parsed = date instanceof Date ? date : new Date(date);
+    if (Number.isNaN(parsed.getTime())) return "-";
+    return parsed.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const drawPdfFittedText = (pdf, value, x, y, maxWidth, options = {}) => {
+    const text = pdfText(value, options.fallback || "-");
+    const lines = pdf.splitTextToSize(text, maxWidth);
+    pdf.text(lines.slice(0, options.lines || 1), x, y);
+  };
+
+  const loadPdfLogo = () =>
+    new Promise((resolve) => {
+      const image = new Image();
+      image.crossOrigin = "anonymous";
+      image.onload = () => resolve(image);
+      image.onerror = () => resolve(null);
+      image.src = companyLogo;
+    });
+
+  const drawPdfHeader = (pdf, logoImage, totalGroups) => {
+    pdf.setFillColor(33, 57, 124);
+    pdf.rect(0, 0, 210, 12, "F");
+    if (logoImage) pdf.addImage(logoImage, "PNG", 14, 16, 20, 14);
+
+    pdf.setTextColor(33, 57, 124);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(18);
+    pdf.text("SHAHEEN WINGS", 40, 24);
+
+    pdf.setTextColor(100, 116, 139);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    pdf.text("Group ticket offers", 40, 30);
+
+    pdf.setTextColor(15, 118, 110);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(`Total Tickets: ${totalGroups}`, 160, 24, { align: "right" });
+
+    pdf.setTextColor(100, 116, 139);
+    pdf.text(`Date: ${new Date().toLocaleDateString("en-GB")}`, 160, 30, {
+      align: "right",
+    });
+  };
+
+  const drawGroupPdfCard = (pdf, group, index, y) => {
+    const x = 10;
+    const width = 190;
+    const rowHeight = 9.5;
+    const details = getDisplayDetails(group);
+    const firstDetail = details[0] || group.details?.[0] || {};
+    const lastDetail =
+      details[details.length - 1] ||
+      group.details?.[group.details.length - 1] ||
+      {};
+
+    const depDate =
+      firstDetail.dep_date || firstDetail.flight_date || group.dept_date;
+    const arrDate =
+      lastDetail.arv_date || lastDetail.arr_date || group.arv_date || depDate;
+    const airline = group.airline?.airline_name || "Unknown Airline";
+    const sector = getEffectiveSector(group) || "Unknown";
+    const seats = getEffectiveSeats(group);
+    const rawPrice = group.priceOnCall?.adult
+      ? "Price on call"
+      : group.price ||
+        group.finalPrice ||
+        group.ticket_price ||
+        group.basePrice;
+    const priceLabel =
+      typeof rawPrice === "number"
+        ? rawPrice.toLocaleString()
+        : rawPrice || "-";
+
+    pdf.setDrawColor(203, 213, 225);
+    pdf.setFillColor(248, 250, 252);
+    pdf.roundedRect(x, y, width, rowHeight, 1.2, 1.2, "FD");
+
+    pdf.setTextColor(17, 24, 39);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(6.8);
+    pdf.text(`${index}. ${airline}`, x + 3, y + 3.8);
+    pdf.setFontSize(6.3);
+    pdf.text(sector, x + 96, y + 3.8, { align: "center" });
+    pdf.text(priceLabel, x + 188, y + 3.8, { align: "right" });
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(5.8);
+    pdf.text(`D: ${formatPdfDate(depDate)}`, x + 3, y + 7.3);
+    pdf.text(`A: ${formatPdfDate(arrDate)}`, x + 42, y + 7.3);
+    pdf.text(
+      `Seats: ${seats === "Seats on call" ? seats : Number(seats) || 0}`,
+      x + 84,
+      y + 7.3,
+    );
+
+    const segmentLines = [];
+    details.forEach((detail) => {
+      const origin = toAirportCode(detail.origin || detail.from || "") || "-";
+      const destination =
+        toAirportCode(detail.destination || detail.to || "") || "-";
+      const depTime =
+        detail.dept_time || detail.dep_time || detail.depTime || "-";
+      const arrTime =
+        detail.arv_time || detail.arr_time || detail.arvTime || "-";
+      segmentLines.push(`${origin} ${depTime} -> ${destination} ${arrTime}`);
+    });
+
+    if (!segmentLines.length) {
+      segmentLines.push(sector || "-");
+    }
+
+    pdf.setTextColor(71, 85, 105);
+    const flightText = segmentLines.slice(0, 2).join("  |  ");
+    drawPdfFittedText(pdf, flightText, x + 120, y + 7.3, 68, { lines: 1 });
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!groups.length) {
+      toast.info("No group tickets available to download");
+      return;
+    }
+
+    setIsDownloadingPdf(true);
+    try {
+      const pdf = new jsPDF("p", "mm", "a4");
+      const logoImage = await loadPdfLogo();
+      const rowsPerPage = 22;
+      const rowSpacing = 9.8;
+
+      groups.forEach((group, index) => {
+        const pageIndex = Math.floor(index / rowsPerPage);
+        const rowInPage = index % rowsPerPage;
+
+        if (rowInPage === 0 && index > 0) pdf.addPage();
+        if (rowInPage === 0) drawPdfHeader(pdf, logoImage, groups.length);
+
+        const y = 26 + rowInPage * rowSpacing;
+        drawGroupPdfCard(pdf, group, index + 1, y);
+      });
+
+      pdf.save(
+        `shaheen-wings-group-tickets-${new Date().toISOString().slice(0, 10)}.pdf`,
+      );
+      toast.success("PDF downloaded successfully");
+    } catch (error) {
+      console.error("Failed to generate group ticket PDF", error);
+      toast.error("Failed to download group ticket PDF");
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   const handleBookNow = (group) => {
     navigate("/dashboard/booking", { state: { groupData: group } });
   };
@@ -1110,7 +1368,9 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                 onChange={() => handleFilterChange("airline", airline)}
                 className="w-4 h-4 rounded"
               />
-              <span className="text-sm text-gray-700">{standardizedAirline}</span>
+              <span className="text-sm text-gray-700">
+                {standardizedAirline}
+              </span>
             </label>
           );
         })}
@@ -1146,7 +1406,37 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
       <TopBar title={"Group Tickets"} />
       {/* Copy All Button (only in agent dashboard) */}
       {headerType === "dashboard" && (
-        <div className="flex justify-end mb-2">
+        <div className="flex justify-end gap-2 mb-2">
+          <button
+            onClick={handleDownloadPdf}
+            disabled={groups.length === 0 || isDownloadingPdf}
+            title={
+              groups.length === 0
+                ? "No data available to download"
+                : "Download all visible group tickets as PDF"
+            }
+            style={{
+              background: groups.length === 0 ? "#d1d5db" : "#dc2626",
+              color: "white",
+              opacity: groups.length === 0 ? 0.6 : 1,
+              borderRadius: 8,
+              minWidth: 120,
+              fontWeight: 600,
+              fontSize: 13,
+              padding: "7px 18px",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              cursor:
+                groups.length === 0 || isDownloadingPdf
+                  ? "not-allowed"
+                  : "pointer",
+            }}
+            className="transition-all shadow-sm hover:shadow"
+          >
+            <span>{isDownloadingPdf ? "Preparing..." : "Download PDF"}</span>
+          </button>
+
           <button
             onClick={handleCopyAll}
             disabled={groups.length === 0}
@@ -1297,10 +1587,11 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
               </div>
             ) : (
               sortedGroupedEntries.map(([key, data]) => {
-                const sectorParts = data.sector?.split("-") || [];
+                const normalizedSector = normalizeSector(data.sector);
+                const sectorParts = normalizedSector?.split("-") || [];
                 const origin = sectorParts[0] || "";
                 const destination =
-                  sectorParts[sectorParts.length - 1] || data.sector;
+                  sectorParts[sectorParts.length - 1] || normalizedSector;
 
                 return (
                   <div
@@ -1331,7 +1622,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                       <div className="flex items-center justify-center gap-4 px-4 py-4">
                         <FaPlaneDeparture className="text-lg" />
                         <span className="font-bold text-lg tracking-widest uppercase">
-                          {data.sector}
+                          {normalizedSector}
                         </span>
                       </div>
 
@@ -1396,7 +1687,9 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                             <th className="px-4 py-2.5 text-center whitespace-nowrap">
                               Meal
                             </th>
-                            {data.groups.some((g) => getDisplayDetails(g).length > 1) && (
+                            {data.groups.some(
+                              (g) => getDisplayDetails(g).length > 1,
+                            ) && (
                               <th className="px-4 py-2.5 text-center whitespace-nowrap">
                                 Days
                               </th>
@@ -1440,24 +1733,57 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                     {isMultiLeg ? (
                                       <div className="flex pt-3 flex-col divide-y divide-dashed divide-gray-700">
                                         {displayDetails.map((d, i) => {
-                                          const rawDate = d.dep_date || d.flight_date;
+                                          const rawDate =
+                                            d.dep_date || d.flight_date;
                                           return (
-                                            <div key={i} style={{ color: 'black', fontFamily: 'sans-serif' }} className={`font-black text-sm flex flex-col ${i > 0 ? "pt-2" : "pb-2"}`}>
+                                            <div
+                                              key={i}
+                                              style={{
+                                                color: "black",
+                                                fontFamily: "sans-serif",
+                                              }}
+                                              className={`font-black text-sm flex flex-col ${i > 0 ? "pt-2" : "pb-2"}`}
+                                            >
                                               {/* <span className={`text-[9px] font-bold uppercase tracking-wider mb-0.5 ${i === 0 ? "text-blue-500" : "text-orange-400"}`}>
                                                 {legLabels[i] || `Leg ${i + 1}`}
                                               </span> */}
                                               <span>
-                                                {rawDate ? new Date(rawDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                                                {rawDate
+                                                  ? new Date(
+                                                      rawDate,
+                                                    ).toLocaleDateString(
+                                                      "en-GB",
+                                                      {
+                                                        day: "2-digit",
+                                                        month: "short",
+                                                        year: "numeric",
+                                                      },
+                                                    )
+                                                  : "—"}
                                               </span>
                                             </div>
                                           );
                                         })}
                                       </div>
                                     ) : flight ? (
-                                      <span className="font-black" style={{ fontFamily: 'sans-serif', color: 'black' }}>
-                                        {new Date(flight.dep_date || flight.flight_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                                      <span
+                                        className="font-black"
+                                        style={{
+                                          fontFamily: "sans-serif",
+                                          color: "black",
+                                        }}
+                                      >
+                                        {new Date(
+                                          flight.dep_date || flight.flight_date,
+                                        ).toLocaleDateString("en-GB", {
+                                          day: "2-digit",
+                                          month: "short",
+                                          year: "numeric",
+                                        })}
                                       </span>
-                                    ) : "—"}
+                                    ) : (
+                                      "—"
+                                    )}
                                   </td>
 
                                   {/* Flight + Airline */}
@@ -1465,30 +1791,48 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                     {isMultiLeg ? (
                                       <div className="flex flex-col divide-y divide-dashed divide-gray-700">
                                         {displayDetails.map((d, i) => (
-                                          <div key={i} className={`flex items-center gap-1.5 ${i > 0 ? "pt-2" : "pb-2"}`}>
+                                          <div
+                                            key={i}
+                                            className={`flex items-center gap-1.5 ${i > 0 ? "pt-2" : "pb-2"}`}
+                                          >
                                             <FaPlane
                                               className="text-xs shrink-0"
-                                              style={{ color: i === 0 ? theme.colors.ublGradientStart : "#f97316" }}
+                                              style={{
+                                                color:
+                                                  i === 0
+                                                    ? theme.colors
+                                                        .ublGradientStart
+                                                    : "#f97316",
+                                              }}
                                             />
                                             <div className="flex flex-col">
                                               <span className="font-bold text-sm whitespace-nowrap">
-                                                {d.flight_no?.toUpperCase() || "—"}
+                                                {d.flight_no?.toUpperCase() ||
+                                                  "—"}
                                               </span>
-                                              {i === 0 && group.airline?.airline_name && (
-                                                <span className="text-[10px] text-gray-900 whitespace-nowrap leading-tight">
-                                                  {group.airline.airline_name}
-                                                </span>
-                                              )}
+                                              {i === 0 &&
+                                                group.airline?.airline_name && (
+                                                  <span className="text-[10px] text-gray-900 whitespace-nowrap leading-tight">
+                                                    {group.airline.airline_name}
+                                                  </span>
+                                                )}
                                             </div>
                                           </div>
                                         ))}
                                       </div>
                                     ) : (
                                       <div className="flex items-center gap-1.5">
-                                        <FaPlane className="text-xs shrink-0" style={{ color: theme.colors.ublGradientStart }} />
+                                        <FaPlane
+                                          className="text-xs shrink-0"
+                                          style={{
+                                            color:
+                                              theme.colors.ublGradientStart,
+                                          }}
+                                        />
                                         <div className="flex flex-col">
                                           <span className="font-semibold text-sm whitespace-nowrap">
-                                            {flight?.flight_no?.toUpperCase() || "—"}
+                                            {flight?.flight_no?.toUpperCase() ||
+                                              "—"}
                                           </span>
                                           {group.airline?.airline_name && (
                                             <span className="text-[10px] text-gray-900 whitespace-nowrap leading-tight">
@@ -1505,26 +1849,61 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                     {isMultiLeg ? (
                                       <div className="flex flex-col divide-y divide-dashed divide-gray-700">
                                         {displayDetails.map((d, i) => (
-                                          <div key={i} className={`flex items-center justify-center gap-3 ${i > 0 ? "pt-2" : "pb-2"}`}>
+                                          <div
+                                            key={i}
+                                            className={`flex items-center justify-center gap-3 ${i > 0 ? "pt-2" : "pb-2"}`}
+                                          >
                                             <div className="text-center">
-                                              <div className="text-sm font-black" style={{ fontFamily: 'sans-serif' }}>{d.origin || "—"}</div>
-                                              <div className="text-xs text-gray-500">{d.dept_time?.substring(0, 5) || "—"}</div>
+                                              <div
+                                                className="text-sm font-black"
+                                                style={{
+                                                  fontFamily: "sans-serif",
+                                                }}
+                                              >
+                                                {toAirportCode(d.origin) || "—"}
+                                              </div>
+                                              <div className="text-xs text-gray-500">
+                                                {d.dept_time?.substring(0, 5) ||
+                                                  "—"}
+                                              </div>
                                             </div>
                                             <div className="flex items-center relative min-w-12 w-26 md:w-40">
                                               <div
                                                 className="h-0.5 w-full"
-                                                style={{ background: i === 0 ? theme.colors.ublGradient : "linear-gradient(90deg,#f97316,#fb923c)" }}
+                                                style={{
+                                                  background:
+                                                    i === 0
+                                                      ? theme.colors.ublGradient
+                                                      : "linear-gradient(90deg,#f97316,#fb923c)",
+                                                }}
                                               />
                                               <div className="absolute left-1/2 -translate-x-1/2 bg-white px-0.5">
                                                 <FaPlane
                                                   className="text-sm"
-                                                  style={{ color: i === 0 ? theme.colors.ublGradientStart : "#f97316" }}
+                                                  style={{
+                                                    color:
+                                                      i === 0
+                                                        ? theme.colors
+                                                            .ublGradientStart
+                                                        : "#f97316",
+                                                  }}
                                                 />
                                               </div>
                                             </div>
                                             <div className="text-center">
-                                              <div className="text-sm font-black" style={{ fontFamily: 'sans-serif' }}>{d.destination || "—"}</div>
-                                              <div className="text-xs text-gray-500">{d.arv_time?.substring(0, 5) || "—"}</div>
+                                              <div
+                                                className="text-sm font-black"
+                                                style={{
+                                                  fontFamily: "sans-serif",
+                                                }}
+                                              >
+                                                {toAirportCode(d.destination) ||
+                                                  "—"}
+                                              </div>
+                                              <div className="text-xs text-gray-500">
+                                                {d.arv_time?.substring(0, 5) ||
+                                                  "—"}
+                                              </div>
                                             </div>
                                           </div>
                                         ))}
@@ -1532,18 +1911,50 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                     ) : (
                                       <div className="flex items-center justify-center gap-3">
                                         <div className="text-center">
-                                          <div className="text-sm sm:text-base font-black" style={{ fontFamily: 'sans-serif' }}>{origin}</div>
-                                          <div className="text-xs text-gray-700 font-medium">{flight?.dept_time?.substring(0, 5) || "—"}</div>
+                                          <div
+                                            className="text-sm sm:text-base font-black"
+                                            style={{ fontFamily: "sans-serif" }}
+                                          >
+                                            {origin}
+                                          </div>
+                                          <div className="text-xs text-gray-700 font-medium">
+                                            {flight?.dept_time?.substring(
+                                              0,
+                                              5,
+                                            ) || "—"}
+                                          </div>
                                         </div>
                                         <div className="flex items-center relative min-w-12 w-26 md:w-48">
-                                          <div className="h-0.5 w-full" style={{ background: theme.colors.ublGradient }} />
+                                          <div
+                                            className="h-0.5 w-full"
+                                            style={{
+                                              background:
+                                                theme.colors.ublGradient,
+                                            }}
+                                          />
                                           <div className="absolute left-1/2 -translate-x-1/2 bg-white px-0.5">
-                                            <FaPlane className="text-sm" style={{ color: theme.colors.ublGradientStart }} />
+                                            <FaPlane
+                                              className="text-sm"
+                                              style={{
+                                                color:
+                                                  theme.colors.ublGradientStart,
+                                              }}
+                                            />
                                           </div>
                                         </div>
                                         <div className="text-center">
-                                          <div className="text-sm sm:text-base font-black" style={{ fontFamily: 'sans-serif' }}>{destination}</div>
-                                          <div className="text-xs text-gray-700 font-medium">{(lastFlight?.arv_time || flight?.arv_time)?.substring(0, 5) || "—"}</div>
+                                          <div
+                                            className="text-sm sm:text-base font-black"
+                                            style={{ fontFamily: "sans-serif" }}
+                                          >
+                                            {destination}
+                                          </div>
+                                          <div className="text-xs text-gray-700 font-medium">
+                                            {(
+                                              lastFlight?.arv_time ||
+                                              flight?.arv_time
+                                            )?.substring(0, 5) || "—"}
+                                          </div>
                                         </div>
                                       </div>
                                     )}
@@ -1554,27 +1965,53 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                     {isMultiLeg ? (
                                       <div className="flex flex-col divide-y divide-dashed divide-gray-700 items-center mt-3">
                                         {displayDetails.map((d, i) => (
-                                          <div key={i} className={`${i > 0 ? "pt-2" : "pb-2"}`}>
+                                          <div
+                                            key={i}
+                                            className={`${i > 0 ? "pt-2" : "pb-2"}`}
+                                          >
                                             {d.baggage ? (
                                               <div className="inline-flex items-center gap-1 text-xs font-medium">
-                                                <FaSuitcase className="shrink-0" style={{ color: i === 0 ? theme.colors.ublGradientStart : "#f97316" }} />
-                                                <span>{formatBaggageLabel(d.baggage)}</span>
+                                                <FaSuitcase
+                                                  className="shrink-0"
+                                                  style={{
+                                                    color:
+                                                      i === 0
+                                                        ? theme.colors
+                                                            .ublGradientStart
+                                                        : "#f97316",
+                                                  }}
+                                                />
+                                                <span>
+                                                  {formatBaggageLabel(
+                                                    d.baggage,
+                                                  )}
+                                                </span>
                                               </div>
                                             ) : (
-                                              <span className="text-gray-400 text-xs">—</span>
+                                              <span className="text-gray-400 text-xs">
+                                                —
+                                              </span>
                                             )}
                                           </div>
                                         ))}
                                       </div>
+                                    ) : flight?.baggage ? (
+                                      <div className="inline-flex items-center gap-1  text-xs font-medium">
+                                        <FaSuitcase
+                                          className="shrink-0"
+                                          style={{
+                                            color:
+                                              theme.colors.ublGradientStart,
+                                          }}
+                                        />
+                                        <span>
+                                          {formatBaggageLabel(flight.baggage)}
+                                        </span>
+                                      </div>
                                     ) : (
-                                      flight?.baggage ? (
-                                        <div className="inline-flex items-center gap-1  text-xs font-medium">
-                                          <FaSuitcase className="shrink-0" style={{ color: theme.colors.ublGradientStart }} />
-                                          <span>{formatBaggageLabel(flight.baggage)}</span>
-                                        </div>
-                                      ) : (
-                                        <span className="text-gray-400 text-xs">—</span>
-                                      )
+                                      <span className="text-gray-400 text-xs">
+                                        —
+                                      </span>
                                     )}
                                   </td>
 
@@ -1583,16 +2020,27 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                     {isMultiLeg ? (
                                       <div className="flex flex-col divide-y divide-dashed divide-gray-700 items-center mt-3">
                                         {displayDetails.map((d, i) => (
-                                          <div key={i} className={`${i > 0 ? "pt-2" : "pb-2"}`}>
-                                            <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${d.meal && d.meal !== "No" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                                              {d.meal && d.meal !== "No" ? "Yes" : "No"}
+                                          <div
+                                            key={i}
+                                            className={`${i > 0 ? "pt-2" : "pb-2"}`}
+                                          >
+                                            <span
+                                              className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${d.meal && d.meal !== "No" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}
+                                            >
+                                              {d.meal && d.meal !== "No"
+                                                ? "Yes"
+                                                : "No"}
                                             </span>
                                           </div>
                                         ))}
                                       </div>
                                     ) : (
-                                      <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${flight?.meal && flight.meal !== "No" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                                        {flight?.meal && flight.meal !== "No" ? "Yes" : "No"}
+                                      <span
+                                        className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${flight?.meal && flight.meal !== "No" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}
+                                      >
+                                        {flight?.meal && flight.meal !== "No"
+                                          ? "Yes"
+                                          : "No"}
                                       </span>
                                     )}
                                   </td>
@@ -1603,15 +2051,31 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                       {(() => {
                                         // Only show days for multi-leg flights
                                         if (!isMultiLeg) {
-                                          return <span className="text-gray-400 text-xs">—</span>;
+                                          return (
+                                            <span className="text-gray-400 text-xs">
+                                              —
+                                            </span>
+                                          );
                                         }
 
                                         let days = group.days;
                                         if (displayDetails.length > 1) {
-                                          const firstRaw = displayDetails[0].dep_date || displayDetails[0].flight_date;
-                                          const lastRaw = displayDetails[displayDetails.length - 1].dep_date || displayDetails[displayDetails.length - 1].flight_date;
+                                          const firstRaw =
+                                            displayDetails[0].dep_date ||
+                                            displayDetails[0].flight_date;
+                                          const lastRaw =
+                                            displayDetails[
+                                              displayDetails.length - 1
+                                            ].dep_date ||
+                                            displayDetails[
+                                              displayDetails.length - 1
+                                            ].flight_date;
                                           if (firstRaw && lastRaw) {
-                                            const diff = Math.round((new Date(lastRaw) - new Date(firstRaw)) / (1000 * 60 * 60 * 24));
+                                            const diff = Math.round(
+                                              (new Date(lastRaw) -
+                                                new Date(firstRaw)) /
+                                                (1000 * 60 * 60 * 24),
+                                            );
                                             if (diff > 0) days = diff;
                                           }
                                         }
@@ -1620,7 +2084,9 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                                             {days}
                                           </span>
                                         ) : (
-                                          <span className="text-gray-400 text-xs">—</span>
+                                          <span className="text-gray-400 text-xs">
+                                            —
+                                          </span>
                                         );
                                       })()}
                                     </td>
@@ -1628,20 +2094,34 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
 
                                   {/* Seats */}
                                   <td className="px-4 py-3 text-center align-middle">
-                                    {isAbidAirGroup(group) || group.priceOnCall?.seats ? (
+                                    {isAbidAirGroup(group) ||
+                                    group.priceOnCall?.seats ? (
                                       <span className="text-sm font-bold text-red-500">
                                         Seats on call
                                       </span>
                                     ) : group.isOwnGroup ? (
                                       group.showSeat ? (
-                                        <span className="text-sm font-bold" style={{ color: theme.colors.ublGradientStart }}>
+                                        <span
+                                          className="text-sm font-bold"
+                                          style={{
+                                            color:
+                                              theme.colors.ublGradientStart,
+                                          }}
+                                        >
                                           {getEffectiveSeats(group)}
                                         </span>
                                       ) : (
-                                        <span className="text-gray-400 text-xs">—</span>
+                                        <span className="text-gray-400 text-xs">
+                                          —
+                                        </span>
                                       )
                                     ) : (
-                                      <span className="text-sm font-bold" style={{ color: theme.colors.ublGradientStart }}>
+                                      <span
+                                        className="text-sm font-bold"
+                                        style={{
+                                          color: theme.colors.ublGradientStart,
+                                        }}
+                                      >
                                         {getEffectiveSeats(group)}
                                       </span>
                                     )}
@@ -1649,11 +2129,24 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
 
                                   {/* Fare */}
                                   <td className="px-4 py-3 text-center whitespace-nowrap align-middle">
-                                    {user?.priceOnCall || group.priceOnCall?.adult ? (
-                                      <span className="text-sm font-bold text-red-500">On Call</span>
+                                    {user?.priceOnCall ||
+                                    group.priceOnCall?.adult ? (
+                                      <span className="text-sm font-bold text-red-500">
+                                        On Call
+                                      </span>
                                     ) : (
-                                      <div className="text-lg font-black" style={{ color: theme.colors.ublGradientStart, fontFamily: 'sans-serif' }}>
-                                        PKR {calculatePriceAfterMargin(group.price, group)?.toLocaleString()}
+                                      <div
+                                        className="text-lg font-black"
+                                        style={{
+                                          color: theme.colors.ublGradientStart,
+                                          fontFamily: "sans-serif",
+                                        }}
+                                      >
+                                        PKR{" "}
+                                        {calculatePriceAfterMargin(
+                                          group.price,
+                                          group,
+                                        )?.toLocaleString()}
                                       </div>
                                     )}
                                   </td>
