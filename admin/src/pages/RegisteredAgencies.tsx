@@ -55,8 +55,8 @@ const RegisteredAgencies = () => {
   const [showLoading, setShowLoading] = useState<string | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
 
-  const frontendUrl = import.meta.env.VITE_FRONTEND_URL || "https://shaheenwingstravels.com";
-  // const frontendUrl = "http://localhost:5173";
+  // const frontendUrl = import.meta.env.VITE_FRONTEND_URL || "https://shaheenwingstravels.com";
+  const frontendUrl = "http://localhost:5173";
 
   useEffect(() => {
     fetchUsers();
@@ -783,38 +783,37 @@ const RegisteredAgencies = () => {
               </table>
             </div>
           )}
-        {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <div className="flex justify-end items-end gap-2 mt-6">
-            <button
-              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1 rounded bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-white/80 disabled:opacity-50"
-            >
-              Prev
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex justify-end items-end gap-2 mt-6">
               <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1 rounded ${
-                  currentPage === page
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-white/80"
-                }`}
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 rounded bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-white/80 disabled:opacity-50"
               >
-                {page}
+                Prev
               </button>
-            ))}
-            <button
-              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 rounded bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-white/80 disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        )}
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`px-3 py-1 rounded ${currentPage === page
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-white/80"
+                    }`}
+                >
+                  {page}
+                </button>
+              ))}
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 rounded bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-white/80 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </>

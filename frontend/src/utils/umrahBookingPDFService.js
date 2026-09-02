@@ -1,4 +1,3 @@
-import companyLogo from '../assets/images/logo2-.png';
 import umrahPrintBg from '../assets/images/umrahbgprint.png';
 
 export const printUmrahPackageBooking = (booking) => {
@@ -102,13 +101,6 @@ export const printUmrahPackageBooking = (booking) => {
     const pnr = safeValue(booking.pnr || packageData.pnr || flight.pnr, "N/A");
     const showPNR = /confirmed/i.test(booking.status || booking.bookingStatus || "");
 
-    // Use the booking agent's own uploaded logo when available, otherwise
-    // fall back to the default Shaheen Wings logo.
-    const agentLogo =
-        (typeof booking.user === "object" && booking.user?.logo) ||
-        (typeof booking.userId === "object" && booking.userId?.logo) ||
-        "";
-    const companyLogoUrl = agentLogo || companyLogo;
     const umrahPrintBgUrl = umrahPrintBg;
     const airlineName = safeValue(
         booking.airline?.name || packageData.airline?.name || booking.airlineName || "AIRLINE",
@@ -166,7 +158,6 @@ export const printUmrahPackageBooking = (booking) => {
         /* Header Section */
         .header { display: grid; grid-template-columns: 1fr minmax(220px, 330px) 1fr; align-items: flex-start; border-bottom: 1px solid #ccc; padding-bottom: 10px; gap: 16px; }
         .logo-section { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-        .company-logo { max-width: 70px; height: auto; }
         .airline-logos { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
         .airline-logo { max-width: 140px; max-height: 45px; object-fit: contain; border: 1px solid #e0e0e0; background: #fff; padding: 4px; }
         .airline-name { font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.03em; }
@@ -211,7 +202,6 @@ export const printUmrahPackageBooking = (booking) => {
         <!-- Header -->
         <div class="header">
             <div class="logo-section">
-                <img class="company-logo" src="${companyLogoUrl}" alt="Shaheen Wings Logo" />
                 <div class="airline-logos">${airlineLogoHTML}</div>
             </div>
             <div class="print-bg-section">

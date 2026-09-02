@@ -2,8 +2,6 @@
 // printGDSBooking – Mobile‑friendly print function
 // ============================================================
 
-import defaultCompanyLogo from "../assets/images/logo2-.png";
-
 export const printGDSBooking = (booking, showPrice = true) => {
     // --- 1. Helper Functions ---
     const formatFullDate = (dateStr) => {
@@ -88,6 +86,7 @@ export const printGDSBooking = (booking, showPrice = true) => {
                 arrTime: fl.arrTime || fl.arrTime || "00:00",
                 depDate: formatFullDate(fl.depDate || fl.flightDate || booking.departureDate),
                 arrDate: formatFullDate(fl.arrDate || fl.arrivalDate || booking.arrivalDate || booking.departureDate),
+                baggage: fl.baggage || fl.baggageWeight || baggage,
             }))
             : [
                 {
@@ -99,6 +98,7 @@ export const printGDSBooking = (booking, showPrice = true) => {
                     arrTime,
                     depDate,
                     arrDate,
+                    baggage,
                 },
             ];
 
@@ -180,12 +180,6 @@ export const printGDSBooking = (booking, showPrice = true) => {
         storedFrontendUser.phone ||
         "N/A";
 
-    // Agent's own uploaded logo, falling back to the default Shaheen Wings logo.
-    const agentLogo =
-        (booking.userId && booking.userId.logo) ||
-        storedFrontendUser.logo ||
-        defaultCompanyLogo;
-
     // --- 3. Build the HTML Ticket String ---
     const showPNR = /confirmed/i.test(bookingStatusRaw);
 
@@ -214,9 +208,7 @@ export const printGDSBooking = (booking, showPrice = true) => {
             padding: 40px;
         }
 
-        .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; gap: 12px; }
-        .header-left { display: flex; align-items: center; gap: 16px; }
-        .agent-logo { height: 44px; max-width: 140px; object-fit: contain; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; }
         .brand { display: flex; align-items: center; gap: 12px; }
         .brand img { height: 40px; }
         .brand-text h1 { margin: 0; font-size: 20px; color: #8c8c8c; font-weight: bold; }
@@ -247,15 +239,16 @@ export const printGDSBooking = (booking, showPrice = true) => {
         }
 
         table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
-        th { 
-            text-align: left; 
-            font-size: 11px; 
-            color: #b0b0b0; 
-            font-weight: normal; 
-            padding: 8px 0; 
+        th {
+            text-align: left;
+            font-size: 11px;
+            color: #b0b0b0;
+            font-weight: normal;
+            padding: 8px 14px 8px 0;
             border-bottom: 1px solid black;
         }
-        td { padding: 12px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px; color: #444; }
+        td { padding: 10px 14px 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px; color: #444; }
+        th:last-child, td:last-child { padding-right: 0; }
         .bold-td { font-weight: bold; color: #000; }
 
         .info-block { margin-bottom: 20px; }
@@ -286,14 +279,11 @@ export const printGDSBooking = (booking, showPrice = true) => {
         
         <!-- Header -->
         <div class="header">
-            <div class="header-left">
-                <img class="agent-logo" src="${agentLogo}" alt="Agent Logo" />
-                <div class="brand">
-                    <img src="${airlineLogo}" alt="Airline Logo" />
-                    <div class="brand-text">
-                        <h1>${airlineName}</h1>
-                        <p>Electronic Ticket / Itinerary Receipt</p>
-                    </div>
+            <div class="brand">
+                <img src="${airlineLogo}" alt="Airline Logo" />
+                <div class="brand-text">
+                    <h1>${airlineName}</h1>
+                    <p>Electronic Ticket / Itinerary Receipt</p>
                 </div>
             </div>
             ${showPNR ? `<div class="ref-box">
@@ -324,13 +314,14 @@ export const printGDSBooking = (booking, showPrice = true) => {
         <table>
             <thead>
                   <tr>
-            <th style="color: #000; font-weight: bold; font-size: 13px;">Airline</th>
-            <th style="color: #000; font-weight: bold; font-size: 13px;">Flight</th>
-            <th style="color: #000; font-weight: bold; font-size: 13px;">Route</th>
-            <th style="color: #000; font-weight: bold; font-size: 13px;">Departure Date</th>
-            <th style="color: #000; font-weight: bold; font-size: 13px;">Departure Time</th>
-            <th style="color: #000; font-weight: bold; font-size: 13px;">Arrival Time</th>
-            ${showPNR ? "<th style=\"color: #000; font-weight: bold; font-size: 13px;\">PNR</th>" : ""}
+            <th style="width: 11%; color: #000; font-weight: bold; font-size: 13px;">Airline</th>
+            <th style="width: 9%; color: #000; font-weight: bold; font-size: 13px;">Flight</th>
+            <th style="width: 22%; color: #000; font-weight: bold; font-size: 13px;">Route</th>
+            <th style="width: 14%; color: #000; font-weight: bold; font-size: 13px;">Departure Date</th>
+            <th style="width: 12%; color: #000; font-weight: bold; font-size: 13px;">Departure Time</th>
+            <th style="width: 12%; color: #000; font-weight: bold; font-size: 13px;">Arrival Time</th>
+            <th style="width: 10%; color: #000; font-weight: bold; font-size: 13px;">Baggage</th>
+            ${showPNR ? "<th style=\"width: 10%; color: #000; font-weight: bold; font-size: 13px;\">PNR</th>" : ""}
           </tr>
             </thead>
             <tbody>
@@ -343,6 +334,7 @@ export const printGDSBooking = (booking, showPrice = true) => {
                             <td>${seg.depDate}</td>
                             <td>${safeValue(seg.depTime, depTime)}</td>
                             <td>${safeValue(seg.arrTime, arrTime)}</td>
+                            <td>${safeValue(seg.baggage, baggage)}</td>
                             ${showPNR ? `<td>${pnr}</td>` : ''}
                         </tr>
                     `)
