@@ -55,8 +55,8 @@ const RegisteredAgencies = () => {
   const [showLoading, setShowLoading] = useState<string | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
 
-  // const frontendUrl = import.meta.env.VITE_FRONTEND_URL || "https://shaheenwingstravels.com";
-  const frontendUrl = "http://localhost:5173";
+  const frontendUrl = import.meta.env.VITE_FRONTEND_URL || "https://shaheenwingstravels.com";
+  // const frontendUrl = "http://localhost:5173";
 
   useEffect(() => {
     fetchUsers();
@@ -798,8 +798,8 @@ const RegisteredAgencies = () => {
                   key={page}
                   onClick={() => setCurrentPage(page)}
                   className={`px-3 py-1 rounded ${currentPage === page
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-white/80"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-white/80"
                     }`}
                 >
                   {page}
