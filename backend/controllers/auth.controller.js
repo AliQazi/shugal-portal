@@ -361,6 +361,11 @@ export const loginUser = async (req, res) => {
         status: user.status,
         priceOnCall: user.priceOnCall || false,
         showHideButton: user.showHideButton || false,
+        companyName: user.companyName,
+        phone: user.phone,
+        address: user.address,
+        agencyCode: user.agencyCode,
+        logo: user.logo || "",
       },
     });
   } catch (error) {

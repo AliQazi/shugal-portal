@@ -2,6 +2,8 @@
 // printGDSBooking – Mobile‑friendly print function
 // ============================================================
 
+import defaultCompanyLogo from "../assets/images/logo2-.png";
+
 export const printGDSBooking = (booking, showPrice = true) => {
     // --- 1. Helper Functions ---
     const formatFullDate = (dateStr) => {
@@ -178,6 +180,12 @@ export const printGDSBooking = (booking, showPrice = true) => {
         storedFrontendUser.phone ||
         "N/A";
 
+    // Agent's own uploaded logo, falling back to the default Shaheen Wings logo.
+    const agentLogo =
+        (booking.userId && booking.userId.logo) ||
+        storedFrontendUser.logo ||
+        defaultCompanyLogo;
+
     // --- 3. Build the HTML Ticket String ---
     const showPNR = /confirmed/i.test(bookingStatusRaw);
 
@@ -206,7 +214,9 @@ export const printGDSBooking = (booking, showPrice = true) => {
             padding: 40px;
         }
 
-        .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; gap: 12px; }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .agent-logo { height: 44px; max-width: 140px; object-fit: contain; }
         .brand { display: flex; align-items: center; gap: 12px; }
         .brand img { height: 40px; }
         .brand-text h1 { margin: 0; font-size: 20px; color: #8c8c8c; font-weight: bold; }
@@ -276,11 +286,14 @@ export const printGDSBooking = (booking, showPrice = true) => {
         
         <!-- Header -->
         <div class="header">
-            <div class="brand">
-                <img src="${airlineLogo}" alt="Airline Logo" />
-                <div class="brand-text">
-                    <h1>${airlineName}</h1>
-                    <p>Electronic Ticket / Itinerary Receipt</p>
+            <div class="header-left">
+                <img class="agent-logo" src="${agentLogo}" alt="Agent Logo" />
+                <div class="brand">
+                    <img src="${airlineLogo}" alt="Airline Logo" />
+                    <div class="brand-text">
+                        <h1>${airlineName}</h1>
+                        <p>Electronic Ticket / Itinerary Receipt</p>
+                    </div>
                 </div>
             </div>
             ${showPNR ? `<div class="ref-box">

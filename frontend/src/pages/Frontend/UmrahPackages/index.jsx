@@ -709,14 +709,33 @@ export default function UmrahPackages({ user }) {
     return parsed.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   };
 
-  const loadPdfLogo = () =>
-    new Promise((resolve) => {
-      const image = new Image();
-      image.crossOrigin = "anonymous";
-      image.onload = () => resolve(image);
-      image.onerror = () => resolve(null);
-      image.src = companyLogo;
-    });
+  // Loads the logged-in agent's own uploaded logo for the PDF header,
+  // falling back to the default Shaheen Wings logo when the agent has
+  // not uploaded one (or it fails to load).
+  const loadPdfLogo = async () => {
+    let logoSrc = companyLogo;
+    try {
+      const res = await axiosInstance.get("/auth/profile");
+      const agentLogo = res?.data?.data?.logo;
+      if (agentLogo) logoSrc = agentLogo;
+    } catch (e) {
+      // Ignore and use the default logo
+    }
+
+    const tryLoad = (src) =>
+      new Promise((resolve) => {
+        const image = new Image();
+        image.crossOrigin = "anonymous";
+        image.onload = () => resolve(image);
+        image.onerror = () => resolve(null);
+        image.src = src;
+      });
+
+    const loaded = await tryLoad(logoSrc);
+    if (loaded) return loaded;
+    if (logoSrc !== companyLogo) return tryLoad(companyLogo);
+    return null;
+  };
 
   const hexToRgb = (hex) => {
     const normalized = hex.replace("#", "");

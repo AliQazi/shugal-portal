@@ -544,7 +544,7 @@ export const getUmrahPackageBookingById = async (req, res) => {
     const booking = await UmrahPackageBooking.findOne({
       _id: req.params.id,
       user: req.user._id,
-    }).populate("user", "name email phone companyName agencyCode").lean();
+    }).populate("user", "name email phone companyName agencyCode logo").lean();
     if (!booking)
       return res.status(404).json({ success: false, message: "Booking not found" });
     const [bookingWithContact] = await attachShaheenWingsContact([booking]);
@@ -565,7 +565,7 @@ export const adminGetAllBookings = async (req, res) => {
 
     const total = await UmrahPackageBooking.countDocuments(filter);
     const bookings = await UmrahPackageBooking.find(filter)
-      .populate("user", "name email phone companyName agencyCode")
+      .populate("user", "name email phone companyName agencyCode logo")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit))

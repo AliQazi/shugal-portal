@@ -1116,14 +1116,33 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     pdf.text(lines.slice(0, options.lines || 1), x, y);
   };
 
-  const loadPdfLogo = () =>
-    new Promise((resolve) => {
-      const image = new Image();
-      image.crossOrigin = "anonymous";
-      image.onload = () => resolve(image);
-      image.onerror = () => resolve(null);
-      image.src = companyLogo;
-    });
+  // Loads the logged-in agent's own uploaded logo for the PDF header,
+  // falling back to the default Shaheen Wings logo when the agent has
+  // not uploaded one (or it fails to load).
+  const loadPdfLogo = async () => {
+    let logoSrc = companyLogo;
+    try {
+      const res = await axiosInstance.get("/auth/profile");
+      const agentLogo = res?.data?.data?.logo;
+      if (agentLogo) logoSrc = agentLogo;
+    } catch (e) {
+      // Ignore and use the default logo
+    }
+
+    const tryLoad = (src) =>
+      new Promise((resolve) => {
+        const image = new Image();
+        image.crossOrigin = "anonymous";
+        image.onload = () => resolve(image);
+        image.onerror = () => resolve(null);
+        image.src = src;
+      });
+
+    const loaded = await tryLoad(logoSrc);
+    if (loaded) return loaded;
+    if (logoSrc !== companyLogo) return tryLoad(companyLogo);
+    return null;
+  };
 
   const drawPdfHeader = (pdf, logoImage, totalGroups) => {
     pdf.setFillColor(33, 57, 124);
@@ -1153,7 +1172,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
   const drawGroupPdfCard = (pdf, group, index, y) => {
     const x = 10;
     const width = 190;
-    const rowHeight = 9.5;
+    const rowHeight = 11;
     const details = getDisplayDetails(group);
     const firstDetail = details[0] || group.details?.[0] || {};
     const lastDetail =
@@ -1186,19 +1205,24 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     pdf.setTextColor(17, 24, 39);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(6.8);
-    pdf.text(`${index}. ${airline}`, x + 3, y + 3.8);
+    drawPdfFittedText(pdf, `${index}. ${airline}`, x + 3, y + 4.2, 78, {
+      lines: 1,
+    });
     pdf.setFontSize(6.3);
-    pdf.text(sector, x + 96, y + 3.8, { align: "center" });
-    pdf.text(priceLabel, x + 188, y + 3.8, { align: "right" });
+    pdf.text(sector, x + 96, y + 4.2, { align: "center" });
+    pdf.text(priceLabel, x + 187, y + 4.2, { align: "right" });
+
+    pdf.setDrawColor(226, 232, 240);
+    pdf.line(x + 2, y + 6, x + width - 2, y + 6);
 
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(5.8);
-    pdf.text(`D: ${formatPdfDate(depDate)}`, x + 3, y + 7.3);
-    pdf.text(`A: ${formatPdfDate(arrDate)}`, x + 42, y + 7.3);
+    pdf.text(`D: ${formatPdfDate(depDate)}`, x + 3, y + 8.8);
+    pdf.text(`A: ${formatPdfDate(arrDate)}`, x + 42, y + 8.8);
     pdf.text(
       `Seats: ${seats === "Seats on call" ? seats : Number(seats) || 0}`,
-      x + 84,
-      y + 7.3,
+      x + 81,
+      y + 8.8,
     );
 
     const segmentLines = [];
@@ -1218,8 +1242,8 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     }
 
     pdf.setTextColor(71, 85, 105);
-    const flightText = segmentLines.slice(0, 2).join("  |  ");
-    drawPdfFittedText(pdf, flightText, x + 120, y + 7.3, 68, { lines: 1 });
+    const flightText = segmentLines.slice(0, 2).join("   |   ");
+    drawPdfFittedText(pdf, flightText, x + 122, y + 8.8, 66, { lines: 1 });
   };
 
   const handleDownloadPdf = async () => {
@@ -1232,17 +1256,17 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     try {
       const pdf = new jsPDF("p", "mm", "a4");
       const logoImage = await loadPdfLogo();
-      const rowsPerPage = 22;
-      const rowSpacing = 9.8;
+      const firstRowY = 40; // leaves clear space below the header block
+      const rowSpacing = 13.5; // card height (11) + gap so rows never touch
+      const rowsPerPage = Math.floor((287 - firstRowY) / rowSpacing);
 
       groups.forEach((group, index) => {
-        const pageIndex = Math.floor(index / rowsPerPage);
         const rowInPage = index % rowsPerPage;
 
         if (rowInPage === 0 && index > 0) pdf.addPage();
         if (rowInPage === 0) drawPdfHeader(pdf, logoImage, groups.length);
 
-        const y = 26 + rowInPage * rowSpacing;
+        const y = firstRowY + rowInPage * rowSpacing;
         drawGroupPdfCard(pdf, group, index + 1, y);
       });
 

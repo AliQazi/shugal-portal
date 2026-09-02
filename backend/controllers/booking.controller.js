@@ -1364,7 +1364,10 @@ export const getAllBookings = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(Number(limit))
-      .populate("userId", "name email agencyCode companyName phone address");
+      .populate(
+        "userId",
+        "name email agencyCode companyName phone address logo",
+      );
 
     const total = await Booking.countDocuments(query);
 
@@ -1391,7 +1394,7 @@ export const getBookingById = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id).populate(
       "userId",
-      "name email agencyCode companyName phone address",
+      "name email agencyCode companyName phone address logo",
     );
 
     if (!booking)
@@ -1422,7 +1425,10 @@ export const getBookingByReference = async (req, res) => {
   try {
     const booking = await Booking.findOne({
       bookingReference: req.params.reference,
-    }).populate("userId", "name email agencyCode companyName phone address");
+    }).populate(
+      "userId",
+      "name email agencyCode companyName phone address logo",
+    );
 
     if (!booking)
       return res
@@ -1453,7 +1459,7 @@ export const updateBookingStatus = async (req, res) => {
     const { status, notes } = req.body;
     const booking = await Booking.findById(req.params.id).populate(
       "userId",
-      "name email agencyCode companyName phone address",
+      "name email agencyCode companyName phone address logo",
     );
     if (!booking) throw new Error("Booking not found");
 
@@ -1614,7 +1620,7 @@ export const cancelBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id).populate(
       "userId",
-      "name email agencyCode companyName phone address",
+      "name email agencyCode companyName phone address logo",
     );
     if (!booking) throw new Error("Booking not found");
     if (booking.status === "cancelled") throw new Error("Already cancelled");

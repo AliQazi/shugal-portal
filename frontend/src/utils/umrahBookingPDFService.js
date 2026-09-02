@@ -102,7 +102,13 @@ export const printUmrahPackageBooking = (booking) => {
     const pnr = safeValue(booking.pnr || packageData.pnr || flight.pnr, "N/A");
     const showPNR = /confirmed/i.test(booking.status || booking.bookingStatus || "");
 
-    const companyLogoUrl = companyLogo;
+    // Use the booking agent's own uploaded logo when available, otherwise
+    // fall back to the default Shaheen Wings logo.
+    const agentLogo =
+        (typeof booking.user === "object" && booking.user?.logo) ||
+        (typeof booking.userId === "object" && booking.userId?.logo) ||
+        "";
+    const companyLogoUrl = agentLogo || companyLogo;
     const umrahPrintBgUrl = umrahPrintBg;
     const airlineName = safeValue(
         booking.airline?.name || packageData.airline?.name || booking.airlineName || "AIRLINE",
