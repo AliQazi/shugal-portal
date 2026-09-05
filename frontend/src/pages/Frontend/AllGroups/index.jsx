@@ -1161,18 +1161,65 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
 
     pdf.setTextColor(15, 118, 110);
     pdf.setFont("helvetica", "bold");
-    pdf.text(`Total Tickets: ${totalGroups}`, 160, 24, { align: "right" });
+    pdf.text(`Total Tickets: ${totalGroups}`, 200, 24, { align: "right" });
 
     pdf.setTextColor(100, 116, 139);
-    pdf.text(`Date: ${new Date().toLocaleDateString("en-GB")}`, 160, 30, {
+    pdf.text(`Date: ${new Date().toLocaleDateString("en-GB")}`, 200, 30, {
       align: "right",
     });
   };
 
-  const drawGroupPdfCard = (pdf, group, index, y) => {
-    const x = 10;
-    const width = 190;
-    const rowHeight = 11;
+  // Column layout shared by the table header and every data row (sums to 190mm)
+  const PDF_TABLE_X = 10;
+  const PDF_TABLE_COLS = [
+    { key: "sr", label: "Sr#", width: 8 },
+    { key: "airline", label: "Airline", width: 45 },
+    { key: "dates", label: "Dep / Arr", width: 30 },
+    { key: "seats", label: "Seats", width: 15 },
+    { key: "flight", label: "Flight Times", width: 42 },
+    { key: "baggage", label: "Baggage", width: 25 },
+    { key: "price", label: "Price", width: 25 },
+  ];
+
+  const drawPdfSectorTitle = (pdf, sectorLabel, flightCount, y) => {
+    const titleHeight = 7;
+    pdf.setFillColor(33, 57, 124);
+    pdf.setDrawColor(33, 57, 124);
+    pdf.rect(PDF_TABLE_X, y, 190, titleHeight, "FD");
+
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8.5);
+    pdf.text(sectorLabel, PDF_TABLE_X + 3, y + titleHeight - 2.2);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7);
+    pdf.text(`${flightCount} flight${flightCount === 1 ? "" : "s"}`, PDF_TABLE_X + 187, y + titleHeight - 2.2, {
+      align: "right",
+    });
+
+    return y + titleHeight;
+  };
+
+  const drawPdfTableHeader = (pdf, y) => {
+    const headerHeight = 7;
+    let x = PDF_TABLE_X;
+    pdf.setFillColor(14, 126, 172);
+    pdf.setDrawColor(14, 126, 172);
+    pdf.rect(PDF_TABLE_X, y, 190, headerHeight, "FD");
+
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(7);
+    PDF_TABLE_COLS.forEach((col) => {
+      if (col.label) pdf.text(col.label, x + 2, y + headerHeight - 2.3);
+      x += col.width;
+    });
+
+    return y + headerHeight;
+  };
+
+  const drawGroupPdfRow = (pdf, group, index, y) => {
+    const rowHeight = 15;
     const details = getDisplayDetails(group);
     const firstDetail = details[0] || group.details?.[0] || {};
     const lastDetail =
@@ -1184,7 +1231,9 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
       firstDetail.dep_date || firstDetail.flight_date || group.dept_date;
     const arrDate =
       lastDetail.arv_date || lastDetail.arr_date || group.arv_date || depDate;
-    const airline = group.airline?.airline_name || "Unknown Airline";
+    const airline = standardizeAirlineName(
+      group.airline?.airline_name || "Unknown Airline",
+    );
     const sector = getEffectiveSector(group) || "Unknown";
     const seats = getEffectiveSeats(group);
     const rawPrice = group.priceOnCall?.adult
@@ -1198,33 +1247,57 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         ? rawPrice.toLocaleString()
         : rawPrice || "-";
 
+    // Row background + outer border
     pdf.setDrawColor(203, 213, 225);
-    pdf.setFillColor(248, 250, 252);
-    pdf.roundedRect(x, y, width, rowHeight, 1.2, 1.2, "FD");
+    pdf.setFillColor(index % 2 === 0 ? 255 : 248, index % 2 === 0 ? 255 : 250, index % 2 === 0 ? 255 : 252);
+    pdf.rect(PDF_TABLE_X, y, 190, rowHeight, "FD");
 
+    // Column separators
+    let colX = PDF_TABLE_X;
+    PDF_TABLE_COLS.forEach((col) => {
+      pdf.line(colX, y, colX, y + rowHeight);
+      colX += col.width;
+    });
+    pdf.line(colX, y, colX, y + rowHeight);
+
+    const centerY = y + rowHeight / 2;
+    let cellX = PDF_TABLE_X;
+
+    // Sr#
     pdf.setTextColor(17, 24, 39);
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(6.8);
-    drawPdfFittedText(pdf, `${index}. ${airline}`, x + 3, y + 4.2, 78, {
+    pdf.setFontSize(7);
+    pdf.text(String(index), cellX + PDF_TABLE_COLS[0].width / 2, centerY + 1, {
+      align: "center",
+    });
+    cellX += PDF_TABLE_COLS[0].width;
+
+    // Airline
+    pdf.setTextColor(17, 24, 39);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(7.2);
+    drawPdfFittedText(pdf, airline, cellX + 2, centerY + 1, PDF_TABLE_COLS[1].width - 4, {
       lines: 1,
     });
-    pdf.setFontSize(6.3);
-    pdf.text(sector, x + 96, y + 4.2, { align: "center" });
-    pdf.text(priceLabel, x + 187, y + 4.2, { align: "right" });
+    cellX += PDF_TABLE_COLS[1].width;
 
-    pdf.setDrawColor(226, 232, 240);
-    pdf.line(x + 2, y + 6, x + width - 2, y + 6);
+    // Dates
+    pdf.setTextColor(17, 24, 39);
+    pdf.setFontSize(6.2);
+    pdf.text(`D: ${formatPdfDate(depDate)}`, cellX + 2, y + 5.5);
+    pdf.text(`A: ${formatPdfDate(arrDate)}`, cellX + 2, y + 11);
+    cellX += PDF_TABLE_COLS[2].width;
 
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(5.8);
-    pdf.text(`D: ${formatPdfDate(depDate)}`, x + 3, y + 8.8);
-    pdf.text(`A: ${formatPdfDate(arrDate)}`, x + 42, y + 8.8);
+    // Seats
     pdf.text(
-      `Seats: ${seats === "Seats on call" ? seats : Number(seats) || 0}`,
-      x + 81,
-      y + 8.8,
+      seats === "Seats on call" ? "On call" : String(Number(seats) || 0),
+      cellX + PDF_TABLE_COLS[3].width / 2,
+      centerY + 1,
+      { align: "center" },
     );
+    cellX += PDF_TABLE_COLS[3].width;
 
+    // Flight times
     const segmentLines = [];
     details.forEach((detail) => {
       const origin = toAirportCode(detail.origin || detail.from || "") || "-";
@@ -1236,14 +1309,47 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         detail.arv_time || detail.arr_time || detail.arvTime || "-";
       segmentLines.push(`${origin} ${depTime} -> ${destination} ${arrTime}`);
     });
-
-    if (!segmentLines.length) {
-      segmentLines.push(sector || "-");
-    }
+    if (!segmentLines.length) segmentLines.push(sector || "-");
 
     pdf.setTextColor(71, 85, 105);
-    const flightText = segmentLines.slice(0, 2).join("   |   ");
-    drawPdfFittedText(pdf, flightText, x + 122, y + 8.8, 66, { lines: 1 });
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(5.8);
+    drawPdfFittedText(pdf, segmentLines[0] || "-", cellX + 2, y + 5.5, PDF_TABLE_COLS[4].width - 4, {
+      lines: 1,
+    });
+    if (segmentLines[1]) {
+      drawPdfFittedText(pdf, segmentLines[1], cellX + 2, y + 11, PDF_TABLE_COLS[4].width - 4, {
+        lines: 1,
+      });
+    }
+    cellX += PDF_TABLE_COLS[4].width;
+
+    // Baggage (per leg, lined up with the flight-times rows above)
+    const baggageLines = details.map((detail) =>
+      formatBaggageLabel(detail.baggage) || "-",
+    );
+    if (!baggageLines.length) baggageLines.push("-");
+
+    pdf.setTextColor(71, 85, 105);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(6);
+    drawPdfFittedText(pdf, baggageLines[0] || "-", cellX + 2, y + 5.5, PDF_TABLE_COLS[5].width - 4, {
+      lines: 1,
+    });
+    if (baggageLines[1]) {
+      drawPdfFittedText(pdf, baggageLines[1], cellX + 2, y + 11, PDF_TABLE_COLS[5].width - 4, {
+        lines: 1,
+      });
+    }
+    cellX += PDF_TABLE_COLS[5].width;
+
+    // Price
+    pdf.setTextColor(15, 118, 110);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(7);
+    pdf.text(priceLabel, cellX + PDF_TABLE_COLS[6].width - 2, centerY + 1, {
+      align: "right",
+    });
   };
 
   const handleDownloadPdf = async () => {
@@ -1256,18 +1362,70 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     try {
       const pdf = new jsPDF("p", "mm", "a4");
       const logoImage = await loadPdfLogo();
-      const firstRowY = 40; // leaves clear space below the header block
-      const rowSpacing = 13.5; // card height (11) + gap so rows never touch
-      const rowsPerPage = Math.floor((287 - firstRowY) / rowSpacing);
 
-      groups.forEach((group, index) => {
-        const rowInPage = index % rowsPerPage;
+      // One table per sector: each sector's flights (all airlines serving
+      // it) are grouped together instead of one long mixed list, sorted by
+      // airline then by earliest departure date within that sector.
+      const sectorOrder = [];
+      const sectorMap = new Map();
+      groups.forEach((group) => {
+        const sector = getEffectiveSector(group) || "Unknown";
+        if (!sectorMap.has(sector)) {
+          sectorMap.set(sector, []);
+          sectorOrder.push(sector);
+        }
+        sectorMap.get(sector).push(group);
+      });
 
-        if (rowInPage === 0 && index > 0) pdf.addPage();
-        if (rowInPage === 0) drawPdfHeader(pdf, logoImage, groups.length);
+      const sectorTables = sectorOrder.map((sector) => {
+        const list = [...sectorMap.get(sector)].sort((a, b) => {
+          const airlineA = standardizeAirlineName(a.airline?.airline_name || "");
+          const airlineB = standardizeAirlineName(b.airline?.airline_name || "");
+          if (airlineA !== airlineB) return airlineA.localeCompare(airlineB);
+          return String(a.dept_date || "").localeCompare(
+            String(b.dept_date || ""),
+          );
+        });
+        return { sector, list };
+      });
 
-        const y = firstRowY + rowInPage * rowSpacing;
-        drawGroupPdfCard(pdf, group, index + 1, y);
+      const PAGE_TOP = 40; // leaves clear space below the header block
+      const PAGE_BOTTOM = 287;
+      const TITLE_HEIGHT = 7;
+      const TABLE_HEADER_HEIGHT = 7;
+      const ROW_HEIGHT = 15;
+      const SECTION_GAP = 5;
+
+      const startNewPage = () => {
+        pdf.addPage();
+        drawPdfHeader(pdf, logoImage, groups.length);
+        return PAGE_TOP;
+      };
+
+      let y = PAGE_TOP;
+      drawPdfHeader(pdf, logoImage, groups.length);
+
+      sectorTables.forEach(({ sector, list }) => {
+        // Start the sector's table on a fresh page if its title + header +
+        // at least one row won't fit in the remaining space.
+        if (y + TITLE_HEIGHT + TABLE_HEADER_HEIGHT + ROW_HEIGHT > PAGE_BOTTOM) {
+          y = startNewPage();
+        }
+
+        y = drawPdfSectorTitle(pdf, sector, list.length, y);
+        y = drawPdfTableHeader(pdf, y);
+
+        list.forEach((group, index) => {
+          if (y + ROW_HEIGHT > PAGE_BOTTOM) {
+            y = startNewPage();
+            y = drawPdfSectorTitle(pdf, `${sector} (cont'd)`, list.length, y);
+            y = drawPdfTableHeader(pdf, y);
+          }
+          drawGroupPdfRow(pdf, group, index + 1, y);
+          y += ROW_HEIGHT;
+        });
+
+        y += SECTION_GAP;
       });
 
       pdf.save(
