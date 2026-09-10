@@ -245,9 +245,18 @@ const bookingSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    nctGroupTransactionId: {
+      type: String,
+      default: null,
+    },
     nctBookingStatus: {
       type: String,
       enum: ["pending", "success", "failed", "not_applicable"],
+      default: "not_applicable",
+    },
+    nctRequestStatus: {
+      type: String,
+      enum: ["pending", "Requested", "failed", "not_applicable"],
       default: "not_applicable",
     },
     nctErrorMessage: {

@@ -8,7 +8,7 @@ import { fetchNormalisedAlHaiderGroups } from "./al-haider.controller.js";
 import { fetchNormalisedTravelNetworkGroups } from "./travel-network.controller.js";
 import { fetchNormalisedAbidAirGroups } from "./abidair.controller.js";
 import { fetchNormalisedSabaoonGroups } from "./sabaoon.controller.js";
-import { getGroupBookingProducts } from "../utils/Group-Booking.js";
+import { searchGroupBookings } from "../utils/Group-Booking.js";
 import { fetchNormalisedMCTGroups } from "./mct.controller.js";
 
 const normalizeSector = (sector) => {
@@ -280,71 +280,69 @@ const makeGroupKey = (g) => {
 
 const normalizeGroupBookingProducts = (rawList) => {
   return (rawList || []).map((item) => {
-    const adtPricing = item.pricingList?.find((p) => p.paxType === "ADT");
-    const chdPricing = item.pricingList?.find((p) => p.paxType === "CHD");
-    const infPricing = item.pricingList?.find((p) => p.paxType === "INF");
-
-    const segments = item.flightSegmentList || [];
+    const segments = item.segments_details || [];
     const details = segments.map((seg, idx) => ({
       sr: idx + 1,
-      flight_no: seg.flightNumber || "",
-      dep_date: seg.departureDate || item.departureDate || "",
-      dept_time: seg.departureTime || "",
-      origin: (seg.origin || "").trim(),
-      destination: (seg.destination || "").trim(),
-      arv_date: seg.arrivalDate || "",
-      arv_time: seg.arrivalTime || "",
+      flight_no: seg.number || seg.flight_no || "",
+      dep_date: seg.depDate || seg.dep_date || "",
+      dept_time: seg.depTime || seg.dep_time || "",
+      origin: (seg.depLocation || seg.origin || "").trim(),
+      destination: (seg.arrLocation || seg.destination || "").trim(),
+      arv_date: seg.arrDate || seg.arv_date || "",
+      arv_time: seg.arrTime || seg.arv_time || "",
       baggage: seg.baggage || "",
-      meal: seg.meals || "",
+      meal: seg.meal || "",
       bookedSeats: 0,
     }));
 
+    const deptDate = item.departureTime
+      ? String(item.departureTime).split("T")[0]
+      : null;
+    const arvDate = item.arrivalTime
+      ? String(item.arrivalTime).split("T")[0]
+      : null;
+    const origin = (item.origin || "").trim();
+    const destination = (item.destination || "").trim();
+
     return {
-      id: `nct_${item.id}`,
+      // The booking form only forwards groupData.id back to us, not any
+      // other field off the flight card — so both ids the /book endpoint
+      // needs (offer id + search id) are packed into this one string and
+      // split back out in booking.controller.js.
+      id: `nct_${item.id}::${item.search_id}`,
       source: "NCT",
       isOwnGroup: false,
 
-      sector: (item.route || "").trim(),
-      sectorKey: (item.route || "").trim(),
-      type: item.tripType || "",
+      sector: `${origin}-${destination}`,
+      sectorKey: `${origin}-${destination}`,
+      type: item.trip_type || "",
 
-      available_no_of_pax: parseInt(item.availableSeats) || 0,
+      available_no_of_pax: parseInt(item.seats_available) || 0,
       showSeat: true,
-      _totalOriginalSeats: parseInt(item.openForSale) || 0,
+      _totalOriginalSeats: parseInt(item.seats_available) || 0,
       _onHoldSeats: 0,
       _activeBookings: 0,
 
-      price: adtPricing?.sellingPrice || 0,
-      childPrice: chdPricing?.sellingPrice || 0,
-      infantPrice: infPricing?.sellingPrice || 0,
+      price: item.adult_price ?? 0,
+      childPrice: item.child_price ?? 0,
+      infantPrice: item.infant_price ?? 0,
 
-      pnr: item.pnr || "",
+      pnr: "",
 
-      dept_date: item.departureDate || null,
-      arv_date: item.returnDate || null,
+      dept_date: deptDate,
+      arv_date: arvDate,
 
       details,
 
       airline: {
         id: null,
-        airline_name: item.airline || "",
-        short_name: item.airline || "",
+        airline_name: item.airline_name || "",
+        short_name: item.airline_code || "",
         logo_url: null,
       },
 
       user: null,
       bookedSeats: 0,
-
-      // Raw provider fields needed for the upcoming booking step
-      _groupBooking: {
-        productId: item.id,
-        sealed: item.sealed,
-        pricingList: item.pricingList,
-        maxChildSeats: item.maxChildSeats,
-        maxInfSeats: item.maxInfSeats,
-        remarks: item.remarks,
-        status: item.status,
-      },
     };
   });
 };
@@ -743,7 +741,7 @@ export const getUnifiedGroups = async (req, res) => {
     =============================== */
     let groupBookingGroups = [];
     try {
-      const rawGroupBooking = await getGroupBookingProducts();
+      const rawGroupBooking = await searchGroupBookings();
       groupBookingGroups = normalizeGroupBookingProducts(rawGroupBooking);
     } catch (groupBookingErr) {
       console.error("Group Booking fetch failed:", groupBookingErr.message);

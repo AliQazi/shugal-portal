@@ -532,7 +532,11 @@ import {
   sendBookingNotificationEmail,
   sendBookingStatusChangeEmail,
 } from "../utils/emailService.js";
-import { bookGroupNCT, formatBookingForNCT } from "../utils/Group-Booking.js";
+import {
+  bookGroupBooking,
+  formatGroupBookingPayload,
+  requestGroupBooking,
+} from "../utils/Group-Booking.js";
 import { createMCTBooking, formatBookingForMCT } from "./mct.controller.js";
 
 const HOLD_DURATION = 2 * 60 * 60 * 1000;
@@ -1179,56 +1183,62 @@ export const createBooking = async (req, res) => {
       }
     }
 
-    // ─── Handle NCT (Group Booking adapter) third-party API call ───
+    // ─── Handle Group Booking (NCT) third-party API call ───
     if (isNCTGroup && passengers.length > 0) {
       try {
-        // Groups from this source are normalized as "nct_<productId>"
-        const productId = String(groupId).replace(/^nct_/, "");
+        // Groups from this source are normalized as "nct_<offerId>::<searchId>"
+        const raw = String(groupId).replace(/^nct_/, "");
+        const [offerId, searchId] = raw.split("::");
 
-        const sealed =
-          req.body.sealed ?? req.body._groupBooking?.sealed ?? null;
-
-        const nctBookingData = formatBookingForNCT({
-          productId,
-          sealed,
-          agencyCode: process.env.GROUP_BOOKING_AGENCY_CODE,
-          agencyName: process.env.name || "Shaheen Wings Travel",
-          bookStatus: "ON_HOLD",
-          passengers: passengers.map((p) => ({
-            type: p.type,
-            title: p.title || "",
-            givenName: p.givenName || "",
-            surName: p.surName || p.surname || "",
-            passport: p.passport || "",
-            dateOfBirth: p.dateOfBirth || p.dob || "",
-            passportExpiry: p.passportExpiry || p.expiry || p.doe || "",
-            passportIssue: p.passportIssue || p.passportIssueDate || "",
-            nationality: p.nationality || "Pakistan",
-          })),
-          pricing,
+        const groupBookingPayload = formatGroupBookingPayload({
+          searchId,
+          offerId,
+          // The booking form doesn't collect a separate contact email/phone,
+          // so fall back to the booking agent's own account details — the
+          // provider's /book endpoint requires both.
+          contact: {
+            email: req.user?.email || "",
+            phone: req.user?.phone || "",
+          },
+          passengers,
         });
 
-        const nctResponse = await bookGroupNCT(nctBookingData);
-        console.log(nctResponse);
+        const groupBookingResponse = await bookGroupBooking(
+          groupBookingPayload,
+        );
+        console.log(groupBookingResponse);
 
-        if (nctResponse) {
-          const nctData = nctResponse.data || nctResponse;
+        booking.nctGroupTransactionId =
+          groupBookingResponse?.group_transaction_id || null;
 
-          booking.nctBookingId =
-            nctData?.bookingId || nctData?.id || nctData?.booking_id || null;
+        if (groupBookingResponse?.pnr) {
+          booking.pnr = groupBookingResponse.pnr;
+        }
 
-          if (nctData?.pnr) {
-            booking.pnr = nctData.pnr;
+        booking.nctResponse = groupBookingResponse;
+        booking.nctBookingStatus = "success";
+        await booking.save();
+        console.log("✅ Group Booking (NCT) booking saved successfully");
+
+        // Push the On-Hold booking forward for admin review/approval —
+        // there's no separate UI step for this, so do it right after booking.
+        if (booking.nctGroupTransactionId) {
+          try {
+            const requestResp = await requestGroupBooking(
+              booking.nctGroupTransactionId,
+            );
+            booking.nctRequestStatus = requestResp?.status || "Requested";
+          } catch (requestErr) {
+            console.error(
+              "❌ Group Booking request-forward failed:",
+              requestErr.message,
+            );
+            booking.nctRequestStatus = "failed";
           }
-
-          booking.nctResponse = nctResponse;
-          booking.nctBookingStatus = "success";
-
           await booking.save();
-          console.log("✅ NCT booking saved successfully");
         }
       } catch (nctError) {
-        console.error("❌ NCT API booking failed:", nctError.message);
+        console.error("❌ Group Booking API booking failed:", nctError.message);
 
         booking.nctBookingStatus = "failed";
         booking.nctErrorMessage = nctError.message;
@@ -1238,7 +1248,9 @@ export const createBooking = async (req, res) => {
         }
 
         await booking.save();
-        console.log("⚠️ NCT booking marked as failed but local booking kept");
+        console.log(
+          "⚠️ Group Booking marked as failed but local booking kept",
+        );
       }
     }
 
