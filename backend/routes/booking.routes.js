@@ -13,7 +13,7 @@ import {
   bulkTogglePriceOnCall,
   uploadPassengerDocument,
 } from "../controllers/booking.controller.js";
-import { protect } from "../middleware/auth.middleware.js";
+import { protect, adminOnly } from "../middleware/auth.middleware.js";
 import { uploadPassengerDoc } from "../config/cloudinary.js";
 
 const router = express.Router();
@@ -35,7 +35,7 @@ router.post(
 router.get("/", getAllBookings);
 
 // Get booking statistics (admin only)
-router.get("/statistics", getBookingStatistics);
+router.get("/statistics", adminOnly, getBookingStatistics);
 
 // Get booking by reference number
 router.get("/reference/:reference", getBookingByReference);
@@ -44,10 +44,10 @@ router.get("/reference/:reference", getBookingByReference);
 router.get("/:id", getBookingById);
 
 // Update booking status (admin only)
-router.patch("/:id/status", updateBookingStatus);
+router.patch("/:id/status", adminOnly, updateBookingStatus);
 
 // Update booking discount
-router.patch("/:id/discount", updateBookingDiscount);
+router.patch("/:id/discount", adminOnly, updateBookingDiscount);
 
 // Update booking details
 router.put("/:id", updateBooking);
@@ -56,7 +56,7 @@ router.put("/:id", updateBooking);
 router.patch("/:id/cancel", cancelBooking);
 
 // Delete booking (admin only)
-router.delete("/:id", deleteBooking);
+router.delete("/:id", adminOnly, deleteBooking);
 
 // Bulk toggle (admin only)
 router.patch("/bulkTogglePriceOnCall", bulkTogglePriceOnCall);

@@ -3,13 +3,14 @@ import mongoose from "mongoose";
 /**
  * Audit trail for every margin event:
  *  - "margin_applied"    : admin set a per-group margin in ApiGroups
+ *  - "visibility_changed": admin hid/showed a provider, sector or flight for agents
  *  - "booking_confirmed" : a booking was confirmed and margin profit was locked in
  */
 const marginLedgerSchema = new mongoose.Schema(
   {
     entryType: {
       type: String,
-      enum: ["margin_applied", "booking_confirmed"],
+      enum: ["margin_applied", "booking_confirmed", "visibility_changed"],
       required: true,
     },
 
@@ -23,6 +24,10 @@ const marginLedgerSchema = new mongoose.Schema(
     // Pricing snapshot
     basePrice: { type: Number, default: 0 },      // per pax base price
     marginAmount: { type: Number, required: true }, // per pax margin amount
+    // Rule-level split of marginAmount (provider + sector + flight)
+    providerMargin: { type: Number, default: 0 },
+    sectorMargin: { type: Number, default: 0 },
+    flightMargin: { type: Number, default: 0 },
 
     // Booking-confirmation extras (null when entryType === "margin_applied")
     bookingId: {

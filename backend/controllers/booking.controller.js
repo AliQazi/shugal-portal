@@ -538,6 +538,7 @@ import {
   requestGroupBooking,
 } from "../utils/Group-Booking.js";
 import { createMCTBooking, formatBookingForMCT } from "./mct.controller.js";
+import { resolveBookingMargin } from "../utils/marginRules.js";
 
 const HOLD_DURATION = 2 * 60 * 60 * 1000;
 // -------------------------
@@ -927,6 +928,23 @@ export const createBooking = async (req, res) => {
       );
     }
 
+    // Admin margin/visibility rules: reject hidden groups and recover the true
+    // provider base price (agents are shown base + margin). Runs before any
+    // seat is deducted or provider called, so a rejection needs no rollback.
+    const marginCtx = await resolveBookingMargin({
+      user: req.user,
+      token: req.body.marginToken,
+      source: bookingSource,
+      groupId,
+      sector,
+    });
+    if (marginCtx.perPax > 0) {
+      const stripMargin = (value) =>
+        Number(value) > 0 ? Math.max(0, Number(value) - marginCtx.perPax) : value;
+      pricing.adultBasePrice = stripMargin(pricing.adultBasePrice);
+      pricing.childBasePrice = stripMargin(pricing.childBasePrice);
+    }
+
     const pricingData = {
       ...pricing,
       discountAmount: Number(pricing?.discountAmount || 0),
@@ -992,6 +1010,13 @@ export const createBooking = async (req, res) => {
       status: "on hold",
       expiresAt,
       source: bookingSource,
+      marginSnapshot: {
+        perPax: marginCtx.perPax,
+        provider: marginCtx.levels[0],
+        sector: marginCtx.levels[1],
+        flight: marginCtx.levels[2],
+        keys: marginCtx.keys || undefined,
+      },
       sabaoonBookingStatus: isSabaoonGroup ? "pending" : "not_applicable",
       abidAirBookingStatus: isAbidAirGroup ? "pending" : "not_applicable",
     });
@@ -1597,8 +1622,34 @@ export const updateBooking = async (req, res) => {
 
     const oldSeats = booking.adultsCount + booking.childrenCount;
 
-    // Update fields from body
-    Object.assign(booking, req.body);
+    // Client-controlled fields that must never be overwritten from the body:
+    // the locked margin snapshot, ownership/status/reference. Unit prices are
+    // locked at booking time too — only quantities may change, so totals are
+    // recomputed here instead of trusting client-sent pricing.
+    const {
+      marginSnapshot: _ignoredSnapshot,
+      status: _ignoredStatus,
+      userId: _ignoredUserId,
+      bookingReference: _ignoredReference,
+      pricing: clientPricing,
+      ...editableFields
+    } = req.body;
+
+    Object.assign(booking, editableFields);
+
+    if (clientPricing) {
+      const pricing = booking.pricing;
+      const adultTotal = (booking.adultsCount || 0) * Number(pricing.adultPrice || 0);
+      const childTotal = (booking.childrenCount || 0) * Number(pricing.childPrice || 0);
+      const infantTotal = (booking.infantsCount || 0) * Number(pricing.infantPrice || 0);
+      const fullTotal = adultTotal + childTotal + infantTotal;
+
+      pricing.adultTotal = adultTotal;
+      pricing.childTotal = childTotal;
+      pricing.infantTotal = infantTotal;
+      pricing.originalGrandTotal = fullTotal;
+      pricing.grandTotal = Math.max(0, fullTotal - Number(pricing.discountAmount || 0));
+    }
 
     // Normalize groupId if updated
     if (req.body.groupId) booking.groupId = normalizeGroupId(req.body.groupId);

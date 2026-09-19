@@ -104,6 +104,10 @@ export default function BookingForm({ user }) {
     if (!user) return normalizedBasePrice;
     if (user?.priceOnCall) return null;
 
+    // Editing an existing booking: its unit prices were locked when it was
+    // created (already include margin/discount) — never re-apply anything.
+    if (group?.priceLocked) return normalizedBasePrice;
+
     let finalPrice = normalizedBasePrice;
 
     // =========================
@@ -124,6 +128,7 @@ export default function BookingForm({ user }) {
     // 2. GROUP/CATEGORY/SECTOR OVERRIDES (fallback)
     // =========================
     if (
+      !group?.marginApplied &&
       finalPrice === normalizedBasePrice &&
       Object.keys(groupMargins).length > 0
     ) {
@@ -164,7 +169,7 @@ export default function BookingForm({ user }) {
     // =========================
     // 3. INDIVIDUAL GROUP MARGIN
     // =========================
-    if (finalPrice === normalizedBasePrice) {
+    if (!group?.marginApplied && finalPrice === normalizedBasePrice) {
       const indMargin = group?.individualMargin;
       if (indMargin !== null && indMargin !== undefined) {
         finalPrice = normalizedBasePrice + Number(indMargin);
@@ -174,7 +179,7 @@ export default function BookingForm({ user }) {
     // =========================
     // 4. GLOBAL MARGIN (fallback)
     // =========================
-    if (finalPrice === normalizedBasePrice && dbMargin) {
+    if (!group?.marginApplied && finalPrice === normalizedBasePrice && dbMargin) {
       if (dbMargin.type === "percent" && dbMargin.value > 0) {
         finalPrice =
           normalizedBasePrice + (normalizedBasePrice * dbMargin.value) / 100;
@@ -338,6 +343,7 @@ export default function BookingForm({ user }) {
               meal: flight.meal,
             })) || [],
           available_no_of_pax: availableSeats,
+          priceLocked: true,
         };
 
         setGroupData(reconstructedGroupData);
@@ -860,6 +866,9 @@ export default function BookingForm({ user }) {
           logoUrl: groupData.airline?.logo_url || "",
         },
         sector: groupData.sector,
+        // Server-issued price snapshot: lets the backend recover the true base
+        // price and verify the group is still visible to agents
+        marginToken: groupData.marginToken || undefined,
         pnr: groupData.pnr || "",
         contactPersonName: "N/A",
         adultsCount: parseInt(formData.adults),

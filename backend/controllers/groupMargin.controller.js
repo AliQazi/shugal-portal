@@ -331,7 +331,15 @@ export const recordBookingMarginLedger = async ({
     const rawUserId = booking.userId || booking.user || null;
     const userId = rawUserId?._id || rawUserId || null;
 
-    if (override && override.marginAmount > 0) {
+    // Margin locked at booking time from the provider/sector/flight rules is
+    // authoritative; the legacy override/global lookup only covers bookings
+    // that carry no snapshot (old bookings, or groups with no rules).
+    const snapshot = booking.marginSnapshot;
+    const snapshotMargin = Number(snapshot?.perPax || 0);
+
+    if (snapshotMargin > 0) {
+      marginAmount = snapshotMargin;
+    } else if (override && override.marginAmount > 0) {
       marginAmount = override.marginAmount;
     } else if (globalMargin) {
       marginAmount =
@@ -341,7 +349,14 @@ export const recordBookingMarginLedger = async ({
     }
 
     const pax = (booking.adultsCount || 0) + (booking.childrenCount || 0);
-    const totalMarginEarned = marginAmount * pax;
+    // Rule margins are added to adult and child fares only, and only when that
+    // fare is priced (an "on call"/0 fare carries no margin).
+    const marginPax =
+      snapshotMargin > 0
+        ? (Number(booking.pricing?.adultPrice) > 0 ? booking.adultsCount || 0 : 0) +
+          (Number(booking.pricing?.childPrice) > 0 ? booking.childrenCount || 0 : 0)
+        : pax;
+    const totalMarginEarned = marginAmount * marginPax;
 
     const existingEntries = await MarginLedger.find({
       entryType: "booking_confirmed",
@@ -357,9 +372,12 @@ export const recordBookingMarginLedger = async ({
       deptDate: booking.departureDate || null,
       basePrice,
       marginAmount,
+      providerMargin: snapshotMargin > 0 ? Number(snapshot.provider || 0) : 0,
+      sectorMargin: snapshotMargin > 0 ? Number(snapshot.sector || 0) : 0,
+      flightMargin: snapshotMargin > 0 ? Number(snapshot.flight || 0) : 0,
       bookingId: booking._id,
       bookingReference,
-      passengers: pax,
+      passengers: marginPax,
       totalMarginEarned,
       discountAmount: Number(booking.pricing?.discountAmount || 0),
       totalFare,

@@ -11,11 +11,12 @@ import {
   applyMargin,
   getMargin,
 } from "../controllers/sector.controller.js";
+import { applyMarginAndVisibility } from "../middleware/marginVisibility.middleware.js";
 
 const router = express.Router();
 
 // Get unified sectors and groups
-router.get("/getUnifiedGroups", getUnifiedGroups);
+router.get("/getUnifiedGroups", applyMarginAndVisibility, getUnifiedGroups);
 
 // Get current margin
 router.get("/getMargin", getMargin);

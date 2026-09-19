@@ -713,7 +713,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     }
 
     // Group-category margin (fallback)
-    if (finalPrice === (groupPrice || 0)) {
+    if (!group?.marginApplied && finalPrice === (groupPrice || 0)) {
       const category = getCategoryFromGroup(group);
       const categoryKey = `group-category-${category}`;
       const categoryMargin = groupMargins?.[categoryKey]?.marginAmount;
@@ -723,7 +723,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     }
 
     // Group-level margin (fallback)
-    if (finalPrice === (groupPrice || 0)) {
+    if (!group?.marginApplied && finalPrice === (groupPrice || 0)) {
       const indMargin = group?.individualMargin;
 
       if (indMargin !== null && indMargin !== undefined) {
@@ -732,7 +732,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     }
 
     // DB/global margin fallback
-    if (finalPrice === (groupPrice || 0) && dbMargin) {
+    if (!group?.marginApplied && finalPrice === (groupPrice || 0) && dbMargin) {
       if (dbMargin.type === "percent" && dbMargin.value > 0) {
         finalPrice += ((groupPrice || 0) * dbMargin.value) / 100;
       } else if (dbMargin.type === "amount" && dbMargin.value > 0) {
@@ -781,7 +781,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     }
 
     // Group-category margin (fallback)
-    if (priceAfterMargin === (groupPrice || 0)) {
+    if (!group?.marginApplied && priceAfterMargin === (groupPrice || 0)) {
       const category = getCategoryFromGroup(group);
       const categoryKey = `group-category-${category}`;
       const categoryMargin = groupMargins?.[categoryKey]?.marginAmount;
@@ -791,7 +791,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     }
 
     // Group-level margin (fallback)
-    if (priceAfterMargin === (groupPrice || 0)) {
+    if (!group?.marginApplied && priceAfterMargin === (groupPrice || 0)) {
       const indMargin = group?.individualMargin;
       if (indMargin !== null && indMargin !== undefined) {
         priceAfterMargin += indMargin;
@@ -799,7 +799,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     }
 
     // DB/global margin fallback
-    if (priceAfterMargin === (groupPrice || 0) && dbMargin) {
+    if (!group?.marginApplied && priceAfterMargin === (groupPrice || 0) && dbMargin) {
       if (dbMargin.type === "percent" && dbMargin.value > 0) {
         priceAfterMargin += (priceAfterMargin * dbMargin.value) / 100;
       } else if (dbMargin.type === "amount" && dbMargin.value > 0) {

@@ -230,6 +230,20 @@ const bookingSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Admin margin locked at booking time (per adult/child ticket) with the
+    // rule levels that produced it. Set server-side only — never from the client.
+    marginSnapshot: {
+      perPax: { type: Number, default: 0 },
+      provider: { type: Number, default: 0 },
+      sector: { type: Number, default: 0 },
+      flight: { type: Number, default: 0 },
+      keys: {
+        provider: { type: String, default: "" },
+        sector: { type: String, default: "" },
+        flight: { type: String, default: "" },
+      },
+    },
+
     // Sabaoon API
     sabaoonTransactionId: {
       type: Number,
