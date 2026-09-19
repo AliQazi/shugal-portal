@@ -30,6 +30,32 @@ const UmrahPackageBookingSchema = new mongoose.Schema(
     providerPackageBookingId: { type: String, default: null },
     providerTicketId: { type: String, default: null },
     providerBookingResponse: { type: mongoose.Schema.Types.Mixed, default: null },
+
+    // Abid Air Partner API handoff (supplier* fields are shared with
+    // UmrahPackageBooking so one cancel/expiry helper serves both).
+    supplierName: { type: String, default: "" },
+    supplierBookingId: { type: String, default: null },
+    // Supplier status verbatim ("on hold", "cancelled"...) or "supplier_pending"
+    // when a 429/5xx left the outcome unknown and it needs reconciling.
+    supplierBookingStatus: { type: String, default: null },
+    supplierBookingData: { type: mongoose.Schema.Types.Mixed, default: null },
+    supplierBookingCreatedAt: { type: Date, default: null },
+    supplierPricing: { type: mongoose.Schema.Types.Mixed, default: null },
+    supplierPriceMismatch: { type: Boolean, default: false },
+    supplierError: { type: mongoose.Schema.Types.Mixed, default: null },
+    // Admin margin locked at booking time (per adult/child, all room types).
+    // Set server-side only — never taken from the client.
+    marginSnapshot: {
+      perPax: { type: Number, default: 0 },
+      source: { type: Number, default: 0 },
+      package: { type: Number, default: 0 },
+      keys: {
+        source: { type: String, default: "" },
+        package: { type: String, default: "" },
+      },
+    },
+    // Supplier hold expiry (Abid Air on-hold bookings); null for everything else
+    expiresAt: { type: Date, default: null, index: true },
     pnr: { type: String, trim: true, default: "" },
     packageData: { type: mongoose.Schema.Types.Mixed, default: {} }, // snapshot
 

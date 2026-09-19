@@ -80,6 +80,7 @@ const navItems: NavItem[] = [
       { name: "Transport", path: "/umrah-transport", pro: false },
       { name: "Visa", path: "/umrah-visa", pro: false },
       { name: "Create Packages", path: "/umrah-packages", pro: false },
+      { name: "Manage (TN & Abid Air)", path: "/manage-umrah-packages", pro: false },
       // { name: "Package Bookings", path: "/umrah-package-bookings", pro: false },
     ],
   },

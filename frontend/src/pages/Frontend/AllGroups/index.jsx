@@ -315,7 +315,11 @@ const isUmrahPackageGroup = (group = {}) =>
         group?.package_id,
       );
 
+// "Legacy" Abid Air behaviour (seats on call, 10-passenger cap, live seat
+// lookup) only applies to the old API. Partner API groups (partnerApi: true)
+// report real seat counts and are booked like any other counted group.
 const isAbidAirGroup = (group = {}) => {
+  if (group?.partnerApi) return false;
   const source = String(
     group?.source || group?.packageSource || "",
   ).toLowerCase();

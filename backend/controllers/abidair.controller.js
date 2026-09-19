@@ -1,4 +1,9 @@
 import axios from "axios";
+import {
+  fetchPartnerAbidAirInventory,
+  getGroupTicketingById,
+  isAbidAirPartnerConfigured,
+} from "../utils/Abid-Air.js";
 
 const getAbidAirBaseURL = () => {
   return (
@@ -341,7 +346,9 @@ const normalizeAbidAirGroup = (group) => {
   };
 };
 
-export const fetchNormalisedAbidAirGroups = async () => {
+// Legacy Abid Air API (token + /flight/active, /packages/active). Still used
+// when ABID_AIR_API_KEY is not configured.
+const fetchLegacyAbidAirGroups = async () => {
   const { baseURL: cleanBaseURL, headers } = getAbidAirClientConfig();
   const candidates = [
     `${cleanBaseURL}/flight/active`,
@@ -408,6 +415,13 @@ export const fetchNormalisedAbidAirGroups = async () => {
 
   return uniqueGroups;
 };
+// Partner API v1 when ABID_AIR_API_KEY is set (see utils/Abid-Air.js), legacy
+// API otherwise. Same normalised output, so every consumer stays unchanged.
+export const fetchNormalisedAbidAirGroups = async () =>
+  isAbidAirPartnerConfigured()
+    ? fetchPartnerAbidAirInventory()
+    : fetchLegacyAbidAirGroups();
+
 export const createAbidAirFlightBooking = async (flightId, bookingData) => {
   const { baseURL, headers } = getAbidAirClientConfig();
   const response = await axios.post(
@@ -451,6 +465,11 @@ const findRemainingSeats = (value, visited = new Set()) => {
  * checking seats immediately before POST /flight/{id}/booking.
  */
 export const getAbidAirFlightAvailability = async (flightId) => {
+  if (isAbidAirPartnerConfigured()) {
+    const group = await getGroupTicketingById(flightId);
+    return { remainingSeats: Number(group?.availableSeats) || 0, response: group };
+  }
+
   const { baseURL, headers } = getAbidAirClientConfig();
   const response = await axios.get(`${baseURL}/flight/${flightId}`, {
     headers,

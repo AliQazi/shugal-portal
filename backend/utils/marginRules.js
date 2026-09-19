@@ -142,3 +142,156 @@ export const resolveBookingMargin = async ({ user, token, source, groupId, secto
     levels: (snap.l || [0, 0, 0]).map((n) => Number(n) || 0),
   };
 };
+
+/* ───────────────────── Umrah packages (Travel Network + Abid Air) ─────────────────────
+ * Two levels, cumulative: one margin/visibility per SOURCE (the "Margin (PKR)"
+ * box on each tab) and an optional one per PACKAGE. The margin is added to
+ * every room type (sharing/double/triple/quad/...) and the child fare; infant
+ * fares are left alone.
+ */
+export const UMRAH_RULE_SOURCES = ["travel-network", "abidairtravel"];
+
+export const umrahSourceKey = (source) => `usrc|${source}`;
+export const umrahPackageKey = (source, id) => `upkg|${source}|${id}`;
+
+const UMRAH_LEVEL_KEY = {
+  "umrah-source": (r) => umrahSourceKey(r.source),
+  "umrah-package": (r) => umrahPackageKey(r.source, r.groupId),
+};
+export const buildUmrahRuleKey = (rule) => UMRAH_LEVEL_KEY[rule.level]?.(rule);
+
+const UMRAH_SOURCE_ALIASES = {
+  "travel-network": "travel-network",
+  travelnetwork: "travel-network",
+  tn: "travel-network",
+  abidairtravel: "abidairtravel",
+  "abid-air": "abidairtravel",
+  abidair: "abidairtravel",
+};
+
+export const normalizeUmrahSource = (value) =>
+  UMRAH_SOURCE_ALIASES[
+    String(value || "").toLowerCase().trim().replace(/[\s_]+/g, "-")
+  ] || null;
+
+/** {source, id} for an Umrah package coming from TN or Abid Air, else null
+ *  (local packages and flight groups are not managed by these rules). */
+export const umrahPackageIdentity = (pkg) => {
+  const source = normalizeUmrahSource(pkg?.source || pkg?.packageSource);
+  if (!source) return null;
+
+  const isPackage =
+    source === "travel-network" ||
+    pkg.abidAirBookingType === "package" ||
+    Boolean(pkg.hotels && (pkg.rates || pkg.rooms));
+  if (!isPackage) return null;
+
+  const id = pkg.package_id ?? pkg.packageId ?? pkg.id;
+  if (id === undefined || id === null || id === "") return null;
+  return { source, id: String(id) };
+};
+
+export const resolveUmrahRules = ({ source, id }, ruleMap) => {
+  const keys = { source: umrahSourceKey(source), package: umrahPackageKey(source, id) };
+  const levels = {};
+  let total = 0;
+  const hiddenBy = [];
+
+  for (const level of ["source", "package"]) {
+    const rule = ruleMap.get(keys[level]);
+    const margin = Number(rule?.margin || 0);
+    const visible = rule ? rule.visible !== false : true;
+    levels[level] = { margin, visible };
+    total += margin;
+    if (!visible) hiddenBy.push(level);
+  }
+
+  return { keys, levels, total, visible: hiddenBy.length === 0, hiddenBy };
+};
+
+// Room + child fares that carry the margin (everything but infant).
+const addToFares = (fares, margin) => {
+  if (!fares || typeof fares !== "object" || Array.isArray(fares)) return fares;
+  const out = { ...fares };
+  for (const [key, value] of Object.entries(out)) {
+    if (key === "infant" || key === "incentive") continue;
+    const n = Number(value);
+    if (Number.isFinite(n) && n > 0 && typeof value !== "object") out[key] = n + margin;
+  }
+  return out;
+};
+
+export const applyUmrahMargin = (pkg, margin) => {
+  if (!(margin > 0)) return pkg;
+  const bump = (n) => (Number(n) > 0 ? Number(n) + margin : n);
+  return {
+    ...pkg,
+    ...(pkg.rates && { rates: addToFares(pkg.rates, margin) }),
+    ...(pkg.rooms && { rooms: addToFares(pkg.rooms, margin) }),
+    ...(pkg.price !== undefined && { price: bump(pkg.price) }),
+    ...(pkg.childPrice !== undefined && { childPrice: bump(pkg.childPrice) }),
+    marginApplied: true,
+  };
+};
+
+/** Undo applyUmrahMargin on a package snapshot the client sent back. */
+export const stripUmrahMargin = (snapshot, margin) => {
+  if (!snapshot || typeof snapshot !== "object" || !(margin > 0)) return snapshot;
+  const drop = (fares) => {
+    if (!fares || typeof fares !== "object" || Array.isArray(fares)) return fares;
+    const out = { ...fares };
+    for (const [key, value] of Object.entries(out)) {
+      if (key === "infant" || key === "incentive") continue;
+      const n = Number(value);
+      if (Number.isFinite(n) && n > 0 && typeof value !== "object") out[key] = Math.max(0, n - margin);
+    }
+    return out;
+  };
+  const dropOne = (n) => (Number(n) > 0 ? Math.max(0, Number(n) - margin) : n);
+  return {
+    ...snapshot,
+    ...(snapshot.rates && { rates: drop(snapshot.rates) }),
+    ...(snapshot.rooms && { rooms: drop(snapshot.rooms) }),
+    ...(snapshot.price !== undefined && { price: dropOne(snapshot.price) }),
+    ...(snapshot.childPrice !== undefined && { childPrice: dropOne(snapshot.childPrice) }),
+  };
+};
+
+/**
+ * Booking-time check for an Umrah package. Same contract as
+ * resolveBookingMargin: admins bypass; everyone else must present a valid
+ * snapshot token, and the package must still be visible.
+ */
+export const resolveUmrahBookingMargin = async ({ user, token, packageSource, packageId }) => {
+  const none = { perPax: 0, keys: null, levels: [0, 0] };
+  const source = normalizeUmrahSource(packageSource);
+  if (!source || user?.role === "Admin") return none;
+
+  const ruleMap = await loadRuleMap();
+  const current = resolveUmrahRules({ source, id: String(packageId) }, ruleMap);
+
+  if (!token) {
+    if (!current.visible) throw new Error(HIDDEN_MSG);
+    if (current.total > 0) throw new Error(STALE_MSG);
+    return none;
+  }
+
+  const snap = readMarginToken(token);
+  if (
+    snap.k?.package !== umrahPackageKey(source, String(packageId)) ||
+    snap.k?.source !== umrahSourceKey(source)
+  ) {
+    throw new Error(STALE_MSG);
+  }
+
+  for (const key of [snap.k.source, snap.k.package]) {
+    const rule = ruleMap.get(key);
+    if (rule && rule.visible === false) throw new Error(HIDDEN_MSG);
+  }
+
+  return {
+    perPax: Math.max(0, Number(snap.m) || 0),
+    keys: snap.k,
+    levels: (snap.l || [0, 0]).map((n) => Number(n) || 0),
+  };
+};

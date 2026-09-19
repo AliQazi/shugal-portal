@@ -539,6 +539,18 @@ import {
 } from "../utils/Group-Booking.js";
 import { createMCTBooking, formatBookingForMCT } from "./mct.controller.js";
 import { resolveBookingMargin } from "../utils/marginRules.js";
+import {
+  abidAirErrorBody,
+  abidAirSafeError,
+  cancelAbidAirSupplierBooking,
+  getAbidAirHttpStatus,
+  isAbidAirPartnerConfigured,
+  isPartnerAbidAirBooking,
+  isUncertainAbidAirOutcome,
+  prepareAbidAirHandoff,
+  sendAbidAirHandoff,
+  ABID_AIR_SUPPLIER_NAME,
+} from "../utils/Abid-Air.js";
 
 const HOLD_DURATION = 2 * 60 * 60 * 1000;
 // -------------------------
@@ -828,6 +840,14 @@ const adjustSeatsIfLocalGroup = async (
   );
 };
 
+// Abid Air errors carry the supplier status/code; everything else stays a 400.
+const sendBookingError = (res, err) => {
+  if (err?.name === "AbidAirApiError") {
+    return res.status(getAbidAirHttpStatus(err)).json(abidAirErrorBody(err));
+  }
+  res.status(400).json({ success: false, message: err.message });
+};
+
 const cleanupBookingMarginLedger = async ({ bookingId, bookingReference }) => {
   const { default: MarginLedger } = await import("../models/MarginLedger.js");
   const filter = {
@@ -915,8 +935,13 @@ export const createBooking = async (req, res) => {
       bookingSource === "sabaoon" && !isLocalGroup(groupId);
     const isTravelNetworkGroup =
       bookingSource === "travel-network" && !isLocalGroup(groupId);
+    // Partner API inventory ids are Mongo ObjectIds, so isLocalGroup() cannot
+    // tell them apart from local groups — the configured API key decides.
+    const isAbidAirPartner =
+      bookingSource === "abidairtravel" && isAbidAirPartnerConfigured();
     const isAbidAirGroup =
-      bookingSource === "abidairtravel" && !isLocalGroup(groupId);
+      bookingSource === "abidairtravel" &&
+      (isAbidAirPartner || !isLocalGroup(groupId));
     const isNCTGroup = bookingSource === "NCT";
     const isMCTGroup = bookingSource === "mct" && !isLocalGroup(groupId);
 
@@ -956,8 +981,23 @@ export const createBooking = async (req, res) => {
       pricingData.originalGrandTotal = Number(pricingData.grandTotal || 0);
     }
 
+    // Partner API: validate, check availability and get the token BEFORE any
+    // seat is held or row written, so a refusal needs no rollback.
+    const abidAirIsPackage = shouldBookAbidAirPackage(req.body);
+    const abidAirHandoff = isAbidAirPartner
+      ? await prepareAbidAirHandoff({
+          inventoryId: groupId,
+          isPackage: abidAirIsPackage,
+          adults: adultsCount,
+          children: childrenCount,
+          infants: infantsCount,
+          passengers,
+          roomType: req.body.roomType ?? req.body.sharing ?? req.body.selectedRoom,
+        })
+      : null;
+
     const abidAirRequest =
-      isAbidAirGroup && passengers.length > 0
+      isAbidAirGroup && !isAbidAirPartner && passengers.length > 0
         ? buildAbidAirBookingRequest({
             reqBody: req.body,
             groupId,
@@ -983,11 +1023,14 @@ export const createBooking = async (req, res) => {
 
     // 1️⃣ Deduct from local DB (existing logic)
     // This will throw an error if not enough seats available
-    await adjustSeatsIfLocalGroup(groupId, -seatCount, true);
+    // Abid Air Partner inventory lives at Abid Air — nothing local to deduct.
+    if (!isAbidAirPartner) {
+      await adjustSeatsIfLocalGroup(groupId, -seatCount, true);
+    }
 
     // 2️⃣ Deduct from unified cache too
-    await deductSeatsFromCache(groupId, seatCount);
-    seatsDeducted = true;
+    if (!isAbidAirPartner) await deductSeatsFromCache(groupId, seatCount);
+    seatsDeducted = !isAbidAirPartner;
 
     // 3️⃣ Create the booking
     booking = await Booking.create({
@@ -1019,7 +1062,60 @@ export const createBooking = async (req, res) => {
       },
       sabaoonBookingStatus: isSabaoonGroup ? "pending" : "not_applicable",
       abidAirBookingStatus: isAbidAirGroup ? "pending" : "not_applicable",
+      ...(isAbidAirPartner && {
+        supplierName: ABID_AIR_SUPPLIER_NAME,
+        supplierBookingStatus: "pending",
+        abidAirBookingType: abidAirIsPackage ? "package" : "flight",
+      }),
     });
+
+    // ─── Abid Air Partner API handoff ───
+    if (isAbidAirPartner) {
+      try {
+        const expectedBaseTotal =
+          (Number(adultsCount) || 0) * Number(pricing.adultBasePrice || 0) +
+          (Number(childrenCount) || 0) * Number(pricing.childBasePrice || 0) +
+          (Number(infantsCount) || 0) * Number(pricing.infantBasePrice || 0);
+
+        const { expiresAt: supplierExpiresAt, ...supplierFields } =
+          await sendAbidAirHandoff(abidAirHandoff, {
+            contactPersonName,
+            expectedBaseTotal: expectedBaseTotal > 0 ? expectedBaseTotal : NaN,
+          });
+
+        Object.assign(booking, supplierFields);
+        booking.abidAirBookingStatus = "success";
+        booking.abidAirBookingId = supplierFields.supplierBookingId;
+        // Never hold locally longer than Abid Air holds the inventory.
+        if (supplierExpiresAt) booking.expiresAt = supplierExpiresAt;
+        await booking.save();
+      } catch (abidAirErr) {
+        const uncertain = isUncertainAbidAirOutcome(abidAirErr);
+        console.error("Abid Air handoff failed", abidAirSafeError(abidAirErr));
+
+        if (uncertain) {
+          // 429/5xx: Abid Air may have created it. Keep the local record for
+          // support to reconcile — never retry blindly (duplicate booking).
+          booking.supplierBookingStatus = "supplier_pending";
+          booking.supplierError = abidAirSafeError(abidAirErr);
+          booking.abidAirBookingStatus = "failed";
+          await booking.save();
+        } else {
+          await cleanupBookingMarginLedger({
+            bookingId: booking._id,
+            bookingReference: booking.bookingReference,
+          }).catch(() => {});
+          await Booking.deleteOne({ _id: booking._id });
+        }
+
+        return res.status(getAbidAirHttpStatus(abidAirErr)).json({
+          ...abidAirErrorBody(abidAirErr),
+          message: `Abid Air booking handoff failed: ${abidAirErr.message}`,
+          reconciliationRequired: uncertain,
+          data: uncertain ? booking : undefined,
+        });
+      }
+    }
 
     // ─── Call Sabaoon booking API for external (Sabaoon) groups ───
     if (isSabaoonGroup && passengers.length > 0) {
@@ -1360,6 +1456,9 @@ export const createBooking = async (req, res) => {
         -seatCount, // negative = add back
       ).catch(() => {});
     }
+    if (err?.name === "AbidAirApiError") {
+      return res.status(getAbidAirHttpStatus(err)).json(abidAirErrorBody(err));
+    }
     res.status(400).json({ success: false, message: err.message });
   }
 };
@@ -1503,6 +1602,21 @@ export const updateBookingStatus = async (req, res) => {
     const oldStatus = booking.status;
     const seats = booking.adultsCount + booking.childrenCount;
 
+    // Abid Air Partner bookings: the supplier side is cancelled first; a
+    // supplier refusal aborts the whole change so both sides stay in sync.
+    if (isPartnerAbidAirBooking(booking)) {
+      if (oldStatus === "cancelled" && status !== "cancelled") {
+        const err = new Error("A cancelled Abid Air booking cannot be reopened locally");
+        err.name = "AbidAirApiError";
+        err.status = 409;
+        err.code = "ABID_AIR_REOPEN_NOT_ALLOWED";
+        throw err;
+      }
+      if (oldStatus !== "cancelled" && status === "cancelled") {
+        await cancelAbidAirSupplierBooking(booking);
+      }
+    }
+
     // Ensure margin ledger entry is refreshed when booking is confirmed
     if (status === "confirmed") {
       const { recordBookingMarginLedger } =
@@ -1565,7 +1679,7 @@ export const updateBookingStatus = async (req, res) => {
 
     res.json({ success: true, data: booking });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    sendBookingError(res, err);
   }
 };
 
@@ -1691,6 +1805,10 @@ export const cancelBooking = async (req, res) => {
     const oldStatus = booking.status;
     const seats = booking.adultsCount + booking.childrenCount;
 
+    // Abid Air Partner bookings: cancel at the supplier first (throws when the
+    // supplier state does not allow it, leaving the local booking untouched).
+    await cancelAbidAirSupplierBooking(booking);
+
     booking.status = "cancelled";
     booking.expiresAt = null;
     await booking.save();
@@ -1724,7 +1842,7 @@ export const cancelBooking = async (req, res) => {
 
     res.json({ success: true, message: "Booking cancelled", data: booking });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    sendBookingError(res, err);
   }
 };
 
@@ -1737,6 +1855,8 @@ export const deleteBooking = async (req, res) => {
     if (!booking) throw new Error("Booking not found");
 
     if (booking.status !== "cancelled") {
+      // Never orphan a live supplier hold: cancel at Abid Air before deleting.
+      await cancelAbidAirSupplierBooking(booking);
       const seats = booking.adultsCount + booking.childrenCount;
       await adjustSeatsIfLocalGroup(booking.groupId, seats);
     }
@@ -1754,7 +1874,7 @@ export const deleteBooking = async (req, res) => {
 
     res.json({ success: true, message: "Booking deleted" });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    sendBookingError(res, err);
   }
 };
 

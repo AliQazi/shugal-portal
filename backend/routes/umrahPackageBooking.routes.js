@@ -2,7 +2,7 @@ import express from "express";
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import { cloudinary } from "../config/cloudinary.js";
-import { protect } from "../middleware/auth.middleware.js";
+import { protect, adminOnly } from "../middleware/auth.middleware.js";
 import {
   createUmrahPackageBooking,
   getMyUmrahPackageBookings,
@@ -40,8 +40,8 @@ router.get("/my", protect, getMyUmrahPackageBookings);
 router.put("/:id/passengers", protect, uploadPassports, updateUmrahBookingPassengers);
 
 // ── Admin routes (must be before /:id to avoid param capture) ───────────────
-router.get("/admin/all", protect, adminGetAllBookings);
-router.patch("/admin/:id/status", protect, adminUpdateBookingStatus);
+router.get("/admin/all", protect, adminOnly, adminGetAllBookings);
+router.patch("/admin/:id/status", protect, adminOnly, adminUpdateBookingStatus);
 
 // ── Param route last ─────────────────────────────────────
 router.get("/:id", protect, getUmrahPackageBookingById);

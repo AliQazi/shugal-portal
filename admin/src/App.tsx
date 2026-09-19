@@ -49,6 +49,7 @@ import TransportManagement from "./pages/UmrahPackage/TransportManagement";
 import VisaManagement from "./pages/UmrahPackage/VisaManagement";
 import UmrahPackageList from "./pages/UmrahPackage/UmrahPackageList";
 import AddUmrahPackage from "./pages/UmrahPackage/AddUmrahPackage";
+import ManageUmrahPackages from "./pages/UmrahPackage/ManageUmrahPackages";
 import UmrahPackageBookingsAdmin from "./pages/UmrahPackage/UmrahPackageBookingsAdmin";
 
 export default function App() {
@@ -87,6 +88,7 @@ export default function App() {
                 <Route path="/umrah-transport" element={<TransportManagement />} />
                 <Route path="/umrah-visa" element={<VisaManagement />} />
                 <Route path="/umrah-packages" element={<UmrahPackageList />} />
+                <Route path="/manage-umrah-packages" element={<ManageUmrahPackages />} />
                 <Route path="/umrah-packages/create" element={<AddUmrahPackage />} />
                 <Route path="/umrah-packages/edit/:id" element={<AddUmrahPackage />} />
                 <Route path="/umrah-package-bookings" element={<UmrahPackageBookingsAdmin />} />

@@ -352,7 +352,9 @@ export const recordBookingMarginLedger = async ({
     // Rule margins are added to adult and child fares only, and only when that
     // fare is priced (an "on call"/0 fare carries no margin).
     const marginPax =
-      snapshotMargin > 0
+      snapshotMargin > 0 && Number.isFinite(booking.marginPaxCount)
+        ? booking.marginPaxCount
+        : snapshotMargin > 0
         ? (Number(booking.pricing?.adultPrice) > 0 ? booking.adultsCount || 0 : 0) +
           (Number(booking.pricing?.childPrice) > 0 ? booking.childrenCount || 0 : 0)
         : pax;
@@ -372,9 +374,9 @@ export const recordBookingMarginLedger = async ({
       deptDate: booking.departureDate || null,
       basePrice,
       marginAmount,
-      providerMargin: snapshotMargin > 0 ? Number(snapshot.provider || 0) : 0,
+      providerMargin: snapshotMargin > 0 ? Number(snapshot.provider ?? snapshot.source ?? 0) : 0,
       sectorMargin: snapshotMargin > 0 ? Number(snapshot.sector || 0) : 0,
-      flightMargin: snapshotMargin > 0 ? Number(snapshot.flight || 0) : 0,
+      flightMargin: snapshotMargin > 0 ? Number(snapshot.flight ?? snapshot.package ?? 0) : 0,
       bookingId: booking._id,
       bookingReference,
       passengers: marginPax,

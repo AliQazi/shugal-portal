@@ -308,6 +308,19 @@ const bookingSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Abid Air Partner API handoff (supplier* fields are shared with
+    // UmrahPackageBooking so one cancel/expiry helper serves both).
+    supplierName: { type: String, default: "" },
+    supplierBookingId: { type: String, default: null },
+    // Supplier status verbatim ("on hold", "cancelled"...) or "supplier_pending"
+    // when a 429/5xx left the outcome unknown and it needs reconciling.
+    supplierBookingStatus: { type: String, default: null },
+    supplierBookingData: { type: mongoose.Schema.Types.Mixed, default: null },
+    supplierBookingCreatedAt: { type: Date, default: null },
+    supplierPricing: { type: mongoose.Schema.Types.Mixed, default: null },
+    supplierPriceMismatch: { type: Boolean, default: false },
+    supplierError: { type: mongoose.Schema.Types.Mixed, default: null },
+
     // MCT specific fields
     mctBookingId: {
       type: String,

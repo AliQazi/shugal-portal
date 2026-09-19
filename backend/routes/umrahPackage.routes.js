@@ -1,5 +1,6 @@
 import express from "express";
 import { protect } from "../middleware/auth.middleware.js";
+import { applyUmrahPackageRules } from "../middleware/marginVisibility.middleware.js";
 import { uploadUmrahPackage } from "../config/cloudinary.js";
 import {
   getUmrahPackages,
@@ -18,7 +19,7 @@ const uploadFields = uploadUmrahPackage.fields([
 ]);
 
 router.get("/", getUmrahPackages);
-router.get("/travel-network", protect, getTravelNetworkUmrahPackages);
+router.get("/travel-network", protect, applyUmrahPackageRules, getTravelNetworkUmrahPackages);
 router.get("/:id", getUmrahPackageById);
 router.post("/", protect, uploadFields, createUmrahPackage);
 router.put("/:id", protect, uploadFields, updateUmrahPackage);

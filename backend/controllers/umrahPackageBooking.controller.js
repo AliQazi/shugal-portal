@@ -6,6 +6,19 @@ import {
   sendBookingStatusChangeEmail,
 } from "../utils/emailService.js";
 import { createAbidAirPackageBooking } from "./abidair.controller.js";
+import { resolveUmrahBookingMargin, stripUmrahMargin } from "../utils/marginRules.js";
+import {
+  ABID_AIR_SUPPLIER_NAME,
+  abidAirErrorBody,
+  abidAirSafeError,
+  cancelAbidAirSupplierBooking,
+  getAbidAirHttpStatus,
+  isAbidAirPartnerConfigured,
+  isPartnerAbidAirBooking,
+  isUncertainAbidAirOutcome,
+  prepareAbidAirHandoff,
+  sendAbidAirHandoff,
+} from "../utils/Abid-Air.js";
 import {
   createTravelNetworkUmrahBooking,
   getTravelNetworkCreatedById,
@@ -339,6 +352,29 @@ export const createUmrahPackageBooking = async (req, res) => {
     const pricingDiscount = Number(parsedPricing?.discountAmount || 0);
     const pricingOriginal = Number(parsedPricing?.originalTotalAmount || 0) || pricingTotal + pricingDiscount;
 
+    // Admin margin/visibility rules (TN + Abid Air packages): reject hidden
+    // packages and recover the true supplier price — agents were shown
+    // base + margin on every room type. Runs before any provider call.
+    let umrahMargin;
+    try {
+      umrahMargin = await resolveUmrahBookingMargin({
+        user: req.user,
+        token: req.body.marginToken,
+        packageSource,
+        packageId,
+      });
+    } catch (marginError) {
+      return res.status(409).json({ success: false, message: marginError.message });
+    }
+    const baseSnapshot = stripUmrahMargin(parsedPackageData, umrahMargin.perPax);
+    const providerPricing = {
+      ...parsedPricing,
+      pricePerPerson: Math.max(
+        0,
+        Number(parsedPricing?.pricePerPerson || 0) - umrahMargin.perPax,
+      ),
+    };
+
     const abidAirBooking = isAbidAirPackage(packageSource);
     const travelNetworkBooking = isTravelNetworkPackage(packageSource);
     const expectedPassengerCount =
@@ -382,15 +418,36 @@ export const createUmrahPackageBooking = async (req, res) => {
       });
     }
 
+    // Partner API: validate + availability token before anything is written.
+    const abidAirPartner = abidAirBooking && isAbidAirPartnerConfigured();
+    let abidAirHandoff = null;
+    if (abidAirPartner) {
+      try {
+        abidAirHandoff = await prepareAbidAirHandoff({
+          inventoryId: packageId,
+          isPackage: true,
+          adults: Number(adultsCount) || 0,
+          children: Number(childrenCount) || 0,
+          infants: Number(infantsCount) || 0,
+          passengers,
+          roomType,
+        });
+      } catch (handoffError) {
+        return res
+          .status(getAbidAirHttpStatus(handoffError))
+          .json(abidAirErrorBody(handoffError));
+      }
+    }
+
     let providerResponse = null;
-    if (abidAirBooking) {
+    if (abidAirBooking && !abidAirPartner) {
       const providerPayload = buildAbidAirPackagePayload({
         packageId,
         roomType,
         specialRequests,
         passengers,
-        parsedPricing,
-        packageSnapshot: parsedPackageData,
+        parsedPricing: providerPricing,
+        packageSnapshot: baseSnapshot,
       });
 
       try {
@@ -421,8 +478,8 @@ export const createUmrahPackageBooking = async (req, res) => {
         roomType,
         specialRequests,
         passengers,
-        parsedPricing,
-        packageSnapshot: parsedPackageData,
+        parsedPricing: providerPricing,
+        packageSnapshot: baseSnapshot,
         adultsCount,
         childrenCount,
         infantsCount,
@@ -463,7 +520,19 @@ export const createUmrahPackageBooking = async (req, res) => {
       packageName,
       packageSource: packageSource || "local",
       providerBookingStatus:
-        abidAirBooking || travelNetworkBooking ? "success" : "not_applicable",
+        (abidAirBooking && !abidAirPartner) || travelNetworkBooking
+          ? "success"
+          : "not_applicable",
+      marginSnapshot: {
+        perPax: umrahMargin.perPax,
+        source: umrahMargin.levels[0],
+        package: umrahMargin.levels[1],
+        keys: umrahMargin.keys || undefined,
+      },
+      ...(abidAirPartner && {
+        supplierName: ABID_AIR_SUPPLIER_NAME,
+        supplierBookingStatus: "pending",
+      }),
       providerPackageBookingId:
         providerResponse?.package_booking_id?.toString?.() || null,
       providerTicketId: providerResponse?.ticket_id?.toString?.() || null,
@@ -486,6 +555,46 @@ export const createUmrahPackageBooking = async (req, res) => {
     });
 
     await booking.save();
+
+    // ─── Abid Air Partner API handoff (after the local record exists) ───
+    if (abidAirPartner) {
+      try {
+        const { expiresAt: supplierExpiresAt, ...supplierFields } =
+          await sendAbidAirHandoff(abidAirHandoff, {
+            contactPersonName: req.user?.name || req.user?.companyName || "N/A",
+            expectedBaseTotal: NaN,
+          });
+
+        Object.assign(booking, supplierFields);
+        booking.providerBookingStatus = "success";
+        booking.providerPackageBookingId = supplierFields.supplierBookingId;
+        booking.providerBookingResponse = supplierFields.supplierBookingData;
+        if (supplierExpiresAt) booking.expiresAt = supplierExpiresAt;
+        await booking.save();
+      } catch (abidAirErr) {
+        const uncertain = isUncertainAbidAirOutcome(abidAirErr);
+        console.error("Abid Air Umrah handoff failed", abidAirSafeError(abidAirErr));
+
+        if (uncertain) {
+          // 429/5xx: Abid Air may have created it — keep for reconciliation.
+          booking.supplierBookingStatus = "supplier_pending";
+          booking.supplierError = abidAirSafeError(abidAirErr);
+          booking.providerBookingStatus = "failed";
+          await booking.save();
+        } else {
+          await UmrahPackageBooking.deleteOne({ _id: booking._id });
+        }
+
+        return res.status(getAbidAirHttpStatus(abidAirErr)).json({
+          ...abidAirErrorBody(abidAirErr),
+          message: `Abid Air booking handoff failed: ${abidAirErr.message}`,
+          reconciliationRequired: uncertain,
+          data: uncertain
+            ? { bookingNumber: booking.bookingNumber, _id: booking._id }
+            : undefined,
+        });
+      }
+    }
 
     // If this booking is already created as confirmed, record a margin ledger entry.
     if (booking.status === "confirmed") {
@@ -636,7 +745,13 @@ const prepareUmrahBookingForLedger = (booking) => {
   ledgerBooking.pricing = {
     ...ledgerBooking.pricing,
     adultPrice: Number(ledgerBooking.pricing?.pricePerPerson || ledgerBooking.pricing?.adultPrice || 0),
-    adultBasePrice: Number(ledgerBooking.pricing?.pricePerPerson || ledgerBooking.pricing?.adultBasePrice || ledgerBooking.pricing?.adultPrice || 0),
+    // pricePerPerson already includes the locked admin margin — the base is
+    // what the supplier charges.
+    adultBasePrice: Math.max(
+      0,
+      Number(ledgerBooking.pricing?.pricePerPerson || ledgerBooking.pricing?.adultBasePrice || ledgerBooking.pricing?.adultPrice || 0) -
+        Number(ledgerBooking.marginSnapshot?.perPax || 0),
+    ),
     grandTotal: Number(ledgerBooking.pricing?.totalAmount || ledgerBooking.pricing?.grandTotal || 0),
   };
   ledgerBooking.adultsCount = Array.isArray(ledgerBooking.passengers)
@@ -645,6 +760,8 @@ const prepareUmrahBookingForLedger = (booking) => {
   ledgerBooking.childrenCount = Array.isArray(ledgerBooking.passengers)
     ? ledgerBooking.passengers.filter((p) => String(p.type).toLowerCase() === "child").length
     : 0;
+  // Umrah margin covers adults and children (every priced room/child fare).
+  ledgerBooking.marginPaxCount = ledgerBooking.adultsCount + ledgerBooking.childrenCount;
   return ledgerBooking;
 };
 
@@ -709,6 +826,29 @@ export const adminUpdateBookingStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: "Booking not found" });
 
     const oldStatus = booking.status;
+
+    // Abid Air Partner bookings: release the supplier hold before the local
+    // status changes; a supplier refusal aborts the whole update.
+    if (isPartnerAbidAirBooking(booking)) {
+      const next = String(status).toLowerCase();
+      if (oldStatus === "cancelled" && next !== "cancelled") {
+        return res.status(409).json({
+          success: false,
+          code: "ABID_AIR_REOPEN_NOT_ALLOWED",
+          message: "A cancelled Abid Air booking cannot be reopened locally",
+        });
+      }
+      if (oldStatus !== "cancelled" && next === "cancelled") {
+        try {
+          await cancelAbidAirSupplierBooking(booking);
+        } catch (cancelError) {
+          return res
+            .status(getAbidAirHttpStatus(cancelError))
+            .json(abidAirErrorBody(cancelError));
+        }
+        booking.expiresAt = null;
+      }
+    }
 
     if (discountAmount !== undefined) {
       const discountValue = Number(discountAmount || 0);

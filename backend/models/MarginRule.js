@@ -15,11 +15,12 @@ const marginRuleSchema = new mongoose.Schema(
     ruleKey: { type: String, required: true, unique: true, index: true },
     level: {
       type: String,
-      enum: ["provider", "sector", "flight"],
+      enum: ["provider", "sector", "flight", "umrah-source", "umrah-package"],
       required: true,
     },
     source: { type: String, required: true },
     sector: { type: String, default: "" },
+    // flight: group id · umrah-package: package id
     groupId: { type: String, default: "" },
     margin: { type: Number, default: 0, min: 0 },
     visible: { type: Boolean, default: true },

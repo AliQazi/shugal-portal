@@ -226,6 +226,9 @@ export default function UmrahBookingPage() {
       );
       fd.append("pnr", packageData?.pnr || packageData?.flights?.[0]?.pnr || "");
       fd.append("roomType", selectedRoom);
+      // Server-issued price snapshot: lets the backend recover the true supplier
+      // price and re-check that the package is still visible to agents
+      if (packageData?.marginToken) fd.append("marginToken", packageData.marginToken);
       fd.append("specialRequests", formData.specialRequests);
       fd.append("pricing", JSON.stringify({
         pricePerPerson: Number(pricePerPerson || 0),

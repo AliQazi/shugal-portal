@@ -5,6 +5,9 @@ import {
   resolveGroupRules,
   signMarginToken,
   buildMarginTokenPayload,
+  umrahPackageIdentity,
+  resolveUmrahRules,
+  applyUmrahMargin,
 } from "../utils/marginRules.js";
 
 // Token is optional here: no/invalid token is treated as an agent (the
@@ -88,6 +91,74 @@ export const applyMarginAndVisibility = async (req, res, next) => {
     next();
   } catch (err) {
     console.error("applyMarginAndVisibility error:", err);
+    next(err);
+  }
+};
+
+/**
+ * Same idea for Umrah package listings (Travel Network + Abid Air).
+ *  - Admin: everything, base prices untouched, plus `ruleInfo` per package.
+ *  - Everyone else: hidden packages dropped, the margin added to every room
+ *    type + child fare, and a `marginToken` for the booking-time re-check.
+ *    Items that are not TN/Abid packages (e.g. Abid flight groups in the
+ *    shared feed) are never exposed here — flights only go out through
+ *    getUnifiedGroups where their own rules apply.
+ */
+export const applyUmrahPackageRules = async (req, res, next) => {
+  try {
+    const [isAdmin, ruleMap] = await Promise.all([isAdminRequest(req), loadRuleMap()]);
+
+    res.set({ Vary: "Authorization", "Cache-Control": "private, no-store" });
+    const originalJson = res.json.bind(res);
+
+    res.json = (body) => {
+      if (!body?.success || !Array.isArray(body.data)) return originalJson(body);
+
+      const data = [];
+      for (const pkg of body.data) {
+        const identity = umrahPackageIdentity(pkg);
+
+        if (!identity) {
+          if (isAdmin) data.push(pkg);
+          continue;
+        }
+
+        const rules = resolveUmrahRules(identity, ruleMap);
+
+        if (isAdmin) {
+          data.push({
+            ...pkg,
+            ruleInfo: {
+              source: identity.source,
+              id: identity.id,
+              keys: rules.keys,
+              levels: rules.levels,
+              totalMargin: rules.total,
+              visible: rules.visible,
+              hiddenBy: rules.hiddenBy,
+            },
+          });
+          continue;
+        }
+
+        if (!rules.visible) continue;
+
+        data.push({
+          ...applyUmrahMargin(pkg, rules.total),
+          marginToken: signMarginToken({
+            k: rules.keys,
+            m: rules.total,
+            l: [rules.levels.source.margin, rules.levels.package.margin],
+          }),
+        });
+      }
+
+      return originalJson({ ...body, data });
+    };
+
+    next();
+  } catch (err) {
+    console.error("applyUmrahPackageRules error:", err);
     next(err);
   }
 };
