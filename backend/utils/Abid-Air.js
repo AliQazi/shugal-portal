@@ -157,7 +157,6 @@ export const checkAvailability = async ({
   inventoryId,
   adults,
   children,
-  infants,
   requireToken = false,
 }) => {
   const response = await request("post", "/availability", {
@@ -165,13 +164,21 @@ export const checkAvailability = async ({
       inventoryId: String(inventoryId),
       adults: Number(adults) || 0,
       children: Number(children) || 0,
-      infants: Number(infants) || 0,
+      // Infants do not occupy inventory seats/room slots. Keep them out of
+      // Abid Air availability checks; the booking payload still sends infant
+      // passengers so supplier pricing and passenger rules are preserved.
+      infants: 0,
     },
   });
   const data = response.data?.data || response.data;
+  const meta = response.data?.meta || data?.meta || {};
   const token =
     data?.availabilityToken ||
     data?.token ||
+    data?.availability_token ||
+    meta?.availabilityToken ||
+    meta?.availability_token ||
+    meta?.token ||
     getHeader(response.headers, ["x-availability-token"]);
 
   if (data?.available === false) {
@@ -185,7 +192,9 @@ export const checkAvailability = async ({
   }
 
   if (requireToken && !token) {
-    const error = new Error("Availability token problem");
+    const error = new Error(
+      "Booking could not be confirmed because live availability was not verified. Please try again.",
+    );
     error.name = "AbidAirApiError";
     error.status = 502;
     error.code = "ABID_AIR_TOKEN_MISSING";
@@ -196,11 +205,19 @@ export const checkAvailability = async ({
 };
 
 export const createBooking = async (payload, availabilityToken) => {
+  if (!availabilityToken) {
+    const error = new Error(
+      "Booking could not be confirmed because live availability was not verified. Please try again.",
+    );
+    error.name = "AbidAirApiError";
+    error.status = 502;
+    error.code = "ABID_AIR_TOKEN_MISSING";
+    throw error;
+  }
+
   const response = await request("post", "/bookings", {
     data: payload,
-    ...(availabilityToken && {
-      headers: { "X-Availability-Token": availabilityToken },
-    }),
+    headers: { "X-Availability-Token": availabilityToken },
   });
   return response.data?.data;
 };
@@ -616,8 +633,7 @@ const abidAirError = (message, status, code) => {
 /**
  * Phase 1 (before anything is written locally): confirm the item is still
  * bookable and validate passenger fields before anything is written locally.
- * Some Abid Air deployments return an availability token; when present, it is
- * forwarded to booking, but the current API does not require one.
+ * The Partner API requires the availability token to be forwarded to booking.
  */
 export const prepareAbidAirHandoff = async ({
   inventoryId,
@@ -648,7 +664,7 @@ export const prepareAbidAirHandoff = async ({
     inventoryId: inventory.id || inventoryId,
     adults,
     children,
-    infants,
+    requireToken: true,
   });
 
   return {
@@ -726,9 +742,10 @@ export const isUncertainAbidAirOutcome = (error) =>
 
 export const abidAirErrorBody = (error) => ({
   success: false,
-  message: String(error.message || "External supplier request failed")
-    .replace(/Abid\s*Air/gi, "External supplier")
-    .replace(/AbidAir/gi, "External supplier"),
+  message: String(error.message || "Booking request failed. Please try again.")
+    .replace(/Abid\s*Air/gi, "booking provider")
+    .replace(/AbidAir/gi, "booking provider")
+    .replace(/external supplier/gi, "booking provider"),
   code: error.code,
   retryAfter: error.retryAfter || undefined,
   requestId: error.requestId || undefined,

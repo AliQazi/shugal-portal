@@ -1110,7 +1110,7 @@ export const createBooking = async (req, res) => {
 
         return res.status(getAbidAirHttpStatus(abidAirErr)).json({
           ...abidAirErrorBody(abidAirErr),
-          message: `External supplier booking failed: ${abidAirErrorBody(abidAirErr).message}`,
+          message: `Booking provider failed: ${abidAirErrorBody(abidAirErr).message}`,
           reconciliationRequired: uncertain,
           data: uncertain ? booking : undefined,
         });
@@ -1201,8 +1201,9 @@ export const createBooking = async (req, res) => {
           abidAirErr.message;
         throw new Error(
           String(providerMessage || "booking could not be created.")
-            .replace(/Abid\s*Air/gi, "External supplier")
-            .replace(/AbidAir/gi, "External supplier"),
+            .replace(/Abid\s*Air/gi, "booking provider")
+            .replace(/AbidAir/gi, "booking provider")
+            .replace(/external supplier/gi, "booking provider"),
         );
       }
     }

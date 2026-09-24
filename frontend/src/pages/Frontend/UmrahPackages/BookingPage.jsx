@@ -133,8 +133,8 @@ export default function UmrahBookingPage() {
     }));
   };
 
-  // Abid Air package stock is only known to the supplier, so every change in
-  // passenger count is checked against its live availability API.
+  // Abid Air package stock is seat-based; infants do not occupy seats, so only
+  // adult/child changes are checked against live availability.
   const availabilityRequestRef = useRef(0);
 
   useEffect(() => {
@@ -142,15 +142,14 @@ export default function UmrahBookingPage() {
 
     const adults = formData.adults.length;
     const children = formData.children.length;
-    const infants = formData.infants.length;
-    if (adults + children + infants === 0) return;
+    if (adults + children === 0) return;
 
     const requestId = ++availabilityRequestRef.current;
     const timer = setTimeout(async () => {
       try {
         const response = await axiosInstance.get(
           `/abidair/package/${packageId}/availability`,
-          { params: { adults, children, infants } },
+          { params: { adults, children, infants: 0 } },
         );
         if (requestId !== availabilityRequestRef.current) return;
 
@@ -176,7 +175,6 @@ export default function UmrahBookingPage() {
   }, [
     formData.adults.length,
     formData.children.length,
-    formData.infants.length,
     isAbidAirPackage,
     packageId,
   ]);

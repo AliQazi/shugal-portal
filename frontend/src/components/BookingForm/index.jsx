@@ -489,8 +489,7 @@ export default function BookingForm({ user }) {
 
     const totalSeatsRequired =
       parseInt(updated.adults || 0) +
-      parseInt(updated.children || 0) +
-      parseInt(updated.infants || 0);
+      parseInt(updated.children || 0);
 
     const availableSeats = groupData?.available_no_of_pax || 0;
 
@@ -501,19 +500,21 @@ export default function BookingForm({ user }) {
       const isFlightBooking =
         String(groupData?.abidAirBookingType || "flight").toLowerCase() ===
           "flight" && !isPackageBooking;
-      const counterChanged = ["adults", "children", "infants"].includes(name);
+      const counterChanged = ["adults", "children"].includes(name);
 
       if ((isFlightBooking || isPackageBooking) && counterChanged) {
         const requestId = ++availabilityRequestRef.current;
+        const adults = parseInt(updated.adults) || 0;
+        const children = parseInt(updated.children) || 0;
         const availabilityEndpoint = isPackageBooking
           ? `/abidair/package/${groupData.id}/availability`
           : `/abidair/flight/${groupData.id}/availability`;
         try {
           const response = await axiosInstance.get(availabilityEndpoint, {
             params: {
-              adults: parseInt(updated.adults) || 0,
-              children: parseInt(updated.children) || 0,
-              infants: parseInt(updated.infants) || 0,
+              adults,
+              children,
+              infants: 0,
             },
           });
 
@@ -801,19 +802,18 @@ export default function BookingForm({ user }) {
       booked = bookedSeatsMap[key] || 0;
     }
 
-    const payingPassengers =
+    const requiredSeats =
       (parseInt(formData.adults) || 0) +
-      (parseInt(formData.children) || 0) +
-      (parseInt(formData.infants) || 0);
+      (parseInt(formData.children) || 0);
 
     const isAbidAirBooking = isAbidAirGroup(groupData);
 
     // ✅ final available seats AFTER deduction
     const remainingSeats = (groupData?.available_no_of_pax || 0) - booked;
     // ❌ validation
-    if (!isAbidAirBooking && payingPassengers > remainingSeats) {
+    if (!isAbidAirBooking && requiredSeats > remainingSeats) {
       toast.error(
-        `Total passengers (${payingPassengers}) cannot exceed available seats (${remainingSeats})`,
+        `Required seats (${requiredSeats}) cannot exceed available seats (${remainingSeats})`,
       );
       return;
     }
@@ -1131,8 +1131,7 @@ export default function BookingForm({ user }) {
                         const total = groupData.available_no_of_pax || 0;
                         const currentBookingPassengers = isEditMode
                           ? (parseInt(formData.adults) || 0) +
-                            (parseInt(formData.children) || 0) +
-                            (parseInt(formData.infants) || 0)
+                            (parseInt(formData.children) || 0)
                           : 0;
 
                         return total - booked + currentBookingPassengers;

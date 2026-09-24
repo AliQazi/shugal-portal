@@ -595,7 +595,10 @@ const checkAbidAirAvailability = async (req, res, { isPackage, inventoryId }) =>
       });
     }
 
-    const requiredSeats = counts.adults + counts.children + counts.infants;
+    // Infants travel on a lap and don't occupy a seat/room slot, so they're
+    // excluded from the seat count Abid Air's inventory is checked against
+    // (they're still sent to Abid Air itself for its own pricing/rules).
+    const requiredSeats = counts.adults + counts.children;
 
     const { remainingSeats } = await getAbidAirAvailability(
       inventoryId,

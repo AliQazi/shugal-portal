@@ -458,10 +458,11 @@ export const createUmrahPackageBooking = async (req, res) => {
           providerError.response?.data?.error ||
           providerError.message;
         const safeProviderMessage = String(
-          providerMessage || "External supplier package booking failed.",
+          providerMessage || "Booking provider package booking failed.",
         )
-          .replace(/Abid\s*Air/gi, "External supplier")
-          .replace(/AbidAir/gi, "External supplier");
+          .replace(/Abid\s*Air/gi, "booking provider")
+          .replace(/AbidAir/gi, "booking provider")
+          .replace(/external supplier/gi, "booking provider");
         return res.status(providerError.response?.status || 502).json({
           success: false,
           message: safeProviderMessage,
@@ -471,10 +472,11 @@ export const createUmrahPackageBooking = async (req, res) => {
       if (!providerResponse?.success) {
         const safeProviderMessage = String(
           providerResponse?.message ||
-            "External supplier did not accept the package booking.",
+            "Booking provider did not accept the package booking.",
         )
-          .replace(/Abid\s*Air/gi, "External supplier")
-          .replace(/AbidAir/gi, "External supplier");
+          .replace(/Abid\s*Air/gi, "booking provider")
+          .replace(/AbidAir/gi, "booking provider")
+          .replace(/external supplier/gi, "booking provider");
         return res.status(409).json({
           success: false,
           message: safeProviderMessage,
@@ -597,7 +599,7 @@ export const createUmrahPackageBooking = async (req, res) => {
 
         return res.status(getAbidAirHttpStatus(abidAirErr)).json({
           ...abidAirErrorBody(abidAirErr),
-          message: `External supplier booking failed: ${abidAirErrorBody(abidAirErr).message}`,
+          message: `Booking provider failed: ${abidAirErrorBody(abidAirErr).message}`,
           reconciliationRequired: uncertain,
           data: uncertain
             ? { bookingNumber: booking.bookingNumber, _id: booking._id }
