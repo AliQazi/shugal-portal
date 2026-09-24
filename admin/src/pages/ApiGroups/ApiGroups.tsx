@@ -63,7 +63,7 @@ const PROVIDERS: Record<string, { label: string; badge: string }> = {
   admin: { label: "Admin (Own Groups)", badge: "bg-purple-100 text-purple-700 border-purple-200" },
   "al-haider": { label: "Al-Haider", badge: "bg-emerald-100 text-emerald-700 border-emerald-200" },
   "travel-network": { label: "Travel Network", badge: "bg-amber-100 text-amber-700 border-amber-200" },
-  abidairtravel: { label: "Abid Air International", badge: "bg-cyan-100 text-cyan-700 border-cyan-200" },
+  abidairtravel: { label: "Abid Air", badge: "bg-cyan-100 text-cyan-700 border-cyan-200" },
   sabaoon: { label: "Al-Saboor", badge: "bg-sky-100 text-sky-700 border-sky-200" },
   NCT: { label: "NCT", badge: "bg-indigo-100 text-indigo-700 border-indigo-200" },
   mct: { label: "MCT", badge: "bg-rose-100 text-rose-700 border-rose-200" },
@@ -345,11 +345,10 @@ export default function ApiGroups() {
             <button
               key={t}
               onClick={() => setTypeFilter(t)}
-              className={`rounded-full border px-4 py-1.5 text-sm font-medium transition ${
-                typeFilter === t
-                  ? "border-blue-600 bg-blue-600 text-white"
-                  : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:text-blue-600"
-              }`}
+              className={`rounded-full border px-4 py-1.5 text-sm font-medium transition ${typeFilter === t
+                ? "border-blue-600 bg-blue-600 text-white"
+                : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:text-blue-600"
+                }`}
             >
               {t === "all" ? "All" : t}
             </button>
@@ -441,7 +440,9 @@ export default function ApiGroups() {
                         <th className="px-4 py-2.5 text-center">Sector</th>
                         <th className="px-4 py-2.5 text-center">Bag</th>
                         <th className="px-4 py-2.5 text-center">Meal</th>
-                        <th className="px-4 py-2.5 text-center">Seats</th>
+                        {section.source !== "abidairtravel" && (
+                          <th className="px-4 py-2.5 text-center">Seats</th>
+                        )}
                         <th className="px-4 py-2.5 text-center">Base Price</th>
                         <th className="px-4 py-2.5 text-center">Margin (P + S + F)</th>
                         <th className="px-4 py-2.5 text-center">Agent Price</th>
@@ -477,7 +478,11 @@ export default function ApiGroups() {
                             <td className="px-4 py-3 text-center text-gray-700">
                               {legs.map((d, i) => <div key={i} className="py-0.5">{d.meal || "—"}</div>)}
                             </td>
-                            <td className="px-4 py-3 text-center font-bold text-gray-700">{g.available_no_of_pax ?? "—"}</td>
+                            {section.source !== "abidairtravel" && (
+                              <td className="px-4 py-3 text-center font-bold text-gray-700">
+                                {g.available_no_of_pax ?? "—"}
+                              </td>
+                            )}
                             <td className="px-4 py-3 text-center font-bold text-gray-700">{money(base)}</td>
                             <td className="px-4 py-3 text-center">
                               <div className="font-bold text-orange-600">{money(total)}</div>

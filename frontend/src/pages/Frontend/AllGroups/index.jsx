@@ -319,7 +319,6 @@ const isUmrahPackageGroup = (group = {}) =>
 // lookup) only applies to the old API. Partner API groups (partnerApi: true)
 // report real seat counts and are booked like any other counted group.
 const isAbidAirGroup = (group = {}) => {
-  if (group?.partnerApi) return false;
   const source = String(
     group?.source || group?.packageSource || "",
   ).toLowerCase();
@@ -803,7 +802,11 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     }
 
     // DB/global margin fallback
-    if (!group?.marginApplied && priceAfterMargin === (groupPrice || 0) && dbMargin) {
+    if (
+      !group?.marginApplied &&
+      priceAfterMargin === (groupPrice || 0) &&
+      dbMargin
+    ) {
       if (dbMargin.type === "percent" && dbMargin.value > 0) {
         priceAfterMargin += (priceAfterMargin * dbMargin.value) / 100;
       } else if (dbMargin.type === "amount" && dbMargin.value > 0) {
@@ -950,9 +953,11 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         ...group,
         airline: {
           ...group.airline,
-          airline_name: group.airline?.airline_name
-            ? standardizeAirlineName(group.airline.airline_name)
-            : group.airline?.airline_name,
+          airline_name: /abid\s*air/i.test(group.airline?.airline_name || "")
+            ? ""
+            : group.airline?.airline_name
+              ? standardizeAirlineName(group.airline.airline_name)
+              : group.airline?.airline_name,
         },
       }));
 
@@ -1014,7 +1019,9 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         const standardizedAirlineName = g.airline?.airline_name
           ? standardizeAirlineName(g.airline.airline_name).toLowerCase()
           : g.airline?.airline_name?.toLowerCase();
-        const matchesSector = g.sector?.toLowerCase().includes(keyword);
+        const matchesSector = [g.sector, getEffectiveSector(g)]
+          .filter(Boolean)
+          .some((sector) => String(sector).toLowerCase().includes(keyword));
         const matchesAirline = standardizedAirlineName?.includes(keyword);
         const matchesGroupName = g.groupName?.toLowerCase().includes(keyword);
         const matchesFlightNo = g.details?.some((flight) =>
@@ -1197,9 +1204,14 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     pdf.text(sectorLabel, PDF_TABLE_X + 3, y + titleHeight - 2.2);
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(7);
-    pdf.text(`${flightCount} flight${flightCount === 1 ? "" : "s"}`, PDF_TABLE_X + 187, y + titleHeight - 2.2, {
-      align: "right",
-    });
+    pdf.text(
+      `${flightCount} flight${flightCount === 1 ? "" : "s"}`,
+      PDF_TABLE_X + 187,
+      y + titleHeight - 2.2,
+      {
+        align: "right",
+      },
+    );
 
     return y + titleHeight;
   };
@@ -1253,7 +1265,11 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
 
     // Row background + outer border
     pdf.setDrawColor(203, 213, 225);
-    pdf.setFillColor(index % 2 === 0 ? 255 : 248, index % 2 === 0 ? 255 : 250, index % 2 === 0 ? 255 : 252);
+    pdf.setFillColor(
+      index % 2 === 0 ? 255 : 248,
+      index % 2 === 0 ? 255 : 250,
+      index % 2 === 0 ? 255 : 252,
+    );
     pdf.rect(PDF_TABLE_X, y, 190, rowHeight, "FD");
 
     // Column separators
@@ -1280,9 +1296,16 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     pdf.setTextColor(17, 24, 39);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(7.2);
-    drawPdfFittedText(pdf, airline, cellX + 2, centerY + 1, PDF_TABLE_COLS[1].width - 4, {
-      lines: 1,
-    });
+    drawPdfFittedText(
+      pdf,
+      airline,
+      cellX + 2,
+      centerY + 1,
+      PDF_TABLE_COLS[1].width - 4,
+      {
+        lines: 1,
+      },
+    );
     cellX += PDF_TABLE_COLS[1].width;
 
     // Dates
@@ -1318,32 +1341,60 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     pdf.setTextColor(71, 85, 105);
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(5.8);
-    drawPdfFittedText(pdf, segmentLines[0] || "-", cellX + 2, y + 5.5, PDF_TABLE_COLS[4].width - 4, {
-      lines: 1,
-    });
-    if (segmentLines[1]) {
-      drawPdfFittedText(pdf, segmentLines[1], cellX + 2, y + 11, PDF_TABLE_COLS[4].width - 4, {
+    drawPdfFittedText(
+      pdf,
+      segmentLines[0] || "-",
+      cellX + 2,
+      y + 5.5,
+      PDF_TABLE_COLS[4].width - 4,
+      {
         lines: 1,
-      });
+      },
+    );
+    if (segmentLines[1]) {
+      drawPdfFittedText(
+        pdf,
+        segmentLines[1],
+        cellX + 2,
+        y + 11,
+        PDF_TABLE_COLS[4].width - 4,
+        {
+          lines: 1,
+        },
+      );
     }
     cellX += PDF_TABLE_COLS[4].width;
 
     // Baggage (per leg, lined up with the flight-times rows above)
-    const baggageLines = details.map((detail) =>
-      formatBaggageLabel(detail.baggage) || "-",
+    const baggageLines = details.map(
+      (detail) => formatBaggageLabel(detail.baggage) || "-",
     );
     if (!baggageLines.length) baggageLines.push("-");
 
     pdf.setTextColor(71, 85, 105);
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(6);
-    drawPdfFittedText(pdf, baggageLines[0] || "-", cellX + 2, y + 5.5, PDF_TABLE_COLS[5].width - 4, {
-      lines: 1,
-    });
-    if (baggageLines[1]) {
-      drawPdfFittedText(pdf, baggageLines[1], cellX + 2, y + 11, PDF_TABLE_COLS[5].width - 4, {
+    drawPdfFittedText(
+      pdf,
+      baggageLines[0] || "-",
+      cellX + 2,
+      y + 5.5,
+      PDF_TABLE_COLS[5].width - 4,
+      {
         lines: 1,
-      });
+      },
+    );
+    if (baggageLines[1]) {
+      drawPdfFittedText(
+        pdf,
+        baggageLines[1],
+        cellX + 2,
+        y + 11,
+        PDF_TABLE_COLS[5].width - 4,
+        {
+          lines: 1,
+        },
+      );
     }
     cellX += PDF_TABLE_COLS[5].width;
 
@@ -1383,8 +1434,12 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
 
       const sectorTables = sectorOrder.map((sector) => {
         const list = [...sectorMap.get(sector)].sort((a, b) => {
-          const airlineA = standardizeAirlineName(a.airline?.airline_name || "");
-          const airlineB = standardizeAirlineName(b.airline?.airline_name || "");
+          const airlineA = standardizeAirlineName(
+            a.airline?.airline_name || "",
+          );
+          const airlineB = standardizeAirlineName(
+            b.airline?.airline_name || "",
+          );
           if (airlineA !== airlineB) return airlineA.localeCompare(airlineB);
           return String(a.dept_date || "").localeCompare(
             String(b.dept_date || ""),

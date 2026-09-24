@@ -14,13 +14,7 @@ const nationalityOptions = countryCodes
   .filter(Boolean)
   .sort((a, b) => a.localeCompare(b));
 
-const ABID_AIR_PASSENGER_LIMIT = 10;
-
-// "Legacy" Abid Air behaviour (seats on call, 10-passenger cap, live seat
-// lookup) only applies to the old API. Partner API groups (partnerApi: true)
-// report real seat counts and are booked like any other counted group.
 const isAbidAirGroup = (group = {}) => {
-  if (group?.partnerApi) return false;
   const source = String(
     group?.source || group?.packageSource || "",
   ).toLowerCase();
@@ -183,7 +177,11 @@ export default function BookingForm({ user }) {
     // =========================
     // 4. GLOBAL MARGIN (fallback)
     // =========================
-    if (!group?.marginApplied && finalPrice === normalizedBasePrice && dbMargin) {
+    if (
+      !group?.marginApplied &&
+      finalPrice === normalizedBasePrice &&
+      dbMargin
+    ) {
       if (dbMargin.type === "percent" && dbMargin.value > 0) {
         finalPrice =
           normalizedBasePrice + (normalizedBasePrice * dbMargin.value) / 100;
@@ -470,7 +468,7 @@ export default function BookingForm({ user }) {
     if (isEditMode) return true;
     const totalSeats = adults + children;
     if (isAbidAirGroup(groupData)) {
-      return totalSeats <= ABID_AIR_PASSENGER_LIMIT;
+      return true;
     }
     const availableSeats = groupData?.available_no_of_pax || 0;
     return totalSeats <= availableSeats;
@@ -497,52 +495,55 @@ export default function BookingForm({ user }) {
     const availableSeats = groupData?.available_no_of_pax || 0;
 
     if (isAbidAirGroup(groupData)) {
-      if (totalSeatsRequired > ABID_AIR_PASSENGER_LIMIT) {
-        toast.error(
-          `this bookings can have up to ${ABID_AIR_PASSENGER_LIMIT} passengers.`,
-        );
-        return;
-      }
-
+      const isPackageBooking =
+        String(groupData?.abidAirBookingType || "").toLowerCase() ===
+          "package" || isUmrahPackageGroup(groupData);
       const isFlightBooking =
         String(groupData?.abidAirBookingType || "flight").toLowerCase() ===
-          "flight" && !isUmrahPackageGroup(groupData);
-      const seatCounterChanged = name === "adults" || name === "children";
+          "flight" && !isPackageBooking;
+      const counterChanged = ["adults", "children", "infants"].includes(name);
 
-      if (isFlightBooking && seatCounterChanged) {
+      if ((isFlightBooking || isPackageBooking) && counterChanged) {
         const requestId = ++availabilityRequestRef.current;
+        const availabilityEndpoint = isPackageBooking
+          ? `/abidair/package/${groupData.id}/availability`
+          : `/abidair/flight/${groupData.id}/availability`;
         try {
-          const response = await axiosInstance.get(
-            `/abidair/flight/${groupData.id}/availability`,
-            {
-              params: {
-                requiredSeats:
-                  (parseInt(updated.adults) || 0) +
-                  (parseInt(updated.children) || 0),
-              },
+          const response = await axiosInstance.get(availabilityEndpoint, {
+            params: {
+              adults: parseInt(updated.adults) || 0,
+              children: parseInt(updated.children) || 0,
+              infants: parseInt(updated.infants) || 0,
             },
-          );
+          });
 
-          // Ignore an older response if the user changed the counter again.
           if (requestId !== availabilityRequestRef.current) return;
 
           if (!response.data?.available) {
             toast.error(response.data?.message || "Seats not available.", {
-              toastId: "abid-air-seat-error",
+              toastId: "external-seat-check",
             });
             return;
           }
 
-          setGroupData((previous) => ({
-            ...previous,
-            available_no_of_pax: response.data.remainingSeats,
-          }));
+          const remaining = isPackageBooking
+            ? response.data.remainingUnits
+            : response.data.remainingSeats;
+          if (remaining !== undefined && remaining !== null) {
+            setGroupData((previous) => ({
+              ...previous,
+              available_no_of_pax: remaining,
+            }));
+          }
+          toast.success(response.data?.message || "Seats are available.", {
+            toastId: "external-seat-check",
+          });
         } catch (error) {
           if (requestId !== availabilityRequestRef.current) return;
           toast.error(
             error.response?.data?.message ||
               "Unable to check seat availability.",
-            { toastId: "abid-air-seat-error" },
+            { toastId: "external-seat-check" },
           );
           return;
         }
@@ -581,7 +582,7 @@ export default function BookingForm({ user }) {
         const totalSeats = adults + children;
         const availableSeats = groupData?.available_no_of_pax || 0;
         const message = isAbidAirGroup(groupData)
-          ? `this ookings can have up to ${ABID_AIR_PASSENGER_LIMIT} passengers.`
+          ? "Seat availability will be verified when you confirm the booking."
           : `Seats not available! You selected ${totalSeats} seats but only ${availableSeats} are available.`;
         toast.error(message, { toastId: "seat-limit-error" });
         const defaultValue = getDefaultPassengerValue(name);
@@ -806,13 +807,6 @@ export default function BookingForm({ user }) {
       (parseInt(formData.infants) || 0);
 
     const isAbidAirBooking = isAbidAirGroup(groupData);
-
-    if (isAbidAirBooking && payingPassengers > ABID_AIR_PASSENGER_LIMIT) {
-      toast.error(
-        `this bookings can have up to ${ABID_AIR_PASSENGER_LIMIT} passengers.`,
-      );
-      return;
-    }
 
     // ✅ final available seats AFTER deduction
     const remainingSeats = (groupData?.available_no_of_pax || 0) - booked;
@@ -1114,49 +1108,38 @@ export default function BookingForm({ user }) {
             {/* Pricing Info */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-8 lg:gap-32 w-full lg:w-auto">
               <div className="flex flex-row gap-4 sm:gap-8 lg:gap-32 w-full sm:w-auto flex-wrap">
-                <div className="flex flex-col">
-                  <p className="text-xs text-gray-600 font-semibold mb-0.5">
-                    Available Seats
-                  </p>
-                  <p className="text-sm font-extrabold text-[#3d6a8f] bg-blue-50 px-2 py-1 rounded-2xl">
-                    {(() => {
-                      if (isAbidAirGroup(groupData)) {
-                        return "Seats on call";
-                      }
+                {!isAbidAirGroup(groupData) && (
+                  <div className="flex flex-col">
+                    <p className="text-xs text-gray-600 font-semibold mb-0.5">
+                      Available Seats
+                    </p>
+                    <p className="text-sm font-extrabold text-[#3d6a8f] bg-blue-50 px-2 py-1 rounded-2xl">
+                      {(() => {
+                        if (!groupData?.details?.[0]) return 0;
 
-                      if (
-                        !groupData ||
-                        !groupData.details ||
-                        !groupData.details[0]
-                      )
-                        return 0;
+                        const flight = groupData.details[0];
+                        const flightNo = flight.flight_no
+                          ?.toUpperCase()
+                          .replace("-", "")
+                          .trim();
+                        const rawDate = flight.dep_date || flight.flight_date;
+                        const depDate = new Date(rawDate)
+                          .toISOString()
+                          .split("T")[0];
+                        const key = `${flightNo}_${depDate}`;
+                        const booked = bookedSeatsMap[key] || 0;
+                        const total = groupData.available_no_of_pax || 0;
+                        const currentBookingPassengers = isEditMode
+                          ? (parseInt(formData.adults) || 0) +
+                            (parseInt(formData.children) || 0) +
+                            (parseInt(formData.infants) || 0)
+                          : 0;
 
-                      const flight = groupData.details[0];
-
-                      // Normalize EXACTLY like fetchBookingVoucher builds the map key
-                      const flightNo = flight.flight_no
-                        ?.toUpperCase()
-                        .replace("-", "")
-                        .trim();
-                      const rawDate = flight.dep_date || flight.flight_date;
-                      const depDate = new Date(rawDate)
-                        .toISOString()
-                        .split("T")[0];
-                      const key = `${flightNo}_${depDate}`;
-
-                      const booked = bookedSeatsMap[key] || 0;
-                      const total = groupData.available_no_of_pax || 0;
-
-                      const currentBookingPassengers = isEditMode
-                        ? (parseInt(formData.adults) || 0) +
-                          (parseInt(formData.children) || 0) +
-                          (parseInt(formData.infants) || 0)
-                        : 0;
-
-                      return total - booked + currentBookingPassengers;
-                    })()}
-                  </p>
-                </div>
+                        return total - booked + currentBookingPassengers;
+                      })()}
+                    </p>
+                  </div>
+                )}
                 <div className="flex flex-col">
                   <p className="text-xs text-gray-600 font-semibold mb-0.5">
                     Adult Price

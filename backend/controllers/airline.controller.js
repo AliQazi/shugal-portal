@@ -10,16 +10,18 @@ export const addAirline = async (req, res) => {
     if (!airlineCode || !airlineName || !shortCode) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required"
+        message: "All fields are required",
       });
     }
 
     // Check if airline code already exists
-    const existingAirline = await Airline.findOne({ airlineCode: airlineCode.toUpperCase() });
+    const existingAirline = await Airline.findOne({
+      airlineCode: airlineCode.toUpperCase(),
+    });
     if (existingAirline) {
       return res.status(400).json({
         success: false,
-        message: "Airline code already exists"
+        message: "Airline code already exists",
       });
     }
 
@@ -28,7 +30,7 @@ export const addAirline = async (req, res) => {
       airlineCode: airlineCode.toUpperCase(),
       airlineName,
       shortCode: shortCode.toUpperCase(),
-      status: "Active"
+      status: "Active",
     };
 
     // Add logo if uploaded
@@ -43,15 +45,14 @@ export const addAirline = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Airline added successfully",
-      data: newAirline
+      data: newAirline,
     });
-
   } catch (error) {
     console.error("Error adding airline:", error);
     res.status(500).json({
       success: false,
       message: "Error adding airline",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -64,15 +65,14 @@ export const getAirlines = async (req, res) => {
     res.status(200).json({
       success: true,
       count: airlines.length,
-      data: airlines
+      data: airlines,
     });
-
   } catch (error) {
     console.error("Error fetching airlines:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching airlines",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -86,21 +86,20 @@ export const getAirlineById = async (req, res) => {
     if (!airline) {
       return res.status(404).json({
         success: false,
-        message: "Airline not found"
+        message: "Airline not found",
       });
     }
 
     res.status(200).json({
       success: true,
-      data: airline
+      data: airline,
     });
-
   } catch (error) {
     console.error("Error fetching airline:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching airline",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -116,20 +115,20 @@ export const updateAirline = async (req, res) => {
     if (!airline) {
       return res.status(404).json({
         success: false,
-        message: "Airline not found"
+        message: "Airline not found",
       });
     }
 
     // Check if new airline code conflicts with existing ones
     if (airlineCode && airlineCode.toUpperCase() !== airline.airlineCode) {
-      const existingAirline = await Airline.findOne({ 
+      const existingAirline = await Airline.findOne({
         airlineCode: airlineCode.toUpperCase(),
-        _id: { $ne: id }
+        _id: { $ne: id },
       });
       if (existingAirline) {
         return res.status(400).json({
           success: false,
-          message: "Airline code already exists"
+          message: "Airline code already exists",
         });
       }
     }
@@ -149,7 +148,7 @@ export const updateAirline = async (req, res) => {
           console.error("Error deleting old logo:", error);
         }
       }
-      
+
       airline.logo = req.file.path;
       airline.logoPublicId = req.file.filename;
     }
@@ -159,15 +158,14 @@ export const updateAirline = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Airline updated successfully",
-      data: airline
+      data: airline,
     });
-
   } catch (error) {
     console.error("Error updating airline:", error);
     res.status(500).json({
       success: false,
       message: "Error updating airline",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -181,7 +179,7 @@ export const deleteAirline = async (req, res) => {
     if (!airline) {
       return res.status(404).json({
         success: false,
-        message: "Airline not found"
+        message: "Airline not found",
       });
     }
 
@@ -198,15 +196,14 @@ export const deleteAirline = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Airline deleted successfully"
+      message: "Airline deleted successfully",
     });
-
   } catch (error) {
     console.error("Error deleting airline:", error);
     res.status(500).json({
       success: false,
       message: "Error deleting airline",
-      error: error.message
+      error: error.message,
     });
   }
 };

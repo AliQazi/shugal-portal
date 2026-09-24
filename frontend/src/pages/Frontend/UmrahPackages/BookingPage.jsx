@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import axiosInstance from "../../../api/axios";
 import {
   X,
   Plus,
@@ -79,6 +80,9 @@ const s = {
   closeBtn: { background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%", width: "36px", height: "36px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "white" },
 };
 
+const ROOM_ORDER = ["sharing", "quint", "quad", "triple", "double"];
+const ROOM_OCCUPANCY = { double: 2, triple: 3, quad: 4, quint: 5 };
+
 const mkAdult  = () => ({ type: "Adult",  title: "Mr",    givenName: "", surName: "", passport: "", dateOfBirth: "", passportExpiry: "", nationality: "Pakistan", passportFile: null, passportFileName: "" });
 const mkChild  = () => ({ type: "Child",  title: "Child", givenName: "", surName: "", passport: "", dateOfBirth: "", passportExpiry: "", nationality: "Pakistan", passportFile: null, passportFileName: "" });
 const mkInfant = () => ({ type: "Infant", title: "INF",   givenName: "", surName: "", passport: "", dateOfBirth: "", passportExpiry: "", nationality: "Pakistan", passportFile: null, passportFileName: "" });
@@ -87,8 +91,19 @@ export default function UmrahBookingPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const packageData  = location.state?.packageData || getStoredBookingPackage(location.search);
-  const selectedRoom = location.state?.selectedRoom || "sharing";   
-  const pricePerPerson = location.state?.pricePerPerson || 0;
+  const roomPrices = packageData?.rooms || {};
+  const availableRoomTypes = ROOM_ORDER.filter((r) => Number(roomPrices[r]) > 0);
+  const [selectedRoom, setSelectedRoom] = useState(
+    location.state?.selectedRoom || availableRoomTypes[0] || "sharing",
+  );
+  const pricePerPerson =
+    Number(roomPrices[selectedRoom]) || location.state?.pricePerPerson || 0;
+
+  const isAbidAirPackage =
+    String(packageData?.source || packageData?.packageSource || "").toLowerCase() ===
+    "abidairtravel";
+  const packageId =
+    packageData?.id || packageData?.packageId || packageData?.package_id || packageData?._id;
 
   const [loading, setLoading] = useState(false);
   const [mrzModal, setMrzModal] = useState({ open: false, index: null, type: "adult" });
@@ -96,16 +111,9 @@ export default function UmrahBookingPage() {
   const [mrzError, setMrzError] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(false);
 
-  const getMaxAdults = () => {
-    const rt = selectedRoom?.toLowerCase();
-    if (rt === "double") return 2;
-    if (rt === "triple") return 3;
-    if (rt === "quad") return 4;
-    if (rt === "quint") return 5;
-    return packageData?.availableRooms || 2;
-  };
-  const maxAdults = getMaxAdults();
   const isSharing = selectedRoom?.toLowerCase() === "sharing";
+  const maxAdults =
+    ROOM_OCCUPANCY[selectedRoom?.toLowerCase()] || packageData?.availableRooms || 2;
 
   const [formData, setFormData] = useState({
     adults:   Array(isSharing ? 2 : maxAdults).fill(null).map(mkAdult),
@@ -113,6 +121,65 @@ export default function UmrahBookingPage() {
     infants:  [],
     specialRequests: "",
   });
+
+  const changeRoom = (room) => {
+    if (room === selectedRoom) return;
+    setSelectedRoom(room);
+    const occupancy = ROOM_OCCUPANCY[room];
+    if (!occupancy) return;
+    setFormData((f) => ({
+      ...f,
+      adults: Array.from({ length: occupancy }, (_, i) => f.adults[i] || mkAdult()),
+    }));
+  };
+
+  // Abid Air package stock is only known to the supplier, so every change in
+  // passenger count is checked against its live availability API.
+  const availabilityRequestRef = useRef(0);
+
+  useEffect(() => {
+    if (!isAbidAirPackage || !packageId) return;
+
+    const adults = formData.adults.length;
+    const children = formData.children.length;
+    const infants = formData.infants.length;
+    if (adults + children + infants === 0) return;
+
+    const requestId = ++availabilityRequestRef.current;
+    const timer = setTimeout(async () => {
+      try {
+        const response = await axiosInstance.get(
+          `/abidair/package/${packageId}/availability`,
+          { params: { adults, children, infants } },
+        );
+        if (requestId !== availabilityRequestRef.current) return;
+
+        if (!response.data?.available) {
+          toast.error(response.data?.message || "Seats not available.", {
+            toastId: "umrah-package-availability",
+          });
+          return;
+        }
+        toast.success(response.data?.message || "Seats are available.", {
+          toastId: "umrah-package-availability",
+        });
+      } catch (error) {
+        if (requestId !== availabilityRequestRef.current) return;
+        toast.error(
+          error.response?.data?.message || "Unable to check seat availability.",
+          { toastId: "umrah-package-availability" },
+        );
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [
+    formData.adults.length,
+    formData.children.length,
+    formData.infants.length,
+    isAbidAirPackage,
+    packageId,
+  ]);
 
   const changeField = (listKey, i, field, val) => {
     setFormData((f) => {
@@ -132,7 +199,7 @@ export default function UmrahBookingPage() {
   };
 
   const addAdult = () => {
-    if (formData.adults.length >= maxAdults) {
+    if (!(isAbidAirPackage && isSharing) && formData.adults.length >= maxAdults) {
       toast.warning(isSharing ? `Max ${maxAdults} adults (available rooms)` : `${selectedRoom} allows ${maxAdults} adult(s)`);
     }
     setFormData((f) => ({ ...f, adults: [...f.adults, mkAdult()] }));
@@ -356,7 +423,10 @@ export default function UmrahBookingPage() {
           <p style={{ margin: "0 0 30px 0", opacity: 0.9, fontSize: "1rem" }}>Complete your booking details below</p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "20px", maxWidth: "900px", margin: "0 auto", padding: "25px", background: "rgba(255,255,255,0.15)", borderRadius: "15px", backdropFilter: "blur(10px)" }}>
             {[
-              { value: packageData.availableRooms, label: "Available Packages" },
+              {
+                value: isAbidAirPackage ? "On Call" : packageData.availableRooms,
+                label: isAbidAirPackage ? "Seats" : "Available Packages",
+              },
               { value: packageData.packageDuration ? `${packageData.packageDuration} Days` : "N/A", label: "Duration" },
               { value: selectedRoom, label: "Accommodation" },
               { value: `PKR ${pricePerPerson?.toLocaleString()}`, label: "Per Person" },
@@ -476,12 +546,47 @@ export default function UmrahBookingPage() {
         <form onSubmit={handleSubmit}>
           <div style={{ background: "white", padding: "20px", borderRadius: "12px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", border: "1px solid #e2e8f0", marginBottom: "20px" }}>
 
+            {/* Room type */}
+            {availableRoomTypes.length > 0 && (
+              <div style={{ marginBottom: "18px" }}>
+                <h3 style={{ margin: "0 0 10px 0", fontSize: "1.1rem", color: "#1a202c", fontWeight: 700 }}>Room Type</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "10px" }}>
+                  {availableRoomTypes.map((room) => (
+                    <button
+                      key={room}
+                      type="button"
+                      onClick={() => changeRoom(room)}
+                      style={{
+                        padding: "10px",
+                        borderRadius: "10px",
+                        border: `2px solid ${selectedRoom === room ? "#21397C" : "#e2e8f0"}`,
+                        background: selectedRoom === room ? "#f0f7ff" : "white",
+                        cursor: "pointer",
+                        textAlign: "left",
+                      }}
+                    >
+                      <div style={{ fontSize: "0.7rem", textTransform: "uppercase", color: "#718096", fontWeight: 700 }}>
+                        {room}{ROOM_OCCUPANCY[room] ? ` (${ROOM_OCCUPANCY[room]} pax)` : ""}
+                      </div>
+                      <div style={{ fontWeight: 700, color: "#2d3748", fontSize: "0.9rem" }}>
+                        PKR {Number(roomPrices[room]).toLocaleString()}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Adults */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px", flexWrap: "wrap", gap: "10px" }}>
               <h3 style={{ margin: 0, fontSize: "1.1rem", color: "#1a202c", fontWeight: 700 }}>
                 Adult Passengers ({formData.adults.length})
                 <span style={{ fontSize: "0.75rem", fontWeight: 400, color: "#718096", marginLeft: "8px" }}>
-                  ({isSharing ? `Max: ${maxAdults} based on available rooms` : `${selectedRoom}: ${maxAdults} required`})
+                  ({isSharing
+                    ? isAbidAirPackage
+                      ? "Seats on call - availability checked live"
+                      : `Max: ${maxAdults} based on available rooms`
+                    : `${selectedRoom}: ${maxAdults} required`})
                 </span>
               </h3>
               <button type="button" onClick={addAdult} style={s.btn("#48bb78", false)}>

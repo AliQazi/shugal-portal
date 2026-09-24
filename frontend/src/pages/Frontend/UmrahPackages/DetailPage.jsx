@@ -26,7 +26,13 @@ const getPackageStorageKey = (pkg) => {
 const getHotelsArray = (hotels) => {
   if (Array.isArray(hotels)) return hotels;
   if (!hotels || typeof hotels !== "object") return [];
-  return Object.values(hotels).filter(Boolean);
+  return Object.entries(hotels)
+    .map(([city, hotel]) => {
+      if (!hotel) return null;
+      if (typeof hotel === "object") return { ...hotel, _cityKey: city };
+      return { city, hotelName: hotel };
+    })
+    .filter(Boolean);
 };
 
 const PRIMARY = "#21397C";
@@ -111,6 +117,46 @@ const parseNumber = (value) => {
   return 0;
 };
 
+const pickText = (...values) => {
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+    if (typeof value === "string" || typeof value === "number") {
+      const text = String(value).trim();
+      if (text) return text;
+      continue;
+    }
+    if (typeof value === "object") {
+      const text = pickText(
+        value.city,
+        value.cityName,
+        value.location,
+        value.locationName,
+        value.name,
+        value.hotelName,
+        value.title,
+        value.label,
+      );
+      if (text) return text;
+    }
+  }
+  return "";
+};
+
+const normalizeHotel = (hotel) => {
+  const source = hotel && typeof hotel === "object" ? hotel : { hotelName: hotel };
+  const nestedHotel = source.hotel && typeof source.hotel === "object" ? source.hotel : {};
+
+  return {
+    ...source,
+    city: pickText(source.city, source.cityName, source.location, source.hotelCity, nestedHotel.city, nestedHotel.cityName, source._cityKey) || "Other",
+    hotelName: pickText(source.hotelName, source.name, source.title, nestedHotel.name, nestedHotel.hotelName) || "Hotel",
+    distance: parseNumber(source.distance || source.distanceFromHaram || source.distanceKm || nestedHotel.distance),
+    rating: parseNumber(source.rating || nestedHotel.rating),
+    nights: parseNumber(source.nights || source.night || source.noOfNights || source.nightsCount),
+    mapUrl: pickText(source.mapUrl, source.map_url, nestedHotel.mapUrl, nestedHotel.map_url),
+  };
+};
+
 const normalizeFlightLeg = (detail = {}, group = {}) => {
   const groupTicket = group.umrahGroupTicket || {};
   const depDate = detail.depDate || detail.dep_date || detail.departure_date || detail.flight_date || detail.date || null;
@@ -136,7 +182,7 @@ const normalizeFlightLeg = (detail = {}, group = {}) => {
 };
 
 const computeHotelNights = (group) => {
-  const hotels = getHotelsArray(group.hotels);
+  const hotels = getHotelsArray(group.hotels).map(normalizeHotel);
   const nights = hotels.reduce((sum, hotel) => {
     const value = hotel?.nights || hotel?.night || hotel?.noOfNights || hotel?.nightsCount || 0;
     const parsed = Number(String(value).replace(/[^0-9]+/g, ""));
@@ -377,7 +423,7 @@ export default function DetailPage({ user }) {
 
   // Group hotels by city
   const hotelsByCity = {};
-  const hotelsList = getHotelsArray(group.hotels);
+  const hotelsList = getHotelsArray(group.hotels).map(normalizeHotel);
   hotelsList.forEach((hotel) => {
     const city = hotel.city || "Other";
     if (!hotelsByCity[city]) hotelsByCity[city] = [];
@@ -477,7 +523,11 @@ export default function DetailPage({ user }) {
                   🌙 {packageNights} NIGHTS
                 </span>
               )}
-              {group.availableRooms > 0 && (
+              {String(group.source || "").toLowerCase() === "abidairtravel" ? (
+                <span style={{ background: "rgba(255,255,255,0.18)", padding: "6px 14px", borderRadius: "999px", fontSize: "0.8rem", fontWeight: 700 }}>
+                  👤 Seats: On Call
+                </span>
+              ) : group.availableRooms > 0 && (
                 <span style={{ background: "rgba(255,255,255,0.18)", padding: "6px 14px", borderRadius: "999px", fontSize: "0.8rem", fontWeight: 700 }}>
                   👤 Seats: {group.availableRooms}
                 </span>

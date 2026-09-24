@@ -40,7 +40,7 @@ interface Row {
 
 const SOURCES: { key: Source; label: string; badge: string }[] = [
   { key: "travel-network", label: "Travel Network", badge: "bg-purple-100 text-purple-700" },
-  { key: "abidairtravel", label: "Abid Air", badge: "bg-cyan-100 text-cyan-700" },
+  { key: "abidairtravel", label: "External Packages", badge: "bg-cyan-100 text-cyan-700" },
 ];
 
 const DEFAULT_RULE: RuleLevel = { margin: 0, visible: true };
@@ -197,7 +197,7 @@ export default function ManageUmrahPackages() {
       return result.value.data.data || [];
     };
 
-    const all = [...collect(tn, "Travel Network"), ...collect(abid, "Abid Air")]
+    const all = [...collect(tn, "Travel Network"), ...collect(abid, "External Packages")]
       .map(toRow)
       .filter((r): r is Row => Boolean(r));
 
@@ -301,14 +301,14 @@ export default function ManageUmrahPackages() {
 
   return (
     <>
-      <PageMeta title="Manage Umrah Packages | Admin" description="Margin and visibility for Travel Network and Abid Air packages" />
+      <PageMeta title="Manage Umrah Packages | Admin" description="Margin and visibility for Travel Network and external packages" />
 
       <div className="min-h-screen rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/3">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-xl font-bold text-gray-800 dark:text-white">Manage Umrah Packages</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Travel Network &amp; Abid Air packages — margin applies to every room type and child fare; agents only see public packages.
+              Travel Network &amp; external packages - margin applies to every room type and child fare; agents only see public packages.
             </p>
           </div>
           <div className="flex items-center gap-2">

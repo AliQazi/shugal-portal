@@ -650,7 +650,7 @@ export const getUnifiedGroups = async (req, res) => {
       await Promise.allSettled([
         fetchNormalisedAlHaiderGroups(),
         fetchNormalisedTravelNetworkGroups(),
-        fetchNormalisedAbidAirGroups(),
+        fetchNormalisedAbidAirGroups({ includeUmrahPackages: false }),
         fetchNormalisedSabaoonGroups(),
         fetchNormalisedMCTGroups(),
       ]);
@@ -698,11 +698,13 @@ export const getUnifiedGroups = async (req, res) => {
     }
 
     if (abidResult.status === "fulfilled") {
-      abidAirGroups = abidResult.value.map((g) => ({
-        ...g,
-        source: "abidairtravel",
-        isOwnGroup: false,
-      }));
+      abidAirGroups = abidResult.value
+        .filter((g) => g.abidAirBookingType !== "package")
+        .map((g) => ({
+          ...g,
+          source: "abidairtravel",
+          isOwnGroup: false,
+        }));
     } else {
       console.error(
         "AbidAir fetch for unified groups failed:",

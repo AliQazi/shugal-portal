@@ -1110,7 +1110,7 @@ export const createBooking = async (req, res) => {
 
         return res.status(getAbidAirHttpStatus(abidAirErr)).json({
           ...abidAirErrorBody(abidAirErr),
-          message: `Abid Air booking handoff failed: ${abidAirErr.message}`,
+          message: `External supplier booking failed: ${abidAirErrorBody(abidAirErr).message}`,
           reconciliationRequired: uncertain,
           data: uncertain ? booking : undefined,
         });
@@ -1199,7 +1199,11 @@ export const createBooking = async (req, res) => {
           abidAirErr.response?.data?.message ||
           abidAirErr.response?.data?.error ||
           abidAirErr.message;
-        throw new Error(providerMessage || "booking could not be created.");
+        throw new Error(
+          String(providerMessage || "booking could not be created.")
+            .replace(/Abid\s*Air/gi, "External supplier")
+            .replace(/AbidAir/gi, "External supplier"),
+        );
       }
     }
 
@@ -1606,7 +1610,7 @@ export const updateBookingStatus = async (req, res) => {
     // supplier refusal aborts the whole change so both sides stay in sync.
     if (isPartnerAbidAirBooking(booking)) {
       if (oldStatus === "cancelled" && status !== "cancelled") {
-        const err = new Error("A cancelled Abid Air booking cannot be reopened locally");
+        const err = new Error("A cancelled external supplier booking cannot be reopened locally");
         err.name = "AbidAirApiError";
         err.status = 409;
         err.code = "ABID_AIR_REOPEN_NOT_ALLOWED";

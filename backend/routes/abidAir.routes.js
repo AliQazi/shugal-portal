@@ -1,6 +1,7 @@
 import express from "express";
 import {
   checkAbidAirFlightAvailability,
+  checkAbidAirPackageAvailability,
   getAvailableAbidAirBookingsByGroup,
 } from "../controllers/abidair.controller.js";
 import { applyUmrahPackageRules } from "../middleware/marginVisibility.middleware.js";
@@ -11,6 +12,10 @@ router.get("/available-bookings-by-group", applyUmrahPackageRules, getAvailableA
 router.get(
   "/flight/:flightId/availability",
   checkAbidAirFlightAvailability,
+);
+router.get(
+  "/package/:packageId/availability",
+  checkAbidAirPackageAvailability,
 );
 
 export default router;

@@ -4,7 +4,7 @@ import axios from "axios";
  * Abid Air Partner API v1 client (https://abidairtravels.com/api/external/v1).
  *
  * Server-side only. Inventory is fetched live; bookings are handed to Abid Air
- * using the availability-token flow, and Abid Air prices its own inventory.
+ * after a fresh availability check, and Abid Air prices its own inventory.
  *
  * Shaheen Wings already labels Abid Air inventory with the source key
  * "abidairtravel" (bookings, margin rules, ledger, admin/agent UI), so that key
@@ -31,7 +31,10 @@ const getClient = () => {
   }
 
   return axios.create({
-    baseURL: (process.env.ABID_AIR_API_URL?.trim() || DEFAULT_BASE_URL).replace(/\/+$/, ""),
+    baseURL: (process.env.ABID_AIR_API_URL?.trim() || DEFAULT_BASE_URL).replace(
+      /\/+$/,
+      "",
+    ),
     timeout: Number(process.env.ABID_AIR_API_TIMEOUT) || DEFAULT_TIMEOUT,
     headers: {
       Accept: "application/json",
@@ -69,8 +72,14 @@ const makeAbidAirError = (error, endpoint) => {
     responseData?.code ||
     (error.request ? "ABID_AIR_NO_RESPONSE" : "ABID_AIR_REQUEST_FAILED");
   enhancedError.retryAfter = getHeader(response?.headers, ["retry-after"]);
-  enhancedError.requestId = getHeader(response?.headers, ["x-request-id", "request-id"]);
-  enhancedError.correlationId = getHeader(response?.headers, ["x-correlation-id", "correlation-id"]);
+  enhancedError.requestId = getHeader(response?.headers, [
+    "x-request-id",
+    "request-id",
+  ]);
+  enhancedError.correlationId = getHeader(response?.headers, [
+    "x-correlation-id",
+    "correlation-id",
+  ]);
   enhancedError.endpoint = endpoint;
   enhancedError.details = supplierError?.details || null;
   enhancedError.responseData = responseData || null;
@@ -88,7 +97,13 @@ const makeAbidAirError = (error, endpoint) => {
 
 const request = async (method, endpoint, { params, data, headers } = {}) => {
   try {
-    return await getClient().request({ method, url: endpoint, params, data, headers });
+    return await getClient().request({
+      method,
+      url: endpoint,
+      params,
+      data,
+      headers,
+    });
   } catch (error) {
     if (error.code === "ABID_AIR_NOT_CONFIGURED") throw error;
     throw makeAbidAirError(error, endpoint);
@@ -107,30 +122,44 @@ const fetchAllPages = async (endpoint, params = {}) => {
 
   const remaining = await Promise.all(
     Array.from({ length: pages - 1 }, (_, index) =>
-      request("get", endpoint, { params: { ...params, page: index + 2, limit } }).then(
-        (response) => response.data?.data || [],
-      ),
+      request("get", endpoint, {
+        params: { ...params, page: index + 2, limit },
+      }).then((response) => response.data?.data || []),
     ),
   );
 
   return [firstData, ...remaining].flat();
 };
 
-export const getGroupTicketing = (params = {}) => fetchAllPages("/group-ticketing", params);
+export const getGroupTicketing = (params = {}) =>
+  fetchAllPages("/group-ticketing", params);
 
 export const getGroupTicketingById = async (id) => {
-  const response = await request("get", `/group-ticketing/${encodeURIComponent(id)}`);
+  const response = await request(
+    "get",
+    `/group-ticketing/${encodeURIComponent(id)}`,
+  );
   return response.data?.data;
 };
 
-export const getUmrahPackages = (params = {}) => fetchAllPages("/umrah-packages", params);
+export const getUmrahPackages = (params = {}) =>
+  fetchAllPages("/umrah-packages", params);
 
 export const getUmrahPackageById = async (id) => {
-  const response = await request("get", `/umrah-packages/${encodeURIComponent(id)}`);
+  const response = await request(
+    "get",
+    `/umrah-packages/${encodeURIComponent(id)}`,
+  );
   return response.data?.data;
 };
 
-export const checkAvailability = async ({ inventoryId, adults, children, infants }) => {
+export const checkAvailability = async ({
+  inventoryId,
+  adults,
+  children,
+  infants,
+  requireToken = false,
+}) => {
   const response = await request("post", "/availability", {
     data: {
       inventoryId: String(inventoryId),
@@ -155,47 +184,48 @@ export const checkAvailability = async ({ inventoryId, adults, children, infants
     throw error;
   }
 
-  if (!token) {
-    const error = new Error("Abid Air did not return an availability token");
+  if (requireToken && !token) {
+    const error = new Error("Availability token problem");
     error.name = "AbidAirApiError";
     error.status = 502;
     error.code = "ABID_AIR_TOKEN_MISSING";
     throw error;
   }
 
-  return { ...data, token };
+  return { ...data, token: token || undefined };
 };
 
 export const createBooking = async (payload, availabilityToken) => {
-  if (!availabilityToken) {
-    const error = new Error("Abid Air availability token is required");
-    error.name = "AbidAirApiError";
-    error.status = 400;
-    error.code = "ABID_AIR_TOKEN_REQUIRED";
-    throw error;
-  }
-
   const response = await request("post", "/bookings", {
     data: payload,
-    headers: { "X-Availability-Token": availabilityToken },
+    ...(availabilityToken && {
+      headers: { "X-Availability-Token": availabilityToken },
+    }),
   });
   return response.data?.data;
 };
 
 export const getBookingById = async (bookingId) => {
-  const response = await request("get", `/bookings/${encodeURIComponent(bookingId)}`);
+  const response = await request(
+    "get",
+    `/bookings/${encodeURIComponent(bookingId)}`,
+  );
   return response.data?.data;
 };
 
 export const cancelBooking = async (bookingId) => {
-  const response = await request("post", `/bookings/${encodeURIComponent(bookingId)}/cancel`);
+  const response = await request(
+    "post",
+    `/bookings/${encodeURIComponent(bookingId)}/cancel`,
+  );
   return response.data?.data;
 };
 
 export const getAbidAirHttpStatus = (error) => {
   // 401/403 mean OUR Abid Air key/scope is wrong, not that the agent is logged
   // out — never surface them as auth errors to the agent (the code is kept).
-  if ([400, 404, 409, 422, 428, 429].includes(error?.status)) return error.status;
+  if ([400, 404, 409, 422, 428, 429].includes(error?.status))
+    return error.status;
   if ([401, 403].includes(error?.status)) return 502;
   if (error?.status >= 500) return 502;
   return error?.status || 500;
@@ -205,7 +235,8 @@ export const getAbidAirHttpStatus = (error) => {
 
 export const toIsoDate = (value) => {
   if (!value) return null;
-  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
+    return value;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10);
 };
@@ -224,7 +255,10 @@ const normalizedTitle = (passenger, type) => {
   return ["MR", "MRS", "MS"].includes(title) ? title : "MR";
 };
 
-export const formatAbidAirPassengers = (passengers, { isUmrah = false } = {}) => {
+export const formatAbidAirPassengers = (
+  passengers,
+  { isUmrah = false } = {},
+) => {
   if (!Array.isArray(passengers) || passengers.length === 0) {
     const error = new Error("At least one passenger is required for Abid Air");
     error.name = "AbidAirApiError";
@@ -238,13 +272,25 @@ export const formatAbidAirPassengers = (passengers, { isUmrah = false } = {}) =>
     const mapped = {
       type,
       title: normalizedTitle(passenger, type),
-      givenName: String(passenger.givenName || passenger.givenname || passenger.given_name || "").trim(),
+      givenName: String(
+        passenger.givenName ||
+          passenger.givenname ||
+          passenger.given_name ||
+          "",
+      ).trim(),
       surName: String(passenger.surName || passenger.surname || "").trim(),
-      passport: String(passenger.passport || passenger.passportNo || passenger.passport_no || "").trim(),
+      passport: String(
+        passenger.passport ||
+          passenger.passportNo ||
+          passenger.passport_no ||
+          "",
+      ).trim(),
       nationality: String(passenger.nationality || "Pakistan").trim(),
       dateOfBirth: toIsoDate(passenger.dateOfBirth || passenger.dob),
       passportIssue: toIsoDate(passenger.passportIssue),
-      passportExpiry: toIsoDate(passenger.passportExpiry || passenger.expiry || passenger.doe),
+      passportExpiry: toIsoDate(
+        passenger.passportExpiry || passenger.expiry || passenger.doe,
+      ),
     };
 
     if (isUmrah && type === "Child") {
@@ -253,13 +299,22 @@ export const formatAbidAirPassengers = (passengers, { isUmrah = false } = {}) =>
         : "withoutBed";
     }
 
-    const missing = ["givenName", "surName", "passport", "nationality"].filter((f) => !mapped[f]);
+    const missing = ["givenName", "surName", "passport", "nationality"].filter(
+      (f) => !mapped[f],
+    );
     if (isUmrah) {
-      ["dateOfBirth", "passportExpiry"].forEach((f) => !mapped[f] && missing.push(f));
+      ["dateOfBirth", "passportExpiry"].forEach(
+        (f) => !mapped[f] && missing.push(f),
+      );
     }
-    if ((passenger.dateOfBirth || passenger.dob) && !mapped.dateOfBirth) missing.push("valid dateOfBirth");
-    if (passenger.passportIssue && !mapped.passportIssue) missing.push("valid passportIssue");
-    if ((passenger.passportExpiry || passenger.expiry || passenger.doe) && !mapped.passportExpiry) {
+    if ((passenger.dateOfBirth || passenger.dob) && !mapped.dateOfBirth)
+      missing.push("valid dateOfBirth");
+    if (passenger.passportIssue && !mapped.passportIssue)
+      missing.push("valid passportIssue");
+    if (
+      (passenger.passportExpiry || passenger.expiry || passenger.doe) &&
+      !mapped.passportExpiry
+    ) {
       missing.push("valid passportExpiry");
     }
 
@@ -275,20 +330,32 @@ export const formatAbidAirPassengers = (passengers, { isUmrah = false } = {}) =>
       throw error;
     }
 
-    return Object.fromEntries(Object.entries(mapped).filter(([, v]) => v !== null && v !== ""));
+    return Object.fromEntries(
+      Object.entries(mapped).filter(([, v]) => v !== null && v !== ""),
+    );
   });
 };
 
 /** Partner roomType is sharing | quad | triple | double. Shaheen forms send a
  *  name ("double") or an occupancy number (2/3/4). */
 export const toAbidAirRoomType = (value) => {
-  const raw = String(value ?? "").toLowerCase().trim();
-  const byName = { sharing: "sharing", shared: "sharing", quad: "quad", triple: "triple", double: "double" };
+  const raw = String(value ?? "")
+    .toLowerCase()
+    .trim();
+  const byName = {
+    sharing: "sharing",
+    shared: "sharing",
+    quad: "quad",
+    triple: "triple",
+    double: "double",
+  };
   if (byName[raw]) return byName[raw];
   const byCount = { 2: "double", 3: "triple", 4: "quad" };
   if (byCount[Number(raw)]) return byCount[Number(raw)];
 
-  const error = new Error(`Abid Air does not support room type "${value}". Use sharing, quad, triple or double.`);
+  const error = new Error(
+    `Abid Air does not support room type "${value}". Use sharing, quad, triple or double.`,
+  );
   error.name = "AbidAirApiError";
   error.status = 422;
   error.code = "ABID_AIR_ROOM_TYPE";
@@ -309,7 +376,9 @@ const GROUP_TYPE_MAP = {
 };
 
 export const mapAbidAirGroupType = (type) => {
-  const key = String(type || "").toUpperCase().trim();
+  const key = String(type || "")
+    .toUpperCase()
+    .trim();
   return GROUP_TYPE_MAP[key] || key;
 };
 
@@ -322,7 +391,9 @@ const airlineCodeFromFlights = (flights) => {
 };
 
 const normalizeFlight = (flight, index = 0) => {
-  const dep = toIsoDate(flight.depDate || flight.flightDate || flight.flight_date);
+  const dep = toIsoDate(
+    flight.depDate || flight.flightDate || flight.flight_date,
+  );
   return {
     sr: Number(flight.sr) || index + 1,
     flight_no: flight.flightNo || flight.flight_no || "",
@@ -331,7 +402,9 @@ const normalizeFlight = (flight, index = 0) => {
     dept_time: flight.depTime || flight.deptTime || flight.dept_time || "",
     origin: flight.origin || flight.sectorFrom || flight.from || "",
     destination: flight.destination || flight.sectorTo || flight.to || "",
-    arv_date: toIsoDate(flight.arrDate || flight.arrivalDate || flight.arv_date),
+    arv_date: toIsoDate(
+      flight.arrDate || flight.arrivalDate || flight.arv_date,
+    ),
     arv_time: flight.arrTime || flight.arrivalTime || flight.arv_time || "",
     baggage: flight.baggage || "",
     meal: flight.meal || "No",
@@ -342,8 +415,12 @@ const normalizeFlight = (flight, index = 0) => {
 const sectorFromDetails = (details) => {
   const stops = [];
   details.forEach((d) => {
-    const from = String(d.origin || "").trim().toUpperCase();
-    const to = String(d.destination || "").trim().toUpperCase();
+    const from = String(d.origin || "")
+      .trim()
+      .toUpperCase();
+    const to = String(d.destination || "")
+      .trim()
+      .toUpperCase();
     if (from && stops[stops.length - 1] !== from) stops.push(from);
     if (to && stops[stops.length - 1] !== to) stops.push(to);
   });
@@ -352,7 +429,10 @@ const sectorFromDetails = (details) => {
 
 const airlineFrom = (airline, flights) => ({
   id: null,
-  airline_name: (typeof airline === "string" ? airline : airline?.name) || flights?.[0]?.airline || "",
+  airline_name:
+    (typeof airline === "string" ? airline : airline?.name) ||
+    flights?.[0]?.airline ||
+    "",
   short_name:
     (typeof airline === "object" && (airline?.shortName || airline?.code)) ||
     airlineCodeFromFlights(flights) ||
@@ -392,7 +472,9 @@ export const normalizeAbidAirGroup = (group) => {
     currency: group.currency || "PKR",
 
     pnr: group.pnr || "",
-    dept_date: toIsoDate(group.flights?.[0]?.depDate || group.flights?.[0]?.flightDate),
+    dept_date: toIsoDate(
+      group.flights?.[0]?.depDate || group.flights?.[0]?.flightDate,
+    ),
     arv_date: toIsoDate(lastFlight?.arrDate || lastFlight?.arrivalDate),
 
     details,
@@ -402,11 +484,28 @@ export const normalizeAbidAirGroup = (group) => {
   };
 };
 
+const pickLocationText = (value) => {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string" || typeof value === "number") return String(value).trim();
+  if (typeof value !== "object") return "";
+
+  return pickLocationText(
+    value.city ||
+      value.cityName ||
+      value.location ||
+      value.locationName ||
+      value.name ||
+      value.title ||
+      value.label,
+  );
+};
+
 const hotelCity = (location) => {
-  const value = String(location || "").toLowerCase();
+  const text = pickLocationText(location);
+  const value = text.toLowerCase();
   if (value.includes("madin") || value.includes("medin")) return "Madinah";
   if (value.includes("makk") || value.includes("mecca")) return "Makkah";
-  return String(location || "");
+  return text;
 };
 
 /** Package shape the existing agent Umrah pages already understand
@@ -479,14 +578,28 @@ export const normalizeAbidAirPackage = (pkg) => {
   };
 };
 
-export const fetchPartnerAbidAirInventory = async () => {
-  const [groups, packages] = await Promise.allSettled([getGroupTicketing(), getUmrahPackages()]);
+export const fetchPartnerAbidAirInventory = async ({
+  includeUmrahPackages = true,
+} = {}) => {
+  const requests = [getGroupTicketing()];
+  if (includeUmrahPackages) requests.push(getUmrahPackages());
 
-  if (groups.status === "rejected" && packages.status === "rejected") throw groups.reason;
+  const [groups, packages] = await Promise.allSettled(requests);
+
+  if (
+    groups.status === "rejected" &&
+    (!includeUmrahPackages || packages.status === "rejected")
+  ) {
+    throw groups.reason;
+  }
 
   return [
-    ...(groups.status === "fulfilled" ? groups.value.map(normalizeAbidAirGroup) : []),
-    ...(packages.status === "fulfilled" ? packages.value.map(normalizeAbidAirPackage) : []),
+    ...(groups.status === "fulfilled"
+      ? groups.value.map(normalizeAbidAirGroup)
+      : []),
+    ...(includeUmrahPackages && packages.status === "fulfilled"
+      ? packages.value.map(normalizeAbidAirPackage)
+      : []),
   ];
 };
 
@@ -502,8 +615,9 @@ const abidAirError = (message, status, code) => {
 
 /**
  * Phase 1 (before anything is written locally): confirm the item is still
- * bookable, validate passenger fields and obtain the 5-minute availability
- * token. Throws an AbidAirApiError on any problem.
+ * bookable and validate passenger fields before anything is written locally.
+ * Some Abid Air deployments return an availability token; when present, it is
+ * forwarded to booking, but the current API does not require one.
  */
 export const prepareAbidAirHandoff = async ({
   inventoryId,
@@ -515,13 +629,20 @@ export const prepareAbidAirHandoff = async ({
   roomType,
 }) => {
   // Validate locally first — a bad passenger should cost no API call.
-  const mappedPassengers = formatAbidAirPassengers(passengers, { isUmrah: isPackage });
+  const mappedPassengers = formatAbidAirPassengers(passengers, {
+    isUmrah: isPackage,
+  });
   const resolvedRoomType = isPackage ? toAbidAirRoomType(roomType) : undefined;
 
   const inventory = isPackage
     ? await getUmrahPackageById(inventoryId)
     : await getGroupTicketingById(inventoryId);
-  if (!inventory) throw abidAirError("Abid Air inventory is no longer available", 404, "INVENTORY_NOT_FOUND");
+  if (!inventory)
+    throw abidAirError(
+      "Abid Air inventory is no longer available",
+      404,
+      "INVENTORY_NOT_FOUND",
+    );
 
   const availability = await checkAvailability({
     inventoryId: inventory.id || inventoryId,
@@ -543,7 +664,10 @@ export const prepareAbidAirHandoff = async ({
  * local booking. On 429/5xx the outcome is unknown, so the caller must keep
  * the local record as `supplier_pending` instead of retrying blindly.
  */
-export const sendAbidAirHandoff = async (handoff, { contactPersonName, expectedBaseTotal }) => {
+export const sendAbidAirHandoff = async (
+  handoff,
+  { contactPersonName, expectedBaseTotal },
+) => {
   const supplierResponse = await createBooking(
     {
       inventoryId: handoff.inventoryId,
@@ -555,11 +679,16 @@ export const sendAbidAirHandoff = async (handoff, { contactPersonName, expectedB
   );
 
   if (!supplierResponse?._id) {
-    throw abidAirError("Abid Air booking response did not include a booking ID", 502, "ABID_AIR_BOOKING_ID_MISSING");
+    throw abidAirError(
+      "Abid Air booking response did not include a booking ID",
+      502,
+      "ABID_AIR_BOOKING_ID_MISSING",
+    );
   }
 
   const supplierTotal = Number(
-    supplierResponse.pricing?.grandTotal ?? supplierResponse.pricing?.totalPrice,
+    supplierResponse.pricing?.grandTotal ??
+      supplierResponse.pricing?.totalPrice,
   );
 
   return {
@@ -576,7 +705,9 @@ export const sendAbidAirHandoff = async (handoff, { contactPersonName, expectedB
       Number.isFinite(expectedBaseTotal) &&
       Math.abs(supplierTotal - expectedBaseTotal) > 0.01,
     supplierError: null,
-    expiresAt: supplierResponse.expiresAt ? new Date(supplierResponse.expiresAt) : null,
+    expiresAt: supplierResponse.expiresAt
+      ? new Date(supplierResponse.expiresAt)
+      : null,
   };
 };
 
@@ -595,7 +726,9 @@ export const isUncertainAbidAirOutcome = (error) =>
 
 export const abidAirErrorBody = (error) => ({
   success: false,
-  message: error.message,
+  message: String(error.message || "External supplier request failed")
+    .replace(/Abid\s*Air/gi, "External supplier")
+    .replace(/AbidAir/gi, "External supplier"),
   code: error.code,
   retryAfter: error.retryAfter || undefined,
   requestId: error.requestId || undefined,
@@ -605,12 +738,15 @@ export const abidAirErrorBody = (error) => ({
 
 /* ───────────────────────── cancellation ───────────────────────── */
 
-const isOnHold = (status) => ["on hold", "on_hold"].includes(String(status || "").toLowerCase());
-const isCancelled = (status) => ["cancelled", "canceled"].includes(String(status || "").toLowerCase());
+const isOnHold = (status) =>
+  ["on hold", "on_hold"].includes(String(status || "").toLowerCase());
+const isCancelled = (status) =>
+  ["cancelled", "canceled"].includes(String(status || "").toLowerCase());
 
 /** True for bookings created through the Partner API (legacy Abid Air bookings
  *  carry no supplierName and have no supplier-side cancel API). */
-export const isPartnerAbidAirBooking = (doc) => doc?.supplierName === ABID_AIR_SUPPLIER_NAME;
+export const isPartnerAbidAirBooking = (doc) =>
+  doc?.supplierName === ABID_AIR_SUPPLIER_NAME;
 
 /**
  * Cancel the supplier side of a booking (Booking or UmrahPackageBooking — both
@@ -620,7 +756,10 @@ export const isPartnerAbidAirBooking = (doc) => doc?.supplierName === ABID_AIR_S
 export const cancelAbidAirSupplierBooking = async (doc) => {
   if (!isPartnerAbidAirBooking(doc)) return { skipped: true };
 
-  if (!doc.supplierBookingId || doc.supplierBookingStatus === "supplier_pending") {
+  if (
+    !doc.supplierBookingId ||
+    doc.supplierBookingStatus === "supplier_pending"
+  ) {
     throw abidAirError(
       "Abid Air booking must be reconciled before it can be cancelled locally",
       409,
@@ -640,6 +779,9 @@ export const cancelAbidAirSupplierBooking = async (doc) => {
 
   const cancellation = await cancelBooking(doc.supplierBookingId);
   doc.supplierBookingStatus = cancellation?.status || "cancelled";
-  doc.supplierBookingData = { ...(doc.supplierBookingData || {}), cancellation };
+  doc.supplierBookingData = {
+    ...(doc.supplierBookingData || {}),
+    cancellation,
+  };
   return { cancelled: true };
 };

@@ -1010,7 +1010,10 @@ export default function UmrahPackages({ user }) {
                         🌙 {Math.max(pkg.packageDuration - 1, 0)} Nights
                       </div>
                       <div className="bg-white/20 backdrop-blur-sm px-4 py-1 rounded-full border border-white/30 text-[13px] font-bold flex items-center gap-1.5 uppercase">
-                        👥 Seats: {pkg.availablePackages || 0}
+                        👥 Seats:{" "}
+                        {String(pkg.source || "").toLowerCase() === "abidairtravel"
+                          ? "On Call"
+                          : pkg.availablePackages || 0}
                       </div>
                     </div>
                   </header>

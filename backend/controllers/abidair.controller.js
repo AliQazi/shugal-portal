@@ -1,7 +1,9 @@
 import axios from "axios";
 import {
+  checkAvailability,
   fetchPartnerAbidAirInventory,
   getGroupTicketingById,
+  getUmrahPackageById,
   isAbidAirPartnerConfigured,
 } from "../utils/Abid-Air.js";
 
@@ -348,13 +350,13 @@ const normalizeAbidAirGroup = (group) => {
 
 // Legacy Abid Air API (token + /flight/active, /packages/active). Still used
 // when ABID_AIR_API_KEY is not configured.
-const fetchLegacyAbidAirGroups = async () => {
+const fetchLegacyAbidAirGroups = async ({
+  includeUmrahPackages = true,
+} = {}) => {
   const { baseURL: cleanBaseURL, headers } = getAbidAirClientConfig();
-  const candidates = [
-    `${cleanBaseURL}/flight/active`,
-    `${cleanBaseURL}/packages/active`,
-  ];
-  if (!/\/api$/i.test(cleanBaseURL)) {
+  const candidates = [`${cleanBaseURL}/flight/active`];
+  if (includeUmrahPackages) candidates.push(`${cleanBaseURL}/packages/active`);
+  if (includeUmrahPackages && !/\/api$/i.test(cleanBaseURL)) {
     candidates.push(`${cleanBaseURL}/api/packages/active`);
   }
 
@@ -417,10 +419,12 @@ const fetchLegacyAbidAirGroups = async () => {
 };
 // Partner API v1 when ABID_AIR_API_KEY is set (see utils/Abid-Air.js), legacy
 // API otherwise. Same normalised output, so every consumer stays unchanged.
-export const fetchNormalisedAbidAirGroups = async () =>
+export const fetchNormalisedAbidAirGroups = async ({
+  includeUmrahPackages = true,
+} = {}) =>
   isAbidAirPartnerConfigured()
-    ? fetchPartnerAbidAirInventory()
-    : fetchLegacyAbidAirGroups();
+    ? fetchPartnerAbidAirInventory({ includeUmrahPackages })
+    : fetchLegacyAbidAirGroups({ includeUmrahPackages });
 
 export const createAbidAirFlightBooking = async (flightId, bookingData) => {
   const { baseURL, headers } = getAbidAirClientConfig();
@@ -438,6 +442,8 @@ const REMAINING_SEAT_KEYS = [
   "remain_seats",
   "remainingSeats",
   "available_no_of_pax",
+  "availableUnits",
+  "available_units",
   "available_seats",
   "availableSeats",
   "seats_available",
@@ -462,16 +468,58 @@ const findRemainingSeats = (value, visited = new Set()) => {
 
 /**
  * The Abid Air documentation provides GET /flight/{id} specifically for
- * checking seats immediately before POST /flight/{id}/booking.
+ * checking seats immediately before POST /flight/{id}/booking. Umrah
+ * packages are checked the same way via the Partner API's /availability
+ * endpoint, keyed off the package id instead of a group-ticketing id.
  */
-export const getAbidAirFlightAvailability = async (flightId) => {
+const getAbidAirAvailability = async (
+  inventoryId,
+  passengerCounts = { adults: 1, children: 0, infants: 0 },
+  { isPackage = false } = {},
+) => {
+  const counts =
+    typeof passengerCounts === "number"
+      ? { adults: passengerCounts, children: 0, infants: 0 }
+      : passengerCounts;
+  const adults = Number(counts?.adults) || 0;
+  const children = Number(counts?.children) || 0;
+  const infants = Number(counts?.infants) || 0;
   if (isAbidAirPartnerConfigured()) {
-    const group = await getGroupTicketingById(flightId);
-    return { remainingSeats: Number(group?.availableSeats) || 0, response: group };
+    const availability = await checkAvailability({
+      inventoryId,
+      adults,
+      children,
+      infants,
+      requireToken: false,
+    });
+    let inventory = null;
+    try {
+      inventory = isPackage
+        ? await getUmrahPackageById(inventoryId)
+        : await getGroupTicketingById(inventoryId);
+    } catch (error) {
+      // Availability is the source of truth here. Some suppliers return a
+      // positive availability result without exposing a remaining-seat number.
+      console.error("INVENTORY LOOKUP AFTER AVAILABILITY ERROR:", error.message || error);
+    }
+    const remainingSeats =
+      findRemainingSeats(availability) ?? findRemainingSeats(inventory);
+
+    return {
+      remainingSeats,
+      response: inventory || availability,
+    };
+  }
+
+  if (isPackage) {
+    // The legacy (non-partner) API has no single-package lookup endpoint, so
+    // seat count cannot be verified ahead of booking. Treat as available and
+    // let the actual booking call surface any real conflict.
+    return { remainingSeats: null, response: null };
   }
 
   const { baseURL, headers } = getAbidAirClientConfig();
-  const response = await axios.get(`${baseURL}/flight/${flightId}`, {
+  const response = await axios.get(`${baseURL}/flight/${inventoryId}`, {
     headers,
   });
   const remainingSeats = findRemainingSeats(response.data);
@@ -487,6 +535,16 @@ export const getAbidAirFlightAvailability = async (flightId) => {
     response: response.data,
   };
 };
+
+export const getAbidAirFlightAvailability = async (
+  flightId,
+  passengerCounts = { adults: 1, children: 0, infants: 0 },
+) => getAbidAirAvailability(flightId, passengerCounts, { isPackage: false });
+
+export const getAbidAirPackageAvailability = async (
+  packageId,
+  passengerCounts = { adults: 1, children: 0, infants: 0 },
+) => getAbidAirAvailability(packageId, passengerCounts, { isPackage: true });
 
 export const createAbidAirPackageBooking = async (bookingData) => {
   const { baseURL, headers } = getAbidAirClientConfig();
@@ -505,42 +563,82 @@ export const getAvailableAbidAirBookingsByGroup = async (req, res) => {
     res.status(200).json({ success: true, data: groups });
   } catch (error) {
     console.error("API ERROR:", error.message || error);
-    res.status(400).json({ success: false, message: error.message });
+    const safeMessage = String(error.message || "Unable to fetch external supplier inventory.")
+      .replace(/Abid\s*Air/gi, "External supplier")
+      .replace(/AbidAir/gi, "External supplier");
+    res.status(400).json({ success: false, message: safeMessage });
   }
 };
 
-export const checkAbidAirFlightAvailability = async (req, res) => {
+const checkAbidAirAvailability = async (req, res, { isPackage, inventoryId }) => {
   try {
-    const requiredSeats = Number(req.query.requiredSeats);
-    if (!Number.isInteger(requiredSeats) || requiredSeats < 0) {
+    const hasPassengerCounts = ["adults", "children", "infants"].some(
+      (key) => req.query[key] !== undefined,
+    );
+    const counts = hasPassengerCounts
+      ? {
+          adults: Number(req.query.adults),
+          children: Number(req.query.children),
+          infants: Number(req.query.infants),
+        }
+      : { adults: Number(req.query.requiredSeats), children: 0, infants: 0 };
+
+    if (
+      Object.values(counts).some(
+        (value) => !Number.isInteger(value) || value < 0,
+      )
+    ) {
       return res.status(400).json({
         success: false,
-        message: "requiredSeats must be a non-negative whole number.",
+        message:
+          "adults, children, and infants must be non-negative whole numbers.",
       });
     }
 
-    const { remainingSeats } = await getAbidAirFlightAvailability(
-      req.params.flightId,
+    const requiredSeats = counts.adults + counts.children + counts.infants;
+
+    const { remainingSeats } = await getAbidAirAvailability(
+      inventoryId,
+      counts,
+      { isPackage },
     );
-    const available = requiredSeats <= remainingSeats;
+    const hasSeatCount = remainingSeats !== null && remainingSeats !== undefined;
+    const available = hasSeatCount ? requiredSeats <= remainingSeats : true;
 
     return res.status(available ? 200 : 409).json({
       success: available,
       available,
       requiredSeats,
-      remainingSeats,
+      ...(hasSeatCount && { remainingSeats }),
       message: available
         ? "Seats are available."
         : `Seats not available. You requested ${requiredSeats} seat(s), but only ${remainingSeats} remain.`,
     });
   } catch (error) {
     console.error("AVAILABILITY ERROR:", error.message || error);
-    return res.status(400).json({
-      success: false,
-      message:
-        error.response?.data?.message ||
+    const safeMessage = String(
+      error.response?.data?.message ||
         error.message ||
         "Unable to check seat availability.",
+    )
+      .replace(/Abid\s*Air/gi, "External supplier")
+      .replace(/AbidAir/gi, "External supplier");
+
+    return res.status(400).json({
+      success: false,
+      message: safeMessage,
     });
   }
 };
+
+export const checkAbidAirFlightAvailability = async (req, res) =>
+  checkAbidAirAvailability(req, res, {
+    isPackage: false,
+    inventoryId: req.params.flightId,
+  });
+
+export const checkAbidAirPackageAvailability = async (req, res) =>
+  checkAbidAirAvailability(req, res, {
+    isPackage: true,
+    inventoryId: req.params.packageId,
+  });

@@ -418,7 +418,7 @@ export const createUmrahPackageBooking = async (req, res) => {
       });
     }
 
-    // Partner API: validate + availability token before anything is written.
+    // Partner API: validate + check availability before anything is written.
     const abidAirPartner = abidAirBooking && isAbidAirPartnerConfigured();
     let abidAirHandoff = null;
     if (abidAirPartner) {
@@ -457,17 +457,27 @@ export const createUmrahPackageBooking = async (req, res) => {
           providerError.response?.data?.message ||
           providerError.response?.data?.error ||
           providerError.message;
+        const safeProviderMessage = String(
+          providerMessage || "External supplier package booking failed.",
+        )
+          .replace(/Abid\s*Air/gi, "External supplier")
+          .replace(/AbidAir/gi, "External supplier");
         return res.status(providerError.response?.status || 502).json({
           success: false,
-          message: providerMessage || "Abid Air package booking failed.",
+          message: safeProviderMessage,
         });
       }
 
       if (!providerResponse?.success) {
+        const safeProviderMessage = String(
+          providerResponse?.message ||
+            "External supplier did not accept the package booking.",
+        )
+          .replace(/Abid\s*Air/gi, "External supplier")
+          .replace(/AbidAir/gi, "External supplier");
         return res.status(409).json({
           success: false,
-          message:
-            providerResponse?.message || "Abid Air did not accept the package booking.",
+          message: safeProviderMessage,
         });
       }
     }
@@ -587,7 +597,7 @@ export const createUmrahPackageBooking = async (req, res) => {
 
         return res.status(getAbidAirHttpStatus(abidAirErr)).json({
           ...abidAirErrorBody(abidAirErr),
-          message: `Abid Air booking handoff failed: ${abidAirErr.message}`,
+          message: `External supplier booking failed: ${abidAirErrorBody(abidAirErr).message}`,
           reconciliationRequired: uncertain,
           data: uncertain
             ? { bookingNumber: booking.bookingNumber, _id: booking._id }
@@ -835,7 +845,7 @@ export const adminUpdateBookingStatus = async (req, res) => {
         return res.status(409).json({
           success: false,
           code: "ABID_AIR_REOPEN_NOT_ALLOWED",
-          message: "A cancelled Abid Air booking cannot be reopened locally",
+          message: "A cancelled external supplier booking cannot be reopened locally",
         });
       }
       if (oldStatus !== "cancelled" && next === "cancelled") {
