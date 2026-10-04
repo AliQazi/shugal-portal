@@ -8,7 +8,7 @@ import PageBreadCrumb from "../components/common/PageBreadCrumb";
 // import { useAuth } from "../context/AuthContext";
 // import { hasPermission } from "../utils/permissions";
 import logo from "../assets/images/logo2-.png";
-import { BuildingOffice2Icon, CalendarDaysIcon, ChevronRightIcon, CircleStackIcon, ClipboardDocumentIcon, DocumentTextIcon, EnvelopeIcon, FunnelIcon, HomeIcon, PrinterIcon, WalletIcon } from "@heroicons/react/24/outline";
+import { BuildingOffice2Icon, CalendarDaysIcon, CircleStackIcon, ClipboardDocumentIcon, DocumentTextIcon, EnvelopeIcon, FunnelIcon, PrinterIcon } from "@heroicons/react/24/outline";
 import "../../../frontend/src/pages/Frontend/Ledger.css";
 
 interface LedgerEntry {
