@@ -447,6 +447,9 @@ export const getUnifiedGroups = async (req, res) => {
             destination: f.sectorTo,
             arv_date: f.arrDate,
             arv_time: f.arrTime,
+            from_terminal: f.fromTerminal,
+            to_terminal: f.toTerminal,
+            flight_class: f.flightClass,
             baggage: f.baggage,
             meal: f.meal,
             bookedSeats,
@@ -487,6 +490,7 @@ export const getUnifiedGroups = async (req, res) => {
         _activeBookings: bookingCountMap[gidString] || 0,
 
         price: g.price?.sellingAdultPriceB2B || 0,
+        priceCurrency: g.price?.sellingCurrencyB2B || "PKR",
         childPrice: g.price?.sellingChildPriceB2B || 0,
         infantPrice: g.price?.sellingInfantPriceB2B || 0,
 

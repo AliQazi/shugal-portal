@@ -91,7 +91,7 @@ export const DashboardUIContext = createContext();
 
 const DashboardLayout = ({ user, handleLogout }) => {
   // ── UI States ──
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [bookingsExpanded, setBookingsExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isMobile, setIsMobile] = useState(false);
@@ -134,27 +134,26 @@ const DashboardLayout = ({ user, handleLogout }) => {
 
   // ── Layout Effects ──
   useEffect(() => {
-    const handleResize = () => {
-      const mobile = window.innerWidth < 769;
-      setIsMobile(mobile);
-      if (mobile) setSidebarOpen(false);
-      else setSidebarOpen(true);
+    const mediaQuery = window.matchMedia("(max-width: 1023px)");
+    const handleBreakpointChange = () => {
+      setIsMobile(mediaQuery.matches);
+      setSidebarOpen(false);
     };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    handleBreakpointChange();
+    mediaQuery.addEventListener("change", handleBreakpointChange);
+    return () => mediaQuery.removeEventListener("change", handleBreakpointChange);
   }, []);
 
   useEffect(() => {
     const handleEsc = (e) => {
       if (e.key === "Escape") {
         if (showOfferPopup) setShowOfferPopup(false);
-        else if (sidebarOpen && isMobile) setSidebarOpen(false);
+        else if (sidebarOpen) setSidebarOpen(false);
       }
     };
     document.addEventListener("keydown", handleEsc);
     return () => document.removeEventListener("keydown", handleEsc);
-  }, [sidebarOpen, isMobile, showOfferPopup]);
+  }, [sidebarOpen, showOfferPopup]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -166,8 +165,8 @@ const DashboardLayout = ({ user, handleLogout }) => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
-  const handleMenuClick = () => { if (isMobile) setSidebarOpen(false); };
+  const toggleSidebar = () => setSidebarOpen((open) => !open);
+  const handleMenuClick = () => setSidebarOpen(false);
 
   // ── Navigation Menu Config ──
   const menuItems = [
@@ -227,7 +226,7 @@ const DashboardLayout = ({ user, handleLogout }) => {
         .sidebar-nav::-webkit-scrollbar { width: 4px; }
         .sidebar-nav::-webkit-scrollbar-thumb { background: #e0e0e0; border-radius: 99px; }
         .menu-link:hover { background: #f4f6fb !important; }
-        .db-sidebar { transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: fixed !important; top: 0; left: 0; height: 100vh; z-index: 200; }
+        .db-sidebar { position: fixed !important; top: 0; left: 0; height: 100dvh; }
         
         .db-search:focus { border-color: #21397C !important; box-shadow: 0 0 0 3px rgba(33,57,124,0.1); }
         .dd-item:hover { background: #f4f6fb !important; }
@@ -247,45 +246,44 @@ const DashboardLayout = ({ user, handleLogout }) => {
           overflow: hidden;
         }
 
-        @media (max-width: 768px) {
-          .db-main { margin-left: 0 !important; }
-        }
       `}</style>
 
-        <div className="db-layout" style={{ display: "flex", minHeight: "100vh", background: "#f0f2f7" }}>
-          {/* Mobile Background Overlay */}
-          {sidebarOpen && isMobile && (
-            <div onClick={toggleSidebar} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 998, backdropFilter: "blur(3px)" }} />
+        <div className="db-layout" style={{ display: "flex", minHeight: "100vh", width: "100%", background: "#f0f2f7" }}>
+          {/* Sidebar backdrop */}
+          {sidebarOpen && (
+            <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 99998, backdropFilter: "blur(3px)" }} />
           )}
 
           {/* ── Sidebar ── */}
           <aside className="db-sidebar" style={{
-            width: isMobile ? "280px" : sidebarOpen ? "272px" : "72px",
+            width: "min(290px, 85vw)",
             background: "#fff",
-            borderRight: isMobile ? "none" : "1px solid #e8eaf0",
+            borderRight: "1px solid #e8eaf0",
             display: "flex", flexDirection: "column", flexShrink: 0,
-            boxShadow: isMobile ? "8px 0 40px rgba(0, 0, 0, 0.3)" : "4px 0 24px rgba(33,57,124,0.06)",
-            zIndex: 999,
-            transform: isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)",
-            transition: isMobile ? "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)" : "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          }}>
+            boxShadow: "8px 0 40px rgba(0, 0, 0, 0.3)",
+            zIndex: 99999,
+            transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
+            transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            pointerEvents: sidebarOpen ? "auto" : "none",
+          }} aria-hidden={!sidebarOpen} inert={!sidebarOpen}>
+            <button type="button" onClick={() => setSidebarOpen(false)} aria-label="Close sidebar" style={{ position: "absolute", top: 14, right: 12, zIndex: 1, display: "flex", padding: 6, color: "#bfd0df", background: "transparent", border: 0, borderRadius: 8, cursor: "pointer" }}>
+              <X size={20} />
+            </button>
             {/* Logo Section */}
             <div style={{ padding: "20px 16px 16px", borderBottom: "1px solid #f0f2f7", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div onClick={() => navigate("/")} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", justifyContent: "center" }}>
-                <img src={user?.logo || logo} alt="Logo" style={{ width: sidebarOpen ? "100px" : "36px", height: "100px", objectFit: "contain", transition: "width 0.3s" }} />
-              </div>
+              <Link to="/dashboard" className="sidebar-brand" onClick={handleMenuClick} aria-label="Go to agent dashboard" style={{ display: "flex", alignItems: "center", gap: "10px", justifyContent: "center" }}>
+                <img src={user?.logo || logo} alt="Logo" style={{ width: "112px", height: "64px", objectFit: "contain" }} />
+              </Link>
             </div>
 
             {/* Sidebar Search */}
-            {sidebarOpen && (
-              <div style={{ padding: "14px 16px 8px" }}>
-                <div style={{ position: "relative" }}>
-                  <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#aaa" }} />
-                  <input className="db-search" type="text" placeholder="Search menu…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{ width: "100%", padding: "8px 10px 8px 32px", border: "1.5px solid #e8eaf0", borderRadius: "8px", fontSize: "13px", background: "#f8f9fc", outline: "none" }} />
-                </div>
+            <div style={{ padding: "14px 16px 8px" }}>
+              <div style={{ position: "relative" }}>
+                <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#aaa" }} />
+                <input className="db-search" type="text" placeholder="Search menu…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{ width: "100%", padding: "8px 10px 8px 32px", border: "1.5px solid #e8eaf0", borderRadius: "8px", fontSize: "13px", background: "#f8f9fc", outline: "none" }} />
               </div>
-            )}
+            </div>
 
             {/* Navigation Sidebar List */}
             <nav className="sidebar-nav">
@@ -294,11 +292,11 @@ const DashboardLayout = ({ user, handleLogout }) => {
                   <li key={index}>
                     {item.hasSubMenu ? (
                       <>
-                        <RippleButton onClick={() => sidebarOpen && setBookingsExpanded(!bookingsExpanded)} className="menu-link" style={{ alignItems: "center", gap: "12px", padding: sidebarOpen ? "11px 14px" : "11px 0", justifyContent: sidebarOpen ? "flex-start" : "center", borderRadius: "10px", color: "#555", fontWeight: "500", fontSize: "14px", cursor: "pointer" }}>
+                        <RippleButton onClick={() => setBookingsExpanded(!bookingsExpanded)} className="menu-link" style={{ alignItems: "center", gap: "12px", padding: "11px 14px", justifyContent: "flex-start", borderRadius: "10px", color: "#555", fontWeight: "500", fontSize: "14px", cursor: "pointer" }}>
                           <span style={{ color: "#7a8aaa" }}>{item.icon}</span>
-                          {sidebarOpen && <><span style={{ flex: 1 }}>{item.label}</span><ChevronDown size={15} style={{ transform: bookingsExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "0.25s" }} /></>}
+                          <span style={{ flex: 1 }}>{item.label}</span><ChevronDown size={15} style={{ transform: bookingsExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "0.25s" }} />
                         </RippleButton>
-                        <div style={{ maxHeight: sidebarOpen && (bookingsExpanded || (searchQuery.trim() && item.subItems?.some(s => s.label.toLowerCase().includes(searchQuery.toLowerCase())))) ? "300px" : "0px", overflow: "hidden", transition: "max-height 0.3s" }}>
+                        <div style={{ maxHeight: bookingsExpanded || (searchQuery.trim() && item.subItems?.some(s => s.label.toLowerCase().includes(searchQuery.toLowerCase()))) ? "300px" : "0px", overflow: "hidden", transition: "max-height 0.3s" }}>
                           <ul style={{ listStyle: "none", padding: "4px 0 4px 12px", margin: 0, display: "flex", flexDirection: "column", gap: "2px" }}>
                             {item.subItems.map((sub, sIdx) => {
                               const active = isActive(sub.path);
@@ -318,9 +316,9 @@ const DashboardLayout = ({ user, handleLogout }) => {
                       (() => {
                         const active = isActive(item.path);
                         return (
-                          <RippleButton to={item.path} onClick={handleMenuClick} className={active ? "" : "menu-link"} style={{ alignItems: "center", gap: "12px", padding: sidebarOpen ? "11px 14px" : "11px 0", justifyContent: sidebarOpen ? "flex-start" : "center", borderRadius: "10px", background: active ? "linear-gradient(90deg,#21397C 0%,#2CA3B4 100%)" : "transparent", color: active ? "#fff" : "#555", fontWeight: active ? "600" : "500", fontSize: "14px", textDecoration: "none" }}>
+                          <RippleButton to={item.path} onClick={handleMenuClick} className={active ? "" : "menu-link"} style={{ alignItems: "center", gap: "12px", padding: "11px 14px", justifyContent: "flex-start", borderRadius: "10px", background: active ? "linear-gradient(90deg,#21397C 0%,#2CA3B4 100%)" : "transparent", color: active ? "#fff" : "#555", fontWeight: active ? "600" : "500", fontSize: "14px", textDecoration: "none" }}>
                             <span style={{ color: active ? "#fff" : "#7a8aaa" }}>{item.icon}</span>
-                            {sidebarOpen && <span>{item.label}</span>}
+                            <span>{item.label}</span>
                           </RippleButton>
                         );
                       })()
@@ -332,11 +330,16 @@ const DashboardLayout = ({ user, handleLogout }) => {
           </aside>
 
           {/* ── Main Content Area ── */}
-          <div className="db-main" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, marginLeft: isMobile ? 0 : sidebarOpen ? "272px" : "72px", transition: "margin-left 0.3s" }}>
+          <div className="db-main" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, width: "100%" }}>
             <header style={{ background: "#fff", padding: isMobile ? "0 12px" : "0 24px", height: "64px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e8eaf0", position: "sticky", top: 0, zIndex: 100 }}>
-              <button onClick={toggleSidebar} style={{ cursor: "pointer", border: "1.5px solid #e8eaf0", background: "#f8f9fc", borderRadius: "9px", padding: "8px", display: "flex" }}>
+              <button aria-label="Toggle navigation" aria-expanded={sidebarOpen} onClick={toggleSidebar} style={{ cursor: "pointer", border: "1.5px solid #e8eaf0", background: "#f8f9fc", borderRadius: "9px", padding: "8px", display: "flex" }}>
                 <Menu size={19} color="#444" />
               </button>
+
+              <div className="workspace-header-label">
+                <strong>Agency workspace</strong>
+                Stack Works Flow
+              </div>
 
               <div ref={dropdownRef} style={{ position: "relative" }}>
                 <button onClick={() => setUserDropdownOpen(!userDropdownOpen)} style={{ display: "flex", alignItems: "center", gap: "8px", background: "#f8f9fc", border: "1.5px solid #e8eaf0", padding: "6px 8px", borderRadius: "10px", cursor: "pointer" }}>
@@ -369,7 +372,7 @@ const DashboardLayout = ({ user, handleLogout }) => {
               </div>
             </header>
 
-            <main style={{ padding: isMobile ? "12px" : "24px", flex: 1 }}>
+            <main style={{ padding: isMobile ? "12px" : "24px", flex: 1, width: "100%", maxWidth: "none" }}>
               <Outlet />
             </main>
           </div>

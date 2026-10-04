@@ -162,11 +162,11 @@ export default function Profile() {
   return (
     <>
       <TopBar title={"My Profile"} />
-      <div className="w-full min-h-screen bg-gray-50 py-8">
+      <div className="profile-workspace w-full min-h-screen bg-gray-50 py-8">
         <div className="max-w-5xl mx-auto px-6">
           {/* Profile Form */}
-          <div className="bg-white border border-gray-300 rounded-lg shadow-sm">
-            <div className="px-6 py-4 bg-linear-to-r from-[#1e3a5f] to-[#2d5a8f] border-b border-gray-200">
+          <div className="workspace-card bg-white border border-gray-300 rounded-lg shadow-sm">
+            <div className="profile-section-heading px-6 py-4 bg-linear-to-r from-[#1e3a5f] to-[#2d5a8f] border-b border-gray-200">
               <h2 className="text-lg font-bold text-white">
                 Update Your Profile
               </h2>

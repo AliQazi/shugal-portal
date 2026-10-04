@@ -204,7 +204,7 @@ export const registerUser = async (req, res) => {
       status,
     });
 
-    // Auto-send full registration details to internal Shaheen Wings Gmail
+    // Auto-send full registration details to internal Stack Works Flow Gmail
     if (role === "Agency") {
       try {
         await sendAgentRegistrationNotificationEmail({

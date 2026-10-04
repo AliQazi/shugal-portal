@@ -8,8 +8,9 @@ import { Link } from "react-router-dom";
 import { theme } from "../../theme/theme";
 import footerBg from "../../assets/images/uae.webp";
 import { Plane } from "lucide-react";
+import { companyContact } from "../../data/companyContact";
 
-const WHATSAPP_URL = "https://wa.me/923099802154";
+const WHATSAPP_URL = `https://wa.me/92${companyContact.mobile.slice(1)}`;
 
 export default function Footer({ user }) {
   return (
@@ -17,7 +18,7 @@ export default function Footer({ user }) {
       {/* TOP CTA */}
       {!user?._id && (
         <div
-          className="py-24 px-4" // height barhane ke liye py-24 rakha
+          className="home-footer-cta py-24 px-4"
           style={{
             background: theme.colors.primary,
           }}
@@ -67,8 +68,8 @@ export default function Footer({ user }) {
                 Signup Now
               </Link>
 
-              <a
-                href="#login"
+              <Link
+                to="/auth/login"
                 className="flex items-center gap-2 px-8 py-4 rounded-md border-2 font-semibold text-lg transition-all hover:bg-white hover:text-[#000] hover:border-white"
                 style={{
                   borderColor: "#fff",
@@ -76,7 +77,7 @@ export default function Footer({ user }) {
                 }}
               >
                 Login <CiLogin className="text-xl" />
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -84,7 +85,8 @@ export default function Footer({ user }) {
 
       {/* MAIN FOOTER */}
       <footer
-        className="relative pt-16 text-white"
+        id="contact"
+        className="site-footer relative pt-16 text-white"
         style={{
           backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)), url(${footerbg})`,
           backgroundSize: "cover",
@@ -106,7 +108,7 @@ export default function Footer({ user }) {
                 className="text-lg font-semibold"
                 style={{ color: theme.colors.sidebarTextLight }}
               >
-                Shaheen Wings Travels
+                {companyContact.name}
               </h2>
               <p
                 className="mt-3 text-sm leading-relaxed"
@@ -195,44 +197,44 @@ export default function Footer({ user }) {
                   className="flex items-center gap-3 hover:translate-x-1 transition"
                   style={{ color: theme.colors.sidebarText }}
                 >
-                  <FaWhatsapp className="text-2xl" /> 0309-9802154
+                  <FaWhatsapp className="text-2xl" /> {companyContact.mobile}
                 </a>
 
                 <a
-                  href="tel:+9230799655120"
+                  href={`tel:+92${companyContact.mobile.slice(1)}`}
                   className="flex items-center gap-3 hover:translate-x-1 transition"
                   style={{ color: theme.colors.sidebarText }}
                 >
-                  <FaPhoneAlt /> 0307-9965120
+                  <FaPhoneAlt /> {companyContact.mobile}
                 </a>
 
                 <a
-                  href="tel:+923043121343"
+                  href={`tel:+92${companyContact.mobile.slice(1)}`}
                   className="flex items-center gap-3 hover:translate-x-1 transition"
                   style={{ color: theme.colors.sidebarText }}
                 >
-                  <FaPhoneAlt /> 0304-3121343
+                  <FaPhoneAlt /> {companyContact.mobile}
                 </a>
 
                 <a
-                  href="https://mail.google.com/mail/?view=cm&fs=1&to=shaheenwingsgrouptkt@gmail.com"
+                  href={`https://mail.google.com/mail/?view=cm&fs=1&to=${companyContact.email}`}
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center gap-3 break-all hover:translate-x-1 transition"
                   style={{ color: theme.colors.sidebarText }}
                 >
-                  <IoMail /> shaheenwingsgrouptkt@gmail.com
+                  <IoMail /> {companyContact.email}
                 </a>
 
                 <a
-                  href="https://maps.app.goo.gl/qqeU3vAAfZ6jqFBaA"
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(companyContact.address)}`}
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-start gap-3 hover:translate-x-1 transition"
                   style={{ color: theme.colors.sidebarText }}
                 >
                   <IoLocationSharp className="mt-1 text-3xl" />
-                  MA Plaza Ground Floor Shop # 3, Kahror Pacca
+                  {companyContact.address}
                 </a>
               </div>
             </div>
@@ -245,14 +247,14 @@ export default function Footer({ user }) {
           style={{ borderColor: theme.colors.sidebarBorder }}
         >
           <a
-            href="https://shaheenwingstravels.com/"
+            href={`https://${companyContact.website}/`}
             style={{ color: theme.colors.sidebarText }}
           >
-            &copy; {dayjs().year()} Shaheen Wings Travels
+            &copy; {dayjs().year()} {companyContact.name}
           </a>
 
           <a className="text-sm" style={{ color: theme.colors.sidebarText }}>
-            Designed & Developed by Nexagen Solution
+            Designed and developed by Stack Works Flow
           </a>
         </div>
       </footer>

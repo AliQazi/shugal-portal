@@ -5,9 +5,12 @@ import axiosInstance from "../../../api/axios";
 import { toast } from "react-toastify";
 import countryCodes from "../../../data/countryCodes.json"; // adjust path
 import Select from "react-select";
-import Header from "../../../components/Header";
 import CommonSections from "../../../components/CommonSections";
-import bg from "../../../assets/images/bahrain.webp";
+import HeroSection from "../../../components/HeroSection";
+import bg from "../../../assets/images/uaebg.jpg";
+import logo from "../../../assets/images/logo2.png";
+import { ArrowRight, Building2, Mail, MapPin, Plane, UserRound } from "lucide-react";
+import "./register.css";
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -56,7 +59,7 @@ const Register = () => {
 
       if (res.status === 201) {
         toast.success("Registration successful! Please login.");
-        navigate("/");
+        navigate("/auth/login");
       }
     } catch (error) {
       if (error.response) {
@@ -117,39 +120,31 @@ const Register = () => {
 
   return (
     <>
-      <Header />
-      <div
-        className="min-h-screen w-full flex flex-col items-center justify-start bg-no-repeat bg-cover bg-center bg-fixed relative pt-36 md:pt-42 lg:pt-48"
-        style={{
-          backgroundImage: `url(${bg})`,
-          backgroundColor: "#000000",
-        }}
-      >
-        <div className="absolute inset-0 bg-black/55 z-0" />
+      <main className="agency-register">
+        <section className="agency-register-visual" style={{ backgroundImage: `url(${bg})` }}>
+          <div className="agency-register-overlay" />
+          <Link to="/" className="agency-register-logo"><img src={logo} alt="Stack Works Flow" /></Link>
+          <div className="agency-register-message">
+            <span><Plane size={16} /> Partner network</span>
+            <h1>Expand Your Agency<br /><strong>With Stack Works Flow</strong></h1>
+            <p>Gain direct access to group inventory, exclusive travel offers, and agency tools built for faster, more confident selling.</p>
+          </div>
+        </section>
 
-        <div className="z-10 flex justify-center w-full px-4 md:px-6 mb-20 relative">
-          <div className="w-full max-w-2xl rounded-2xl bg-white/95 shadow-2xl p-6 md:p-8 lg:p-10 flex flex-col gap-8 border border-white/70 backdrop-blur-md">
-            <div className="flex flex-col gap-1 text-left">
-              <h1 className="text-2xl font-semibold text-gray-900">
-                Sign in or create an account
-              </h1>
-              <p className="text-base text-gray-700">
-                Already have an account?{" "}
-                <Link
-                  to="/"
-                  className="text-[#2A166D] font-semibold hover:underline"
-                >
-                  Log in
-                </Link>
-              </p>
-            </div>
+        <section className="agency-register-form-side">
+          <div className="agency-register-card">
+            <div className="agency-register-kicker"><span /> Register</div>
+            <h2>Create Agent Account</h2>
+            <p>Already registered? <Link to="/auth/login">Log in to portal</Link></p>
 
             <form
               onSubmit={handleSubmit}
               autoComplete="off"
-              className="flex flex-col gap-4"
+              className="agency-register-form"
             >
-              <div className="flex flex-col gap-4">
+              <div className="agency-register-full">
+                <label>Agency details</label>
+                <div className="agency-register-input"><Building2 size={17} />
                 <input
                   autoComplete="organization"
                   type="text"
@@ -158,9 +153,14 @@ const Register = () => {
                   value={formData.companyName}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2A166D] focus:border-transparent text-gray-900 placeholder:text-gray-500"
+                  className=""
                 />
+                </div>
+              </div>
 
+              <div>
+                <label>Contact agent</label>
+                <div className="agency-register-input"><UserRound size={17} />
                 <input
                   autoComplete="name"
                   type="text"
@@ -169,9 +169,14 @@ const Register = () => {
                   value={formData.name}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2A166D] focus:border-transparent text-gray-900 placeholder:text-gray-500"
+                  className=""
                 />
+                </div>
+              </div>
 
+              <div>
+                <label>Email address</label>
+                <div className="agency-register-input"><Mail size={17} />
                 <input
                   autoComplete="email"
                   type="email"
@@ -180,10 +185,13 @@ const Register = () => {
                   value={formData.email}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2A166D] focus:border-transparent text-gray-900 placeholder:text-gray-500"
+                  className=""
                 />
+                </div>
+              </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label>Country code</label>
                   <Select
                     options={options}
                     value={selectedOption}
@@ -192,12 +200,15 @@ const Register = () => {
                         target: { name: "countryCode", value: selected.value },
                       })
                     }
-                    className="w-full"
+                    className="agency-country-select"
                     classNamePrefix="country-select"
                     placeholder="Country Code"
                     styles={selectStyles}
                     isSearchable
                   />
+              </div>
+              <div>
+                <label>Phone number</label>
                   <input
                     type="text"
                     name="phone"
@@ -206,10 +217,13 @@ const Register = () => {
                     value={formData.phone}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-3 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2A166D] focus:border-transparent text-gray-900 placeholder:text-gray-500"
+                    className="agency-register-plain-input"
                   />
-                </div>
+              </div>
 
+              <div>
+                <label>Office address</label>
+                <div className="agency-register-input"><MapPin size={17} />
                 <input
                   type="text"
                   name="address"
@@ -217,9 +231,13 @@ const Register = () => {
                   autoComplete="street-address"
                   value={formData.address}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2A166D] focus:border-transparent text-gray-900 placeholder:text-gray-500"
+                  className=""
                 />
+                </div>
+              </div>
 
+              <div>
+                <label>City</label>
                 <input
                   type="text"
                   name="city"
@@ -227,28 +245,25 @@ const Register = () => {
                   autoComplete="address-level2"
                   value={formData.city}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2A166D] focus:border-transparent text-gray-900 placeholder:text-gray-500"
+                  className="agency-register-plain-input"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full py-3! rounded text-base font-semibold mt-2
-                    ${
-                      loading
-                        ? "bg-gray-400 text-white cursor-not-allowed"
-                        : "bg-[#2A166D] text-white hover:bg-[#3a1c9a] shadow-md"
-                    }
-                    transition-all duration-200`}
+                className="agency-register-submit agency-register-full"
               >
-                {loading ? "Creating Account..." : "Sign Up"}
+                {loading ? "Creating Account..." : <>Register Partner Agency <ArrowRight size={17} /></>}
               </button>
             </form>
           </div>
-        </div>
+        </section>
+      </main>
+      <div className="home-page register-home-sections">
+        <HeroSection isGuest />
+        <CommonSections />
       </div>
-      <CommonSections />
     </>
   );
 };

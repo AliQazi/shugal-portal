@@ -194,7 +194,7 @@ const ViewAccounts = () => {
                       <td className="px-4 py-4">
                         <button
                           onClick={() => navigate(`/ledger/${user._id}`, {
-                            state: { userName: user.name, agencyCode: user.agencyCode }
+                            state: { userName: user.name, email: user.email, agencyCode: user.agencyCode }
                           })}
                           className="rounded bg-yellow-500 px-4 py-2 text-sm font-medium text-white hover:bg-yellow-600 transition-colors"
                         >

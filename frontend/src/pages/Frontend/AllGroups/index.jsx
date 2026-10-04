@@ -2,15 +2,8 @@ import React, { useEffect, useState, useContext } from "react";
 import jsPDF from "jspdf";
 import { FaRegCopy, FaCheck } from "react-icons/fa";
 import { DashboardUIContext } from "../../../components/Dashboard/DashboardLayout";
-import { Ticket, Menu, X } from "lucide-react";
-import {
-  FaPlane,
-  FaSuitcase,
-  FaUtensils,
-  FaSearch,
-  FaPlaneDeparture,
-  FaPlaneArrival,
-} from "react-icons/fa";
+import { Menu, X } from "lucide-react";
+import { FaSearch, FaPlaneDeparture } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import axiosInstance from "../../../api/axios";
 import { toast } from "react-toastify";
@@ -18,8 +11,10 @@ import MaskedDatePicker from "../../../components/MaskedDatePicker";
 import { theme } from "../../../theme/theme";
 import TopBar from "../../../components/TopBar/TopBar";
 import { groupTypes } from "../../../data/groupTypes";
+import { getGroupCopyFooter } from "../../../data/companyContact";
+import { useBookingSelection } from "../../../context/BookingSelectionContext";
+import FlightOfferCards from "./FlightOfferCards";
 import companyLogo from "../../../assets/images/logo2.png";
-import citiesData from "./cities.json";
 
 // ─── ADDED: Airline name standardisation mapping (copied from AllGroupsPackages) ───
 const AIRLINE_NAME_MAPPING = {
@@ -383,6 +378,7 @@ const formatBaggageLabel = (value) => {
 };
 
 export default function AllGroups({ headerType, header, searchParams, user }) {
+  const { setSelectedGroup } = useBookingSelection();
   // Copy feedback state
   const [copiedAll, setCopiedAll] = useState(false);
   const [copiedRow, setCopiedRow] = useState({});
@@ -441,7 +437,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         const priceText =
           priceAfterMargin === null
             ? "On Call"
-            : `PKR ${priceAfterMargin.toLocaleString()}`;
+            : `${g.priceCurrency || "PKR"} ${priceAfterMargin.toLocaleString()}`;
         if (legs.length === 1) return `${legs[0]}..... *${priceText}*`;
         const labeledLegs = legs.map((leg, i) => {
           if (i === 0) return `*Departure:* ${leg}`;
@@ -452,7 +448,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         return labeledLegs.join("\n");
       })
       .filter(Boolean);
-    const footer = `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*\n=======================\nShaheen Wings Travels\nMobile: 0309-9802154\nAddress: MA Plaza Ground Floor Shop # 3, Kahror Pacca.\nPtcl: 0608340174\nWebsite: shaheenwingstravels.com`;
+    const footer = getGroupCopyFooter();
     return [header, ...lines, "=======================", footer].join("\n");
   };
 
@@ -504,8 +500,8 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     const priceText =
       priceAfterMargin === null
         ? "On Call"
-        : `PKR ${priceAfterMargin.toLocaleString()}`;
-    const footer = `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*\n=======================\nShaheen Wings Travels\nMobile: 0309-9802154\nAddress: MA Plaza Ground Floor Shop # 3, Kahror Pacca.\nPtcl: 0608340174\nWebsite: shaheenwingstravels.com`;
+        : `${group.priceCurrency || "PKR"} ${priceAfterMargin.toLocaleString()}`;
+    const footer = getGroupCopyFooter();
     let flightLines;
     if (legs.length === 1) {
       flightLines = `${legs[0]}..... *${priceText}*`;
@@ -576,7 +572,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         const priceText =
           priceAfterMargin === null
             ? "On Call"
-            : `PKR ${priceAfterMargin.toLocaleString()}`;
+            : `${g.priceCurrency || "PKR"} ${priceAfterMargin.toLocaleString()}`;
         if (legs.length === 1) return `${legs[0]}..... *${priceText}*`;
         const labeledLegs = legs.map((leg, i) => {
           if (i === 0) return `*Departure:* ${leg}`;
@@ -587,7 +583,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         return labeledLegs.join("\n");
       })
       .filter(Boolean);
-    const footer = `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*\n=======================\nShaheen Wings Travels\nMobile: 0309-9802154\nAddress: MA Plaza Ground Floor Shop # 3, Kahror Pacca.\nPtcl: 0608340174\nWebsite: shaheenwingstravels.com`;
+    const footer = getGroupCopyFooter();
     return [header, ...lines, "=======================", footer].join("\n");
   };
 
@@ -1128,7 +1124,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
   };
 
   // Loads the logged-in agent's own uploaded logo for the PDF header,
-  // falling back to the default Shaheen Wings logo when the agent has
+  // falling back to the default Stack Works Flow logo when the agent has
   // not uploaded one (or it fails to load).
   const loadPdfLogo = async () => {
     let logoSrc = companyLogo;
@@ -1163,7 +1159,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
     pdf.setTextColor(33, 57, 124);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(18);
-    pdf.text("SHAHEEN WINGS", 40, 24);
+    pdf.text("Stack Works Flow", 40, 24);
 
     pdf.setTextColor(100, 116, 139);
     pdf.setFont("helvetica", "normal");
@@ -1488,7 +1484,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
       });
 
       pdf.save(
-        `shaheen-wings-group-tickets-${new Date().toISOString().slice(0, 10)}.pdf`,
+        `stack-works-flow-group-tickets-${new Date().toISOString().slice(0, 10)}.pdf`,
       );
       toast.success("PDF downloaded successfully");
     } catch (error) {
@@ -1500,7 +1496,8 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
   };
 
   const handleBookNow = (group) => {
-    navigate("/dashboard/booking", { state: { groupData: group } });
+    setSelectedGroup(group);
+    navigate("/dashboard/booking");
   };
 
   const LoadingSkeleton = () => (
@@ -1713,12 +1710,12 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
         </div>
       )}
       <div
-        className="w-full min-h-screen"
+        className="flight-workspace w-full min-h-screen"
         style={{ background: theme.colors.background }}
       >
         {/* Responsive Header Container */}
         <div
-          className={`flex flex-col xl:flex-row xl:items-center xl:justify-between gap-2 py-2 ${headerType === "dashboard" ? "rounded-t-2xl" : ""}`}
+          className={`flight-toolbar flex flex-col xl:flex-row xl:items-center xl:justify-between gap-2 py-2 ${headerType === "dashboard" ? "rounded-t-2xl" : ""}`}
         >
           <div className="w-full xl:w-auto">{header}</div>
 
@@ -1794,7 +1791,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
               className="absolute inset-0 bg-black/50"
               onClick={() => setIsMobileFilterOpen(false)}
             />
-            <div className="absolute right-0 top-0 h-full w-80 bg-white p-6 shadow-xl animate-in slide-in-from-right">
+            <div className="flight-filter-drawer absolute right-0 top-0 h-full w-80 bg-white p-6 shadow-xl animate-in slide-in-from-right">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold">Filters</h2>
                 <button onClick={() => setIsMobileFilterOpen(false)}>
@@ -1810,7 +1807,7 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
           {/* Desktop Sidebar */}
           {showAdvancedSearch && (
             <div className="hidden lg:block w-56 shrink-0">
-              <div className="bg-white rounded-2xl shadow-sm p-4 sticky top-6">
+              <div className="flight-filters bg-white rounded-2xl shadow-sm p-4 sticky top-6">
                 <FilterContent />
               </div>
             </div>
@@ -1823,74 +1820,33 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                 <LoadingSkeleton />
               </div>
             ) : groups.length === 0 ? (
-              <div className="bg-white rounded-2xl shadow-sm p-8 text-center text-gray-400">
+              <div className="workspace-empty bg-white rounded-2xl shadow-sm p-8 text-center text-gray-400">
                 No groups available at the moment
               </div>
             ) : (
               sortedGroupedEntries.map(([key, data]) => {
                 const normalizedSector = normalizeSector(data.sector);
-                const sectorParts = normalizedSector?.split("-") || [];
-                const origin = sectorParts[0] || "";
-                const destination =
-                  sectorParts[sectorParts.length - 1] || normalizedSector;
 
                 return (
                   <div
                     key={key}
-                    className="rounded-2xl overflow-hidden bg-white border border-neutral-200"
+                    className="flight-result flight-result--cards"
                   >
-                    {/* Sector Header Bar */}
-                    <div className="bg-linear-to-r from-blue-50 via-transparent to-blue-50 flex justify-center items-center gap-6 py-2.5 border-b border-neutral-200 relative">
-                      {/* Airline Logo Area */}
-                      <div className="bg-white flex items-center justify-center border-b border-neutral-100">
-                        {data.airlineLogo ? (
-                          <img
-                            style={{ height: "56px" }}
-                            src={data.airlineLogo}
-                            alt={data.airline}
-                            className="object-contain"
-                          />
-                        ) : (
-                          <span
-                            className="font-semibold text-sm"
-                            style={{ color: theme.colors.textPrimary }}
-                          >
-                            {data.airline}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-center gap-4 px-4 py-4">
-                        <FaPlaneDeparture className="text-lg" />
-                        <span className="font-bold text-lg tracking-widest uppercase">
+                    <div className="flight-sector flight-sector--cards">
+                      <div className="flight-sector-route">
+                        <FaPlaneDeparture aria-hidden="true" />
+                        <span>
                           {normalizedSector}
                         </span>
+                        <small>{data.groups.length} {data.groups.length === 1 ? "option" : "options"}</small>
                       </div>
 
-                      {/* Copy Sector Button (only in agent dashboard) */}
                       {headerType === "dashboard" && (
                         <button
+                          type="button"
                           onClick={() => handleCopySector(key, data.groups)}
                           title="Copy all data for this sector"
-                          style={{
-                            position: "absolute",
-                            right: 16,
-                            top: 12,
-                            background: copiedSector[key]
-                              ? "#22c55e"
-                              : "#e5e7eb",
-                            color: copiedSector[key] ? "white" : "#3b82f6",
-                            borderRadius: 6,
-                            fontWeight: 500,
-                            fontSize: 12,
-                            padding: "4px 10px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                            cursor: "pointer",
-                            zIndex: 2,
-                          }}
-                          className="transition-all shadow-sm hover:shadow"
+                          className={`flight-sector-copy ${copiedSector[key] ? "is-copied" : ""}`}
                         >
                           {copiedSector[key] ? (
                             <FaCheck size={13} />
@@ -1902,558 +1858,23 @@ export default function AllGroups({ headerType, header, searchParams, user }) {
                       )}
                     </div>
 
-                    {/* Flight Table */}
-                    <div className="overflow-x-auto">
-                      <table className="w-full border-collapse">
-                        <thead>
-                          <tr
-                            className="text-white text-xs font-bold"
-                            style={{
-                              background:
-                                "linear-gradient(90deg, #21397C 0%, #2CA3B4 100%)",
-                            }}
-                          >
-                            <th className="px-4 py-2.5 text-left whitespace-nowrap">
-                              Date
-                            </th>
-                            <th className="px-4 py-2.5 text-left whitespace-nowrap">
-                              Flight
-                            </th>
-                            <th className="px-4 py-2.5 text-center whitespace-nowrap">
-                              Sector
-                            </th>
-                            <th className="px-4 py-2.5 text-center whitespace-nowrap">
-                              Bag
-                            </th>
-                            <th className="px-4 py-2.5 text-center whitespace-nowrap">
-                              Meal
-                            </th>
-                            {data.groups.some(
-                              (g) => getDisplayDetails(g).length > 1,
-                            ) && (
-                              <th className="px-4 py-2.5 text-center whitespace-nowrap">
-                                Days
-                              </th>
-                            )}
-                            <th className="px-4 py-2.5 text-center whitespace-nowrap">
-                              Seats
-                            </th>
-                            <th className="px-4 py-2.5 text-center whitespace-nowrap">
-                              Fare
-                            </th>
-                            <th className="w-36 px-4 py-2.5"></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {data.groups
-                            .sort((a, b) => {
-                              const dateDiff =
-                                new Date(a.dept_date) - new Date(b.dept_date);
-                              if (dateDiff !== 0) return dateDiff;
-                              return (a.price || 0) - (b.price || 0);
-                            })
-                            .map((group) => {
-                              const displayDetails = getDisplayDetails(group);
-                              const flight = displayDetails[0];
-                              const lastFlight =
-                                displayDetails[displayDetails.length - 1];
-                              const isMultiLeg = displayDetails.length > 1;
-                              // Check if any group in this card is multi-leg to show Days column
-                              const hasMultiLeg = data.groups.some(
-                                (g) => getDisplayDetails(g).length > 1,
-                              );
-                              // const legLabels = ["Departure", "Arrival"];
-
-                              return (
-                                <tr
-                                  key={group.id}
-                                  className="border-b border-gray-500 bg-white hover:bg-blue-50/30 transition-colors"
-                                >
-                                  {/* Date */}
-                                  <td className="px-4 py-3 text-xs font-medium text-gray-600 whitespace-nowrap align-top">
-                                    {isMultiLeg ? (
-                                      <div className="flex pt-3 flex-col divide-y divide-dashed divide-gray-700">
-                                        {displayDetails.map((d, i) => {
-                                          const rawDate =
-                                            d.dep_date || d.flight_date;
-                                          return (
-                                            <div
-                                              key={i}
-                                              style={{
-                                                color: "black",
-                                                fontFamily: "sans-serif",
-                                              }}
-                                              className={`font-black text-sm flex flex-col ${i > 0 ? "pt-2" : "pb-2"}`}
-                                            >
-                                              {/* <span className={`text-[9px] font-bold uppercase tracking-wider mb-0.5 ${i === 0 ? "text-blue-500" : "text-orange-400"}`}>
-                                                {legLabels[i] || `Leg ${i + 1}`}
-                                              </span> */}
-                                              <span>
-                                                {rawDate
-                                                  ? new Date(
-                                                      rawDate,
-                                                    ).toLocaleDateString(
-                                                      "en-GB",
-                                                      {
-                                                        day: "2-digit",
-                                                        month: "short",
-                                                        year: "numeric",
-                                                      },
-                                                    )
-                                                  : "—"}
-                                              </span>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    ) : flight ? (
-                                      <span
-                                        className="font-black"
-                                        style={{
-                                          fontFamily: "sans-serif",
-                                          color: "black",
-                                        }}
-                                      >
-                                        {new Date(
-                                          flight.dep_date || flight.flight_date,
-                                        ).toLocaleDateString("en-GB", {
-                                          day: "2-digit",
-                                          month: "short",
-                                          year: "numeric",
-                                        })}
-                                      </span>
-                                    ) : (
-                                      "—"
-                                    )}
-                                  </td>
-
-                                  {/* Flight + Airline */}
-                                  <td className="px-4 py-3 align-top">
-                                    {isMultiLeg ? (
-                                      <div className="flex flex-col divide-y divide-dashed divide-gray-700">
-                                        {displayDetails.map((d, i) => (
-                                          <div
-                                            key={i}
-                                            className={`flex items-center gap-1.5 ${i > 0 ? "pt-2" : "pb-2"}`}
-                                          >
-                                            <FaPlane
-                                              className="text-xs shrink-0"
-                                              style={{
-                                                color:
-                                                  i === 0
-                                                    ? theme.colors
-                                                        .ublGradientStart
-                                                    : "#f97316",
-                                              }}
-                                            />
-                                            <div className="flex flex-col">
-                                              <span className="font-bold text-sm whitespace-nowrap">
-                                                {d.flight_no?.toUpperCase() ||
-                                                  "—"}
-                                              </span>
-                                              {i === 0 &&
-                                                group.airline?.airline_name && (
-                                                  <span className="text-[10px] text-gray-900 whitespace-nowrap leading-tight">
-                                                    {group.airline.airline_name}
-                                                  </span>
-                                                )}
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <div className="flex items-center gap-1.5">
-                                        <FaPlane
-                                          className="text-xs shrink-0"
-                                          style={{
-                                            color:
-                                              theme.colors.ublGradientStart,
-                                          }}
-                                        />
-                                        <div className="flex flex-col">
-                                          <span className="font-semibold text-sm whitespace-nowrap">
-                                            {flight?.flight_no?.toUpperCase() ||
-                                              "—"}
-                                          </span>
-                                          {group.airline?.airline_name && (
-                                            <span className="text-[10px] text-gray-900 whitespace-nowrap leading-tight">
-                                              {group.airline.airline_name}
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                    )}
-                                  </td>
-
-                                  {/* Sector */}
-                                  <td className="px-4 py-3 align-top">
-                                    {isMultiLeg ? (
-                                      <div className="flex flex-col divide-y divide-dashed divide-gray-700">
-                                        {displayDetails.map((d, i) => (
-                                          <div
-                                            key={i}
-                                            className={`flex items-center justify-center gap-3 ${i > 0 ? "pt-2" : "pb-2"}`}
-                                          >
-                                            <div className="text-center">
-                                              <div
-                                                className="text-sm font-black"
-                                                style={{
-                                                  fontFamily: "sans-serif",
-                                                }}
-                                              >
-                                                {toAirportCode(d.origin) || "—"}
-                                              </div>
-                                              <div className="text-xs text-gray-500">
-                                                {d.dept_time?.substring(0, 5) ||
-                                                  "—"}
-                                              </div>
-                                            </div>
-                                            <div className="flex items-center relative min-w-12 w-26 md:w-40">
-                                              <div
-                                                className="h-0.5 w-full"
-                                                style={{
-                                                  background:
-                                                    i === 0
-                                                      ? theme.colors.ublGradient
-                                                      : "linear-gradient(90deg,#f97316,#fb923c)",
-                                                }}
-                                              />
-                                              <div className="absolute left-1/2 -translate-x-1/2 bg-white px-0.5">
-                                                <FaPlane
-                                                  className="text-sm"
-                                                  style={{
-                                                    color:
-                                                      i === 0
-                                                        ? theme.colors
-                                                            .ublGradientStart
-                                                        : "#f97316",
-                                                  }}
-                                                />
-                                              </div>
-                                            </div>
-                                            <div className="text-center">
-                                              <div
-                                                className="text-sm font-black"
-                                                style={{
-                                                  fontFamily: "sans-serif",
-                                                }}
-                                              >
-                                                {toAirportCode(d.destination) ||
-                                                  "—"}
-                                              </div>
-                                              <div className="text-xs text-gray-500">
-                                                {d.arv_time?.substring(0, 5) ||
-                                                  "—"}
-                                              </div>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <div className="flex items-center justify-center gap-3">
-                                        <div className="text-center">
-                                          <div
-                                            className="text-sm sm:text-base font-black"
-                                            style={{ fontFamily: "sans-serif" }}
-                                          >
-                                            {origin}
-                                          </div>
-                                          <div className="text-xs text-gray-700 font-medium">
-                                            {flight?.dept_time?.substring(
-                                              0,
-                                              5,
-                                            ) || "—"}
-                                          </div>
-                                        </div>
-                                        <div className="flex items-center relative min-w-12 w-26 md:w-48">
-                                          <div
-                                            className="h-0.5 w-full"
-                                            style={{
-                                              background:
-                                                theme.colors.ublGradient,
-                                            }}
-                                          />
-                                          <div className="absolute left-1/2 -translate-x-1/2 bg-white px-0.5">
-                                            <FaPlane
-                                              className="text-sm"
-                                              style={{
-                                                color:
-                                                  theme.colors.ublGradientStart,
-                                              }}
-                                            />
-                                          </div>
-                                        </div>
-                                        <div className="text-center">
-                                          <div
-                                            className="text-sm sm:text-base font-black"
-                                            style={{ fontFamily: "sans-serif" }}
-                                          >
-                                            {destination}
-                                          </div>
-                                          <div className="text-xs text-gray-700 font-medium">
-                                            {(
-                                              lastFlight?.arv_time ||
-                                              flight?.arv_time
-                                            )?.substring(0, 5) || "—"}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </td>
-
-                                  {/* Bag */}
-                                  <td className="px-4 py-3 text-center align-top">
-                                    {isMultiLeg ? (
-                                      <div className="flex flex-col divide-y divide-dashed divide-gray-700 items-center mt-3">
-                                        {displayDetails.map((d, i) => (
-                                          <div
-                                            key={i}
-                                            className={`${i > 0 ? "pt-2" : "pb-2"}`}
-                                          >
-                                            {d.baggage ? (
-                                              <div className="inline-flex items-center gap-1 text-xs font-medium">
-                                                <FaSuitcase
-                                                  className="shrink-0"
-                                                  style={{
-                                                    color:
-                                                      i === 0
-                                                        ? theme.colors
-                                                            .ublGradientStart
-                                                        : "#f97316",
-                                                  }}
-                                                />
-                                                <span>
-                                                  {formatBaggageLabel(
-                                                    d.baggage,
-                                                  )}
-                                                </span>
-                                              </div>
-                                            ) : (
-                                              <span className="text-gray-400 text-xs">
-                                                —
-                                              </span>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    ) : flight?.baggage ? (
-                                      <div className="inline-flex items-center gap-1  text-xs font-medium">
-                                        <FaSuitcase
-                                          className="shrink-0"
-                                          style={{
-                                            color:
-                                              theme.colors.ublGradientStart,
-                                          }}
-                                        />
-                                        <span>
-                                          {formatBaggageLabel(flight.baggage)}
-                                        </span>
-                                      </div>
-                                    ) : (
-                                      <span className="text-gray-400 text-xs">
-                                        —
-                                      </span>
-                                    )}
-                                  </td>
-
-                                  {/* Meal */}
-                                  <td className="px-4 py-3 text-center align-top">
-                                    {isMultiLeg ? (
-                                      <div className="flex flex-col divide-y divide-dashed divide-gray-700 items-center mt-3">
-                                        {displayDetails.map((d, i) => (
-                                          <div
-                                            key={i}
-                                            className={`${i > 0 ? "pt-2" : "pb-2"}`}
-                                          >
-                                            <span
-                                              className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${d.meal && d.meal !== "No" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}
-                                            >
-                                              {d.meal && d.meal !== "No"
-                                                ? "Yes"
-                                                : "No"}
-                                            </span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <span
-                                        className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${flight?.meal && flight.meal !== "No" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}
-                                      >
-                                        {flight?.meal && flight.meal !== "No"
-                                          ? "Yes"
-                                          : "No"}
-                                      </span>
-                                    )}
-                                  </td>
-
-                                  {/* Days */}
-                                  {hasMultiLeg && (
-                                    <td className="px-4 py-3 text-center align-middle">
-                                      {(() => {
-                                        // Only show days for multi-leg flights
-                                        if (!isMultiLeg) {
-                                          return (
-                                            <span className="text-gray-400 text-xs">
-                                              —
-                                            </span>
-                                          );
-                                        }
-
-                                        let days = group.days;
-                                        if (displayDetails.length > 1) {
-                                          const firstRaw =
-                                            displayDetails[0].dep_date ||
-                                            displayDetails[0].flight_date;
-                                          const lastRaw =
-                                            displayDetails[
-                                              displayDetails.length - 1
-                                            ].dep_date ||
-                                            displayDetails[
-                                              displayDetails.length - 1
-                                            ].flight_date;
-                                          if (firstRaw && lastRaw) {
-                                            const diff = Math.round(
-                                              (new Date(lastRaw) -
-                                                new Date(firstRaw)) /
-                                                (1000 * 60 * 60 * 24),
-                                            );
-                                            if (diff > 0) days = diff;
-                                          }
-                                        }
-                                        return days > 0 ? (
-                                          <span className="inline-block text-xs font-bold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
-                                            {days}
-                                          </span>
-                                        ) : (
-                                          <span className="text-gray-400 text-xs">
-                                            —
-                                          </span>
-                                        );
-                                      })()}
-                                    </td>
-                                  )}
-
-                                  {/* Seats */}
-                                  <td className="px-4 py-3 text-center align-middle">
-                                    {isAbidAirGroup(group) ||
-                                    group.priceOnCall?.seats ? (
-                                      <span className="text-sm font-bold text-red-500">
-                                        Seats on call
-                                      </span>
-                                    ) : group.isOwnGroup ? (
-                                      group.showSeat ? (
-                                        <span
-                                          className="text-sm font-bold"
-                                          style={{
-                                            color:
-                                              theme.colors.ublGradientStart,
-                                          }}
-                                        >
-                                          {getEffectiveSeats(group)}
-                                        </span>
-                                      ) : (
-                                        <span className="text-gray-400 text-xs">
-                                          —
-                                        </span>
-                                      )
-                                    ) : (
-                                      <span
-                                        className="text-sm font-bold"
-                                        style={{
-                                          color: theme.colors.ublGradientStart,
-                                        }}
-                                      >
-                                        {getEffectiveSeats(group)}
-                                      </span>
-                                    )}
-                                  </td>
-
-                                  {/* Fare */}
-                                  <td className="px-4 py-3 text-center whitespace-nowrap align-middle">
-                                    {user?.priceOnCall ||
-                                    group.priceOnCall?.adult ? (
-                                      <span className="text-sm font-bold text-red-500">
-                                        On Call
-                                      </span>
-                                    ) : (
-                                      <div
-                                        className="text-lg font-black"
-                                        style={{
-                                          color: theme.colors.ublGradientStart,
-                                          fontFamily: "sans-serif",
-                                        }}
-                                      >
-                                        PKR{" "}
-                                        {calculatePriceAfterMargin(
-                                          group.price,
-                                          group,
-                                        )?.toLocaleString()}
-                                      </div>
-                                    )}
-                                  </td>
-
-                                  {/* Action */}
-                                  <td className="w-36 px-4 py-3 mt-6 flex flex-col items-center gap-2 align-middle">
-                                    <button
-                                      onClick={() => handleBookNow(group)}
-                                      disabled={!user?.showHideButton}
-                                      className="flex items-center justify-center gap-1.5 px-3 py-2 font-semibold text-xs transition-all shadow-sm hover:shadow active:scale-95 whitespace-nowrap"
-                                      style={{
-                                        borderRadius: "8px",
-                                        background: user?.showHideButton
-                                          ? theme.colors.ublGradient
-                                          : "#e5e7eb",
-                                        color: user?.showHideButton
-                                          ? "white"
-                                          : "#9ca3af",
-                                        cursor: user?.showHideButton
-                                          ? "pointer"
-                                          : "not-allowed",
-                                      }}
-                                    >
-                                      <Ticket size={13} />
-                                      <span>Book Now</span>
-                                    </button>
-                                    {/* Copy Row Button (only in agent dashboard) */}
-                                    {headerType === "dashboard" && (
-                                      <button
-                                        onClick={() => handleCopyRow(group)}
-                                        title="Copy this flight/group data"
-                                        style={{
-                                          background: copiedRow[group.id]
-                                            ? "#22c55e"
-                                            : "#e5e7eb",
-                                          color: copiedRow[group.id]
-                                            ? "white"
-                                            : "#3b82f6",
-                                          borderRadius: 6,
-                                          fontWeight: 500,
-                                          fontSize: 12,
-                                          padding: "4px 10px",
-                                          display: "flex",
-                                          alignItems: "center",
-                                          gap: 6,
-                                          cursor: "pointer",
-                                        }}
-                                        className="transition-all shadow-sm hover:shadow"
-                                      >
-                                        {copiedRow[group.id] ? (
-                                          <FaCheck size={13} />
-                                        ) : (
-                                          <FaRegCopy size={13} />
-                                        )}
-                                        {copiedRow[group.id]
-                                          ? "Copied"
-                                          : "Copy"}
-                                      </button>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                        </tbody>
-                      </table>
-                    </div>
+                    <FlightOfferCards
+                      groups={data.groups}
+                      airlineLogo={data.airlineLogo}
+                      airlineName={data.airline}
+                      sector={normalizedSector}
+                      user={user}
+                      headerType={headerType}
+                      copiedRow={copiedRow}
+                      handleCopyRow={handleCopyRow}
+                      handleBookNow={handleBookNow}
+                      getDisplayDetails={getDisplayDetails}
+                      getEffectiveSector={getEffectiveSector}
+                      getEffectiveSeats={getEffectiveSeats}
+                      toAirportCode={toAirportCode}
+                      formatBaggageLabel={formatBaggageLabel}
+                      calculatePriceAfterMargin={calculatePriceAfterMargin}
+                    />
                   </div>
                 );
               })

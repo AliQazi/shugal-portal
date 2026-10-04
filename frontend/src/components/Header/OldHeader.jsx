@@ -37,7 +37,7 @@ export default function OldHeader({ user, handleLogout }) {
   const currentGroupType = searchParams.get("group_type")?.trim() || "";
 
   return (
-    <header className="fixed w-full top-0 left-0 z-999">
+    <header className="portal-header fixed w-full top-0 left-0 z-999">
       {/* GLASS NAV */}
       <div
         className="backdrop-blur-xl border-b"
@@ -50,7 +50,7 @@ export default function OldHeader({ user, handleLogout }) {
           {/* LEFT */}
           <div className="flex items-center gap-4">
             {user && (
-              <Link to="/" className="">
+              <Link to="/dashboard" className="">
                 <img
                   style={{ height: "70px" }}
                   src={logo}

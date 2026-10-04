@@ -1,823 +1,234 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
+import {
+  ArrowDownTrayIcon, ArrowUpTrayIcon, ChevronDownIcon, ClockIcon,
+  EllipsisVerticalIcon, MagnifyingGlassIcon, PlusIcon, UserGroupIcon,
+  UserMinusIcon, UsersIcon,
+} from "@heroicons/react/24/outline";
 import axiosInstance from "../Api/axios";
 import PageMeta from "../components/common/PageMeta";
-import PageBreadCrumb from "../components/common/PageBreadCrumb";
+import { frontendUrl } from "../utils/frontendUrl";
 import { toast } from "react-toastify";
+import "./registered-agents.css";
 
-
-interface User {
+type Status = "Active" | "Pending" | "Inactive";
+interface Agent {
   _id: string;
   name: string;
   email: string;
   phone: string;
-  companyName: string;
+  companyName?: string;
   agencyCode?: string;
   role: string;
-  status: "Active" | "Inactive" | "Pending";
+  status: Status;
+  city?: string;
+  createdAt: string;
+  activatedBy?: string;
   priceOnCall?: boolean;
   showHideButton?: boolean;
-  plainPassword?: string;
-  city?: string;
-  accountId?: string;
-  accountName?: string;
-  consultant?: string;
-  country?: string;
   marginType?: "Percentage" | "Amount";
   flightMarginPercent?: number;
   flightMarginAmount?: number;
-  registeredFrom?: {
-    ipAddress?: string;
-    userAgent?: string;
-  };
   margin?: string;
-  activatedBy?: string;
-  deactivatedBy?: string;
-  deactivatedAt?: string;
-  createdAt: string;
+  plainPassword?: string;
 }
 
-const RegisteredAgencies = () => {
+const auth = () => ({ Authorization: `Bearer ${sessionStorage.getItem("admin_token")}` });
+const dateLabel = (date: string) => new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+const initials = (name: string) => name.split(" ").map(part => part[0]).slice(0, 2).join("").toUpperCase();
+const percentage = (count: number, total: number) => total ? Math.round(count / total * 100) : 0;
+
+export default function RegisteredAgencies() {
   const navigate = useNavigate();
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [cityFilter, setCityFilter] = useState<string>("All");
-  const [statusFilter, setStatusFilter] = useState<string>("All");
-  const [approvalLoading, setApprovalLoading] = useState<string | null>(null);
-  const [sendingCredentials, setSendingCredentials] = useState<string | null>(null);
-  const [entriesPerPage, setEntriesPerPage] = useState(50);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [downloadingPDF, setDownloadingPDF] = useState(false);
-  const [downloadingExcel, setDownloadingExcel] = useState(false);
-  const [priceLoading, setPriceLoading] = useState<string | null>(null);
-  const [showLoading, setShowLoading] = useState<string | null>(null);
-  const [bulkLoading, setBulkLoading] = useState(false);
-
-  const frontendUrl = import.meta.env.VITE_FRONTEND_URL || "https://shaheenwingstravels.com";
-  // const frontendUrl = "http://localhost:5173";
+  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
+  const [city, setCity] = useState("All");
+  const [status, setStatus] = useState("All");
+  const [agency, setAgency] = useState("All");
+  const [priceFilter, setPriceFilter] = useState("All");
+  const [period, setPeriod] = useState("This Month");
+  const [pageSize, setPageSize] = useState(50);
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [menu, setMenu] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [showColumns, setShowColumns] = useState(false);
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (!menu && !showColumns) return;
 
-  useEffect(() => {
-    filterUsers();
-    setCurrentPage(1); // Reset to first page on filter change
-  }, [users, searchTerm, cityFilter, statusFilter]);
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!(event.target instanceof Element)) return;
+      if (menu && !event.target.closest("[data-agent-actions]")) setMenu(null);
+      if (showColumns && !event.target.closest("[data-agent-columns]")) setShowColumns(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenu(null);
+        setShowColumns(false);
+      }
+    };
 
-  const fetchUsers = async () => {
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [menu, showColumns]);
+
+  const load = async () => {
     try {
       setLoading(true);
-      const token = sessionStorage.getItem("admin_token");
-      const response = await axiosInstance.get("/auth/users", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (response.data.success) {
-        setUsers(response.data.data);
-      }
-    } catch (error) {
-      console.error("Error fetching users:", error);
+      const response = await axiosInstance.get("/auth/users", { headers: auth() });
+      if (response.data.success) setUsers(response.data.data);
+    } catch {
+      toast.error("Could not load agents");
     } finally {
       setLoading(false);
     }
   };
+  useEffect(() => { void load(); }, []);
 
-  const filterUsers = () => {
-    let filtered = users;
+  const agents = useMemo(() => users.filter(user => user.role === "Agency"), [users]);
+  const filtered = useMemo(() => agents.filter(user => {
+    const term = query.toLowerCase();
+    return (!term || [user.name, user.email, user.phone, user.companyName, user.agencyCode, user.city]
+      .some(value => value?.toLowerCase().includes(term))) &&
+      (city === "All" || user.city === city) &&
+      (status === "All" || user.status === status) &&
+      (agency === "All" || user.companyName === agency) &&
+      (priceFilter === "All" || Boolean(user.priceOnCall) === (priceFilter === "On"));
+  }), [agents, query, city, status, agency, priceFilter]);
+  const cities = useMemo(() => [...new Set(agents.map(user => user.city).filter((value): value is string => Boolean(value)))].sort(), [agents]);
+  const agencies = useMemo(() => [...new Set(agents.map(user => user.companyName).filter((value): value is string => Boolean(value)))].sort(), [agents]);
+  const cityCounts = useMemo(() => {
+    const source = period === "This Month"
+      ? agents.filter(user => { const date = new Date(user.createdAt); const today = new Date(); return date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear(); })
+      : agents;
+    return cities.map(name => ({ name, count: source.filter(user => user.city === name).length })).filter(item => item.count > 0).sort((a, b) => b.count - a.count).slice(0, 7);
+  }, [agents, cities, period]);
+  const agencyCounts = useMemo(() => agencies.map(name => ({ name, count: agents.filter(user => user.companyName === name).length })).sort((a, b) => b.count - a.count).slice(0, 5), [agents, agencies]);
+  const active = agents.filter(user => user.status === "Active").length;
+  const pending = agents.filter(user => user.status === "Pending").length;
+  const inactive = agents.filter(user => user.status === "Inactive").length;
+  const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const rows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const allPrice = agents.length > 0 && agents.every(user => user.priceOnCall);
+  const allBooking = agents.length > 0 && agents.every(user => user.showHideButton);
+  const col = (name: string) => !hiddenColumns.includes(name);
 
-    // Filter by role - only show agencies
-    filtered = filtered.filter((user) => user.role === "Agency");
-
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (user) =>
-          user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.agencyCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.city?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Filter by city
-    if (cityFilter !== "All") {
-      filtered = filtered.filter((user) => user.city === cityFilter);
-    }
-
-    // Filter by status
-    if (statusFilter !== "All") {
-      filtered = filtered.filter((user) => user.status === statusFilter);
-    }
-
-    setFilteredUsers(filtered);
-  };
-
-  // Pagination logic
-  const totalPages = Math.ceil(filteredUsers.length / entriesPerPage);
-  const paginatedUsers = filteredUsers.slice(
-    (currentPage - 1) * entriesPerPage,
-    currentPage * entriesPerPage
-  );
-
-  const updateUserStatus = async (userId: string, newStatus: "Active" | "Inactive" | "Pending") => {
+  const patchAgent = async (id: string, path: string, body: object, apply: (agent: Agent) => Agent) => {
     try {
-      setApprovalLoading(userId);
-      const token = sessionStorage.getItem("admin_token");
-      const response = await axiosInstance.patch(
-        `/auth/users/${userId}/status`,
-        { status: newStatus },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.data.success) {
-        const updated = response.data.data as User;
-        setUsers(
-          users.map((user) =>
-            user._id === userId
-              ? {
-                ...user,
-                status: newStatus,
-                activatedBy: updated.activatedBy,
-                deactivatedBy: updated.deactivatedBy,
-                deactivatedAt: updated.deactivatedAt
-              }
-              : user
-          )
-        );
-      }
-    } catch (error) {
-      console.error("Error updating user status:", error);
+      setBusy(id);
+      const response = await axiosInstance.patch(path, body, { headers: auth() });
+      if (!response.data.success) throw new Error("Update failed");
+      setUsers(prev => prev.map(user => user._id === id ? apply(user) : user));
+      toast.success("Agent updated");
+    } catch {
+      toast.error("Could not update agent");
     } finally {
-      setApprovalLoading(null);
+      setBusy(null);
     }
   };
-
-  const handleAgentLogin = (user: User) => {
-    if (!user.agencyCode || !user.email || !user.plainPassword) {
-      window.alert("Missing agent credentials for auto login. Ensure email, code, and password are set.");
-      return;
-    }
-
-    const params = new URLSearchParams({
-      agentCode: user.agencyCode,
-      email: user.email,
-      password: user.plainPassword,
-      auto: "true",
-    });
-
-    const target = `${frontendUrl.replace(/\/$/, "")}/?${params.toString()}`;
-    window.open(target, "_blank", "noopener,noreferrer");
-  };
-
-  const handleSendCredentials = async (userId: string) => {
+  const setAgentStatus = (user: Agent, value: Status) => patchAgent(user._id, `/auth/users/${user._id}/status`, { status: value }, agent => ({ ...agent, status: value }));
+  const togglePrice = (user: Agent) => patchAgent(user._id, `/auth/users/${user._id}/price-on-call`, { priceOnCall: !user.priceOnCall }, agent => ({ ...agent, priceOnCall: !user.priceOnCall }));
+  const toggleBooking = (user: Agent) => patchAgent(user._id, `/auth/users/${user._id}/show-booking-now`, { showHideButton: !user.showHideButton }, agent => ({ ...agent, showHideButton: !user.showHideButton }));
+  const bulkToggle = async (kind: "price" | "booking") => {
     try {
-      setSendingCredentials(userId);
-      const token = sessionStorage.getItem("admin_token");
-
-      const response = await axiosInstance.post(
-        `/auth/users/${userId}/send-credentials`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.data.success) {
-        window.alert("✅ " + (response.data.message || "Credentials sent successfully!"));
-      }
-    } catch (error: any) {
-      console.error("Error sending credentials:", error);
-
-      let errorMessage = "❌ Failed to send credentials email.\n\n";
-
-      if (error.response?.status === 500) {
-        errorMessage += "Email service is not configured properly.\n\n";
-        errorMessage += "Please check the backend EMAIL_SETUP_GUIDE.md for instructions on:\n";
-        errorMessage += "1. Setting up Gmail App Password\n";
-        errorMessage += "2. Or configuring alternative email service\n\n";
-        errorMessage += "Contact system administrator to configure email settings.";
-      } else {
-        errorMessage += error.response?.data?.message || "An unexpected error occurred. Please try again.";
-      }
-
-      window.alert(errorMessage);
-    } finally {
-      setSendingCredentials(null);
-    }
+      setBusy(kind);
+      const value = kind === "price" ? !allPrice : !allBooking;
+      await axiosInstance.patch(kind === "price" ? "/bookings/bulkTogglePriceOnCall" : "/auth/users/bulk-show-booking-now", kind === "price" ? { value } : { showHideButton: value }, { headers: auth() });
+      setUsers(prev => prev.map(user => user.role === "Agency" ? { ...user, [kind === "price" ? "priceOnCall" : "showHideButton"]: value } : user));
+      toast.success("All agents updated");
+    } catch { toast.error("Could not update agents"); }
+    finally { setBusy(null); }
   };
-
-  const handleDownloadPDF = async () => {
+  const download = async (type: "pdf" | "excel") => {
     try {
-      setDownloadingPDF(true);
-      const token = sessionStorage.getItem("admin_token");
-
-      const params = new URLSearchParams({
-        searchTerm: searchTerm,
-        city: cityFilter,
-        status: statusFilter,
-      });
-
-      const response = await axiosInstance.get(`/export/users/pdf?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        responseType: 'blob',
-      });
-
-      // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
+      setBusy(type);
+      const params = new URLSearchParams({ searchTerm: query, city, status });
+      const response = await axiosInstance.get(`/export/users/${type}?${params}`, { headers: auth(), responseType: "blob" });
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', `agencies-${Date.now()}.pdf`);
-      document.body.appendChild(link);
+      link.download = `agents-${Date.now()}.${type === "pdf" ? "pdf" : "xlsx"}`;
       link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-
-    } catch (error) {
-      console.error("Error downloading PDF:", error);
-      window.alert("Failed to download PDF. Please try again.");
-    } finally {
-      setDownloadingPDF(false);
-    }
+      URL.revokeObjectURL(url);
+    } catch { toast.error(`Could not export ${type.toUpperCase()}`); }
+    finally { setBusy(null); }
   };
-
-  const handleDownloadExcel = async () => {
+  const sendCredentials = async (user: Agent) => {
     try {
-      setDownloadingExcel(true);
-      const token = sessionStorage.getItem("admin_token");
-
-      const params = new URLSearchParams({
-        searchTerm: searchTerm,
-        city: cityFilter,
-        status: statusFilter,
-      });
-
-      const response = await axiosInstance.get(`/export/users/excel?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        responseType: 'blob',
-      });
-      console.log(response.data, 'excel response')
-      // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `agencies-${Date.now()}.xlsx`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-
-    } catch (error) {
-      console.error("Error downloading Excel:", error);
-      window.alert("Failed to download Excel. Please try again.");
-    } finally {
-      setDownloadingExcel(false);
-    }
+      setBusy(user._id);
+      await axiosInstance.post(`/auth/users/${user._id}/send-credentials`, {}, { headers: auth() });
+      toast.success("Credentials sent");
+    } catch { toast.error("Could not send credentials"); }
+    finally { setBusy(null); setMenu(null); }
   };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+  const login = (user: Agent) => {
+    if (!user.agencyCode || !user.email || !user.plainPassword) { toast.error("Agent login credentials are unavailable"); return; }
+    const url = frontendUrl("/auth/login");
+    url.search = new URLSearchParams({ agentCode: user.agencyCode, email: user.email, password: user.plainPassword, auto: "true" }).toString();
+    window.open(url.toString(), "_blank", "noopener,noreferrer");
   };
+  const reset = () => { setCity("All"); setStatus("All"); setAgency("All"); setPriceFilter("All"); setSearch(""); setQuery(""); setPage(1); };
+  const columns = ["Agency", "City", "Margin", "Status", "Register Date", "Price on Call", "Booking Now"];
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Active":
-        return "text-green-600 dark:text-green-400";
-      case "Pending":
-        return "text-red-600 dark:text-red-400";
-      case "Inactive":
-        return "text-gray-600 dark:text-gray-400";
-      default:
-        return "text-gray-600 dark:text-gray-400";
-    }
-  };
-
-  const formatMargin = (user: User) => {
-    if (user.marginType === "Amount") {
-      return `${user.flightMarginAmount ?? 0} PKR`;
-    }
-    if (user.marginType === "Percentage") {
-      return `${user.flightMarginPercent ?? 0}%`;
-    }
-    return user.margin || "0";
-  };
-
-  const togglePriceOnCall = async (userId: string, currentValue?: boolean) => {
-    try {
-      setPriceLoading(userId);
-      const token = sessionStorage.getItem("admin_token");
-
-      const response = await axiosInstance.patch(
-        `/auth/users/${userId}/price-on-call`,
-        { priceOnCall: !currentValue },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (response.data.success) {
-        setUsers(prev =>
-          prev.map(u =>
-            u._id === userId ? { ...u, priceOnCall: response.data.data.priceOnCall } : u
-          )
-        );
-      }
-    } catch (error) {
-      console.error("Error updating Price on Call:", error);
-      window.alert("Failed to update Price on Call");
-    } finally {
-      setPriceLoading(null);
-    }
-  };
-  const toggleShowButton = async (userId: string, currentValue?: boolean) => {
-    const newValue = !currentValue;
-    console.log(newValue, 'newvalue')
-    setUsers(prev =>
-      prev.map(u =>
-        u._id === userId
-          ? { ...u, showHideButton: newValue }
-          : u
-      )
-    );
-
-    try {
-      setShowLoading(userId)
-      const token = sessionStorage.getItem("admin_token");
-
-      await axiosInstance.patch(
-        `/auth/users/${userId}/show-booking-now`,
-        { showHideButton: newValue },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-    } catch (error) {
-      console.error("Error updating Booking now:", error);
-      window.alert("Failed to update Booking now");
-    } finally {
-      setShowLoading(null)
-    }
-  };
-
-  const handleBulkBookingNowToggle = async () => {
-    try {
-      setBulkLoading(true);
-      const token = sessionStorage.getItem("admin_token");
-
-      const newValue = !allBookingOn;
-
-      await axiosInstance.patch(
-        "/auth/users/bulk-show-booking-now",
-        { showHideButton: newValue },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      setUsers(prev =>
-        prev.map(u =>
-          u.role === "Agency"
-            ? { ...u, showHideButton: newValue }
-            : u
-        )
-      );
-
-      toast.success(
-        `Booking Now turned ${newValue ? "ON" : "OFF"} for all agencies`
-      );
-
-    } catch (error) {
-      console.error("Bulk Booking update failed:", error);
-      toast.error("Failed to update Booking Now");
-    } finally {
-      setBulkLoading(false);
-    }
-  };
-
-
-  const handleBulkPriceOnCallToggle = async () => {
-    try {
-      setBulkLoading(true);
-      const token = sessionStorage.getItem("admin_token");
-
-      const newValue = !allPriceOnCallOn;
-
-      const response = await axiosInstance.patch(
-        "/bookings/bulkTogglePriceOnCall",
-        { value: newValue },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      console.log(response)
-      // Update UI instantly
-      setUsers(prev =>
-        prev.map(u =>
-          u.role === "Agency"
-            ? { ...u, priceOnCall: newValue }
-            : u
-        )
-      );
-      toast.success(
-        `Price On Call turned ${newValue ? "ON" : "OFF"} for all agencies`
-      );
-
-    } catch (error) {
-      console.error("Bulk Price on Call update failed:", error);
-      toast.error("Failed to update Bulk Price On Call");
-
-    } finally {
-      setBulkLoading(false);
-    }
-  };
-
-  // Check all agencies booking status
-  const agencyUsers = users.filter(u => u.role === "Agency");
-
-  const allBookingOn =
-    agencyUsers.length > 0 &&
-    agencyUsers.every(u => u.showHideButton === true);
-
-
-
-  // Check if all agencies have Price on Call ON
-  const allPriceOnCallOn =
-    agencyUsers.length > 0 &&
-    agencyUsers.every(u => u.priceOnCall === true);
-
-  const activeCount = users.filter(u => u.role === "Agency" && u.status === "Active").length;
-  const pendingCount = users.filter(u => u.role === "Agency" && u.status === "Pending").length;
-  const inactiveCount = users.filter(u => u.role === "Agency" && u.status === "Inactive").length;
-  const totalAgents = 1000; // This can be dynamic based on your requirements
-
-  const uniqueCities = Array.from(new Set(users.filter(u => u.city).map(u => u.city)));
-
-  return (
-    <>
-      <PageMeta title="All Agents" description="Manage all registered agents" />
-      <PageBreadCrumb pageTitle="All Agents" />
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-4 mb-6 md:grid-cols-3">
-        {/* Active Agents Card */}
-        <div className="flex items-center gap-4 p-6 bg-linear-to-br from-emerald-400 to-teal-500 rounded-xl shadow-lg">
-          <div className="flex items-center justify-center w-14 h-14 bg-white/90 rounded-full shadow-md">
-            <svg className="w-7 h-7 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-            </svg>
-          </div>
-          <div className="text-white">
-            <div className="text-sm font-semibold tracking-wide">Active Agents</div>
-            <div className="text-3xl font-bold">{activeCount}/{totalAgents}</div>
-          </div>
-        </div>
-
-        {/* Pending Agents Card */}
-        <div className="flex items-center gap-4 p-6 bg-linear-to-br from-sky-400 to-blue-500 rounded-xl shadow-lg">
-          <div className="flex items-center justify-center w-14 h-14 bg-white/90 rounded-full shadow-md">
-            <svg className="w-7 h-7 text-sky-500" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-            </svg>
-          </div>
-          <div className="text-white">
-            <div className="text-sm font-semibold tracking-wide">Pending Agents</div>
-            <div className="text-3xl font-bold">{pendingCount}</div>
-          </div>
-        </div>
-
-        {/* De-Active Agents Card */}
-        <div className="flex items-center gap-4 p-6 bg-linear-to-br from-rose-400 to-pink-500 rounded-xl shadow-lg">
-          <div className="flex items-center justify-center w-14 h-14 bg-white/90 rounded-full shadow-md">
-            <svg className="w-7 h-7 text-rose-500" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-            </svg>
-          </div>
-          <div className="text-white">
-            <div className="text-sm font-semibold tracking-wide">De-Active Agents</div>
-            <div className="text-3xl font-bold">{inactiveCount}</div>
-          </div>
+  return <div className="registered-agents">
+    <PageMeta title="All Agents" description="Manage registered travel agents" />
+    <div className="ra-heading">
+      <div><h1>All Agents</h1><p>Manage travel agents, view status, control access and monitor activity.</p></div>
+      <div className="ra-heading-right">
+        <div className="ra-breadcrumb">Home <span>›</span> Agents <span>›</span> <b>All Agents</b></div>
+        <div className="ra-heading-actions">
+          <button className="ra-outline" onClick={() => toast.info("Agent import is not configured yet")}><ArrowUpTrayIcon /> Import Agents</button>
+          <button className="ra-outline" onClick={() => download("excel")} disabled={busy === "excel"}><ArrowDownTrayIcon /> Export Agents</button>
+          <button className="ra-primary" onClick={() => window.open(frontendUrl("/auth/register").toString(), "_blank", "noopener,noreferrer")}><PlusIcon /> Add Agent</button>
         </div>
       </div>
+    </div>
 
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-white/3">
-        <div className="px-4 py-6 md:px-6 xl:px-7.5">
-          {/* Filters */}
-          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Filter by City
-              </label>
-              <select
-                value={cityFilter}
-                onChange={(e) => setCityFilter(e.target.value)}
-                className="w-full h-11 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              >
-                <option value="All">All Cities</option>
-                {uniqueCities.map(city => (
-                  <option key={city} value={city}>{city}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Filter by Status
-              </label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full h-11 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              >
-                <option value="All">All</option>
-                <option value="Active">Active</option>
-                <option value="Pending">Pending</option>
-                <option value="Inactive">Inactive</option>
-              </select>
-            </div>
-          </div>
+    <section className="ra-stats" aria-label="Agent summary">
+      <div className="ra-card ra-stat"><span className="ra-stat-icon green"><UserGroupIcon /></span><div><label>Total Agents</label><strong>{agents.length.toLocaleString()}</strong><small>All registered agents</small></div></div>
+      <div className="ra-card ra-stat"><span className="ra-stat-icon blue"><UsersIcon /></span><div><label>Active Agents</label><strong>{active.toLocaleString()}</strong><small>Currently active</small></div><span className="ra-progress" style={{ background: `conic-gradient(#1464fa ${percentage(active, agents.length)}%, #e9f1fc 0)` }}>{percentage(active, agents.length)}%</span></div>
+      <div className="ra-card ra-stat"><span className="ra-stat-icon amber"><ClockIcon /></span><div><label>Pending Agents</label><strong>{pending.toLocaleString()}</strong><small>Awaiting approval</small></div></div>
+      <div className="ra-card ra-stat"><span className="ra-stat-icon red"><UserMinusIcon /></span><div><label>De-Active Agents</label><strong>{inactive.toLocaleString()}</strong><small>Inactive accounts</small></div></div>
+    </section>
 
-          {/* Entries and Search */}
-          <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Show</span>
-              <select
-                value={entriesPerPage}
-                onChange={(e) => setEntriesPerPage(Number(e.target.value))}
-                className="h-9 rounded border border-gray-300 bg-white px-3 text-sm outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              >
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-              <span className="text-sm text-gray-600 dark:text-gray-400">entries</span>
-            </div>
-
-
-            <div className="flex gap-2 items-center">
-              {/* <span>Book Now </span> */}
-              {/* Price On Call Toggle */}
-              <button
-                onClick={handleBulkPriceOnCallToggle}
-                disabled={bulkLoading || agencyUsers.length === 0}
-                className={`rounded px-4 py-2 text-sm text-white transition-all
-      ${allPriceOnCallOn
-                    ? "bg-orange-600 hover:bg-orange-700"
-                    : "bg-purple-600 hover:bg-purple-700"} 
-      disabled:opacity-50`}
-              >
-                {bulkLoading
-                  ? "Updating..."
-                  : `Price On Call: ${allPriceOnCallOn ? "ALL OFF" : "ALL ON"}`}
-              </button>
-
-              {/* Booking Now Toggle (Single Button) */}
-              <button
-                onClick={handleBulkBookingNowToggle}
-                disabled={bulkLoading || agencyUsers.length === 0}
-                className={`rounded px-4 py-2 text-sm text-white transition-all
-      ${allBookingOn
-                    ? "bg-blue-600 hover:bg-blue-700"
-                    : "bg-gray-600 hover:bg-gray-700"} 
-      disabled:opacity-50`}
-              >
-                {bulkLoading
-                  ? "Updating..."
-                  : `Booking Now: ${allBookingOn ? "ALL OFF" : "ALL ON"}`}
-              </button>
-
-
-              <button
-                onClick={handleDownloadPDF}
-                disabled={downloadingPDF}
-                className="flex items-center gap-2 rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-                {downloadingPDF ? "Downloading..." : "PDF"}
-              </button>
-              <button
-                onClick={handleDownloadExcel}
-                disabled={downloadingExcel}
-                className="flex items-center gap-2 rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-                {downloadingExcel ? "Downloading..." : "Excel"}
-              </button>
-              <input
-                type="text"
-                placeholder="Filter Search"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-9 w-full rounded border border-gray-300 bg-white px-4 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 sm:w-64"
-              />
-            </div>
-          </div>
-
-          {/* Table */}
-          {loading ? (
-            <div className="flex justify-center py-10">
-              <div className="text-gray-500 dark:text-gray-400">Loading agents...</div>
-            </div>
-          ) : filteredUsers.length === 0 ? (
-            <div className="flex justify-center py-10">
-              <div className="text-gray-500 dark:text-gray-400">No agents found</div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full table-auto">
-                <thead className="bg-gray-800 dark:bg-gray-900">
-                  <tr>
-                    <th className="px-4 py-4 text-left text-sm font-medium text-white">#</th>
-                    <th className="px-4 py-4 text-left text-sm font-medium text-white">User</th>
-                    <th className="px-4 py-4 text-left text-sm font-medium text-white">Agency</th>
-                    <th className="px-4 py-4 text-left text-sm font-medium text-white">City</th>
-                    <th className="px-4 py-4 text-left text-sm font-medium text-white">Margin</th>
-                    <th className="px-4 py-4 text-left text-sm font-medium text-white">Status</th>
-                    <th className="px-4 py-4 text-left text-sm font-medium text-white">Register Date</th>
-                    <th className="px-4 py-4 text-left text-sm font-medium text-white">Price on Call</th>
-                    <th className="px-4 py-4 text-left text-sm font-medium text-white">Booking Now</th>
-                    <th className="px-4 py-4 text-left text-sm font-medium text-white">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-gray-50 dark:bg-gray-800/50">
-                  {paginatedUsers.map((user, index) => (
-                    <tr
-                      key={user._id}
-                      className="border-b border-gray-200 dark:border-gray-700"
-                    >
-                      <td className="px-4 py-4 text-sm text-gray-800 dark:text-white/90">
-                        {(currentPage - 1) * entriesPerPage + index + 1}
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          Agent Code: {user.agencyCode || "N/A"}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="text-sm text-gray-800 dark:text-white/90">{user.name}</div>
-                        <div className="text-sm text-gray-800 dark:text-white/90">{user.phone}</div>
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-800 dark:text-white/90">
-                        {user.companyName || "N/A"}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-800 dark:text-white/90">
-                        {user.city || "N/A"}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-800 dark:text-white/90">
-                        <span className="font-semibold">Margin:</span> {formatMargin(user)}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="text-sm font-semibold">
-                          <div className={getStatusColor(user.status)}>{user.status}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            Activated by: {user.activatedBy || "N/A"}
-                          </div>
-                          {user.status === "Inactive" && (
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                              Deactivated by: {user.deactivatedBy || "N/A"}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-800 dark:text-white/90">
-                        {formatDate(user.createdAt)}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-800 dark:text-white/90">
-                        <button
-                          onClick={() => togglePriceOnCall(user._id, user.priceOnCall)}
-                          disabled={priceLoading === user._id}
-                          className={`px-3 py-1 rounded-full text-xs font-semibold transition ${user.priceOnCall
-                            ? "bg-red-100 text-red-700 hover:bg-red-200"
-                            : "bg-green-100 text-green-700 hover:bg-green-200"
-                            } disabled:opacity-50`}
-                        >
-                          {priceLoading === user._id
-                            ? "Updating..."
-                            : user.priceOnCall
-                              ? "ON"
-                              : "OFF"}
-                        </button>
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-800 dark:text-white/90">
-                        <button
-                          onClick={() => toggleShowButton(user._id, user.showHideButton)}
-                          disabled={showLoading === user._id}
-                          className={`px-3 py-1 rounded-full text-xs font-semibold transition ${user.showHideButton
-                            ? "bg-green-100 text-green-700 hover:bg-green-200"
-                            : "bg-red-100 text-red-700 hover:bg-red-200"
-                            } disabled:opacity-50`}
-                        >
-                          {showLoading === user._id
-                            ? "Updating..."
-                            : user.showHideButton
-                              ? "ON"
-                              : "OFF"}
-                        </button>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-col gap-2">
-                          {user.status === "Active" ? (
-                            <button
-                              onClick={() => updateUserStatus(user._id, "Inactive")}
-                              disabled={approvalLoading === user._id}
-                              className="rounded bg-red-500 px-3 py-1 text-xs font-medium text-white hover:bg-red-600 disabled:opacity-50"
-                            >
-                              De-active this Agent
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => updateUserStatus(user._id, "Active")}
-                              disabled={approvalLoading === user._id}
-                              className="rounded bg-blue-500 px-3 py-1 text-xs font-medium text-white hover:bg-blue-600 disabled:opacity-50"
-                            >
-                              Active this Agent
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleSendCredentials(user._id)}
-                            disabled={sendingCredentials === user._id}
-                            className="rounded bg-yellow-500 px-3 py-1 text-xs font-medium text-white hover:bg-yellow-600 disabled:opacity-50"
-                          >
-                            {sendingCredentials === user._id ? "Sending..." : "Send Credential"}
-                          </button>
-                          {user.status === "Active" && (
-                            <button
-                              onClick={() => handleAgentLogin(user)}
-                              className="rounded bg-yellow-400 px-3 py-1 text-xs font-medium text-gray-800 hover:bg-yellow-500"
-                            >
-                              Agent Login
-                            </button>
-                          )}
-                          <button
-                            onClick={() => navigate(`/registered-agencies/${user._id}`)}
-                            className="rounded bg-green-500 px-3 py-1 text-xs font-medium text-white hover:bg-green-600"
-                          >
-                            Detail
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex justify-end items-end gap-2 mt-6">
-              <button
-                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1 rounded bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-white/80 disabled:opacity-50"
-              >
-                Prev
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`px-3 py-1 rounded ${currentPage === page
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-white/80"
-                    }`}
-                >
-                  {page}
-                </button>
-              ))}
-              <button
-                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1 rounded bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-white/80 disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          )}
-        </div>
+    <section className="ra-insights">
+      <div className="ra-card ra-city"><div className="ra-card-heading"><h2>Agents by City</h2><select value={period} onChange={e => setPeriod(e.target.value)} aria-label="Chart period"><option>This Month</option><option>All Time</option></select></div>
+        <div className="ra-chart"><div className="ra-chart-axis"><span>{Math.max(...cityCounts.map(item => item.count), 0)}</span><span>0</span></div><div className="ra-bars">{cityCounts.length ? cityCounts.map(item => <div className="ra-bar-item" key={item.name}><div className="ra-bar" title={`${item.name}: ${item.count}`} style={{ height: `${Math.max(4, item.count / Math.max(...cityCounts.map(row => row.count)) * 100)}%` }} /><span>{item.name}</span></div>) : <p className="ra-empty">No city data yet</p>}</div></div>
       </div>
-    </>
-  );
-};
+      <div className="ra-card ra-status"><h2>Agent Status</h2><div className="ra-status-body"><div className="ra-donut" style={{ background: agents.length ? `conic-gradient(#19bd72 0 ${percentage(active, agents.length)}%, #ffa327 ${percentage(active, agents.length)}% ${percentage(active + pending, agents.length)}%, #fa263e ${percentage(active + pending, agents.length)}% 100%)` : "#e8eef6" }}><div><strong>{agents.length.toLocaleString()}</strong><small>Total Agents</small></div></div><div className="ra-legend"><div><i className="green" />Active <span>{active} ({percentage(active, agents.length)}%)</span></div><div><i className="amber" />Pending <span>{pending} ({percentage(pending, agents.length)}%)</span></div><div><i className="red" />De-Active <span>{inactive} ({percentage(inactive, agents.length)}%)</span></div></div></div></div>
+      <div className="ra-card ra-agencies"><div className="ra-card-heading"><h2>Top Agencies</h2><button onClick={() => { setAgency("All"); document.getElementById("agent-table")?.scrollIntoView({ behavior: "smooth" }); }}>View All</button></div><div className="ra-agency-list">{agencyCounts.length ? agencyCounts.map((item, index) => <div className="ra-agency" key={item.name}><span title={item.name}>{item.name}</span><div><i style={{ width: `${item.count / (agencyCounts[0]?.count || 1) * 100}%`, background: ["#79a9fa", "#54c991", "#ffbc68", "#3d87fa", "#43b7e8"][index] }} /></div><b>{item.count}</b></div>) : <p className="ra-empty">No agencies yet</p>}</div></div>
+    </section>
 
-export default RegisteredAgencies;
+    <section className="ra-card ra-table-card" id="agent-table">
+      <div className="ra-filters">
+        <label>City<select value={city} onChange={e => { setCity(e.target.value); setPage(1); }}><option value="All">All Cities</option>{cities.map(value => <option key={value}>{value}</option>)}</select></label>
+        <label>Status<select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}><option value="All">All Status</option><option>Active</option><option>Pending</option><option value="Inactive">De-Active</option></select></label>
+        <label>Agency<select value={agency} onChange={e => { setAgency(e.target.value); setPage(1); }}><option value="All">All Agencies</option>{agencies.map(value => <option key={value}>{value}</option>)}</select></label>
+        <label>Price on Call<select value={priceFilter} onChange={e => { setPriceFilter(e.target.value); setPage(1); }}><option value="All">All</option><option value="On">On</option><option value="Off">Off</option></select></label>
+        <label className="ra-search-label">Search<div className="ra-search"><MagnifyingGlassIcon /><input value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === "Enter" && (setQuery(search), setPage(1))} placeholder="Search by name, email, phone, agency..." /></div></label>
+        <button className="ra-primary" onClick={() => { setQuery(search); setPage(1); }}><MagnifyingGlassIcon /> Search</button>
+        <button className="ra-reset" onClick={reset}>Reset</button>
+      </div>
+      <div className="ra-toolbar"><div>Show <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}><option>10</option><option>25</option><option>50</option><option>100</option></select> entries <span className="ra-count">{filtered.length} agents</span></div><div className="ra-toolbar-actions">
+        {selected.length > 0 && <span className="ra-count">{selected.length} selected</span>}
+        <button className="ra-purple" disabled={Boolean(busy) || !agents.length} onClick={() => bulkToggle("price")}>Price On Call: ALL {allPrice ? "OFF" : "ON"}</button>
+        <button className="ra-primary" disabled={Boolean(busy) || !agents.length} onClick={() => bulkToggle("booking")}>Booking Now: ALL {allBooking ? "OFF" : "ON"}</button>
+        <button className="ra-pdf" disabled={busy === "pdf"} onClick={() => download("pdf")}><ArrowDownTrayIcon /> PDF</button>
+        <button className="ra-excel" disabled={busy === "excel"} onClick={() => download("excel")}><ArrowDownTrayIcon /> Excel</button>
+        <div className="ra-columns" data-agent-columns><button className="ra-reset" onClick={() => setShowColumns(!showColumns)}>Columns <ChevronDownIcon /></button>{showColumns && <div className="ra-columns-menu">{columns.map(name => <label key={name}><input type="checkbox" checked={col(name)} onChange={() => setHiddenColumns(prev => col(name) ? [...prev, name] : prev.filter(value => value !== name))} /> {name}</label>)}</div>}</div>
+      </div></div>
+      <div className={`ra-table-scroll ${menu ? "menu-open" : ""}`}><table><thead><tr><th><input type="checkbox" aria-label="Select page" checked={rows.length > 0 && rows.every(row => selected.includes(row._id))} onChange={e => setSelected(e.target.checked ? [...new Set([...selected, ...rows.map(row => row._id)])] : selected.filter(id => !rows.some(row => row._id === id)))} /></th><th>#</th><th>User / Contact</th>{col("Agency") && <th>Agency</th>}{col("City") && <th>City</th>}{col("Margin") && <th>Margin</th>}{col("Status") && <th>Status</th>}{col("Register Date") && <th>Register Date</th>}{col("Price on Call") && <th>Price on Call</th>}{col("Booking Now") && <th>Booking Now</th>}<th>Action</th></tr></thead><tbody>
+        {loading ? <tr><td colSpan={11} className="ra-message">Loading agents...</td></tr> : rows.length === 0 ? <tr><td colSpan={11} className="ra-message">No agents found</td></tr> : rows.map((user, index) => <tr key={user._id}><td><input type="checkbox" aria-label={`Select ${user.name}`} checked={selected.includes(user._id)} onChange={e => setSelected(e.target.checked ? [...selected, user._id] : selected.filter(id => id !== user._id))} /></td><td>{(page - 1) * pageSize + index + 1}</td><td><div className="ra-person"><span className="ra-avatar">{initials(user.name)}</span><div><b>{user.name}</b><small>{user.phone || user.email}</small><small>{user.agencyCode || "No agent code"}</small></div></div></td>{col("Agency") && <td>{user.companyName || "—"}</td>}{col("City") && <td>{user.city || "—"}</td>}{col("Margin") && <td>{user.marginType === "Amount" ? `${user.flightMarginAmount || 0} PKR` : user.marginType === "Percentage" ? `${user.flightMarginPercent || 0}%` : user.margin || "0%"}</td>}{col("Status") && <td><span className={`ra-badge ${user.status.toLowerCase()}`}>{user.status === "Inactive" ? "De-Active" : user.status}</span></td>}{col("Register Date") && <td>{dateLabel(user.createdAt)}<small className="ra-by">by {user.activatedBy || "Admin"}</small></td>}{col("Price on Call") && <td><button className={`ra-switch ${user.priceOnCall ? "on" : ""}`} role="switch" aria-checked={Boolean(user.priceOnCall)} aria-label={`Price on call for ${user.name}`} disabled={busy === user._id} onClick={() => togglePrice(user)}><span />{user.priceOnCall ? "ON" : "OFF"}</button></td>}{col("Booking Now") && <td><button className={`ra-switch ${user.showHideButton ? "on" : ""}`} role="switch" aria-checked={Boolean(user.showHideButton)} aria-label={`Booking now for ${user.name}`} disabled={busy === user._id} onClick={() => toggleBooking(user)}><span />{user.showHideButton ? "ON" : "OFF"}</button></td>}<td><div className="ra-row-actions"><button className="ra-login" disabled={busy === user._id} onClick={() => user.status === "Active" ? login(user) : setAgentStatus(user, "Active")}>{user.status === "Active" ? "Login" : user.status === "Pending" ? "Approve" : "Activate"}</button><div className="ra-menu-wrap" data-agent-actions><button className="ra-dots" aria-label={`More actions for ${user.name}`} aria-expanded={menu === user._id} onClick={() => setMenu(menu === user._id ? null : user._id)}><EllipsisVerticalIcon /></button>{menu === user._id && <div className="ra-menu"><button onClick={() => navigate(`/registered-agencies/${user._id}`)}>View Details</button><button onClick={() => navigate(`/registered-agencies/${user._id}`)}>Edit Agent</button><button onClick={() => void sendCredentials(user)}>Send Credentials</button><button onClick={() => login(user)}>Login as Agent</button><button className="danger" onClick={() => { void setAgentStatus(user, user.status === "Active" ? "Inactive" : "Active"); setMenu(null); }}>{user.status === "Active" ? "De-activate Agent" : "Activate Agent"}</button></div>}</div></div></td></tr>)}
+      </tbody></table></div>
+      <div className="ra-pagination"><span>Showing {filtered.length ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, filtered.length)} of {filtered.length}</span><div><button disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</button><span>Page {page} of {pages}</span><button disabled={page === pages} onClick={() => setPage(page + 1)}>Next</button></div></div>
+    </section>
+  </div>;
+}

@@ -6,7 +6,7 @@ import axios from "axios";
  * Server-side only. Inventory is fetched live; bookings are handed to Abid Air
  * after a fresh availability check, and Abid Air prices its own inventory.
  *
- * Shaheen Wings already labels Abid Air inventory with the source key
+ * Stack Works Flow already labels Abid Air inventory with the source key
  * "abidairtravel" (bookings, margin rules, ledger, admin/agent UI), so that key
  * is kept — only the transport underneath changed.
  */

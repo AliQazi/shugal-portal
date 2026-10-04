@@ -2,6 +2,7 @@
 import axiosInstance from '../../Api/axios';
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadCrumb from "../../components/common/PageBreadCrumb";
+import { getGroupCopyFooter } from "../../data/companyContact";
 
 interface Sector {
     _id: string;
@@ -132,14 +133,7 @@ function buildCopyText(groups: UnifiedGroup[]): string {
         entries.forEach((e) => lines.push(e.line));
     });
 
-    const footer =
-    `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*
-=======================
-Shaheen Wings Travels
-Mobile: 0309-9802154
-Address: MA Plaza Ground Floor Shop # 3, Kahror Pacca.
-Ptcl: 0608340174
-Website: shaheenwings.com`;
+    const footer = getGroupCopyFooter();
 
     return [header, ...lines, "=======================", footer].join("\n");
 }
@@ -269,7 +263,7 @@ export default function ManageSectors() {
 
     return (
         <>
-            <PageMeta title="All Sectors - Shaheen Wings travel and tours" description="View all sectors list" />
+            <PageMeta title="All Sectors - Stack Works Flow" description="View all sectors list" />
 
             <div className="mb-6">
                 <PageBreadCrumb pageTitle="All Sectors" />

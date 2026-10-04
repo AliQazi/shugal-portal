@@ -6,9 +6,9 @@ import { generateBookingPDF } from "../../utils";
 import { format } from "date-fns";
 import MaskedDatePicker from "../../components/MaskedDatePicker";
 import { printGDSBooking } from "../../utils/bookingPDFService";
-import { Check } from "lucide-react";
+import { Check, CalendarDays, CircleCheck, FileText, Home, Landmark, Plane, RotateCcw, Search, Ticket, UserRound, Users, Wallet } from "lucide-react";
 import { generateClientPDF } from "../../utils/genrateclientpdf";
-import TopBar from "../../components/TopBar/TopBar";
+import "./my-bookings.css";
 
 export default function MyBookings() {
   const navigate = useNavigate();
@@ -231,23 +231,24 @@ export default function MyBookings() {
   }
 
   return (
-    <div className="w-full min-h-screen mx-auto px-4">
-      <TopBar title={" My Bookings"} />
-      {/* Header */}
-      {/* <div className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-          My Bookings
-        </h1>
-        <p className="text-sm sm:text-base text-gray-600">
-          View and manage your flight bookings
-        </p>
-      </div> */}
+    <div className="agent-bookings-page w-full min-h-screen mx-auto px-4">
+      <div className="agent-bookings-heading">
+        <div>
+          <h1>My Bookings</h1>
+          <p>View and manage your flight bookings</p>
+        </div>
+        <nav aria-label="Breadcrumb" className="agent-bookings-breadcrumb">
+          <Home size={16} aria-hidden="true" />
+          <span>/</span><span>Bookings</span><span>/</span><strong>My Bookings</strong>
+        </nav>
+      </div>
 
       {/* Search and Filters in One Row */}
-      <div className="mb-4 bg-white rounded-lg shadow p-3 sm:p-4">
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="agent-bookings-filters">
+        <div className="agent-bookings-filter-grid">
           {/* Search Input */}
-          <div className="flex-1 min-w-50">
+          <div className="agent-bookings-search">
+            <Search size={20} aria-hidden="true" />
             <input
               type="text"
               value={searchQuery}
@@ -256,12 +257,12 @@ export default function MyBookings() {
                 setSearchQuery(e.target.value);
               }}
               placeholder="Search by reference, PNR, or contact name..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Search bookings"
             />
           </div>
 
           {/* Status Filter */}
-          <div className="w-full sm:w-auto min-w-37.5">
+          <div>
             <select
               value={activeStatus}
               onChange={(e) => {
@@ -269,7 +270,7 @@ export default function MyBookings() {
                 setCurrentPage(1);
                 navigate(val ? `/dashboard/my-bookings?status=${encodeURIComponent(val)}` : '/dashboard/my-bookings');
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Filter by status"
             >
               <option value="">All Statuses</option>
               <option value="on hold">On Hold</option>
@@ -279,11 +280,11 @@ export default function MyBookings() {
           </div>
 
           {/* Sector Filter */}
-          <div className="w-full sm:w-auto min-w-37.5">
+          <div>
             <select
               value={filters.sector}
               onChange={(e) => handleFilterChange("sector", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Filter by sector"
             >
               <option value="">All Sectors</option>
               {uniqueSectors.map((sector) => (
@@ -295,11 +296,11 @@ export default function MyBookings() {
           </div>
 
           {/* Airline Filter */}
-          <div className="w-full sm:w-auto min-w-37.5">
+          <div>
             <select
               value={filters.airline}
               onChange={(e) => handleFilterChange("airline", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Filter by airline"
             >
               <option value="">All Airlines</option>
               {uniqueAirlines.map((airline) => (
@@ -311,7 +312,8 @@ export default function MyBookings() {
           </div>
 
           {/* From Date */}
-          <div className="w-full sm:w-auto min-w-37.5">
+          <div className="agent-bookings-date">
+            <CalendarDays size={18} aria-hidden="true" />
             <MaskedDatePicker
               value={filters.fromDate}
               onChange={(date) => handleFilterChange("fromDate", date)}
@@ -322,22 +324,31 @@ export default function MyBookings() {
           {/* Reset Button */}
           <button
             onClick={resetFilters}
-            className="px-4 py-2 text-sm text-red-600 hover:text-red-800 font-medium border border-red-300 rounded-md hover:bg-red-50 transition-colors"
+            className="agent-bookings-reset"
           >
+            <RotateCcw size={16} aria-hidden="true" />
             Reset
           </button>
         </div>
       </div>
 
       {/* Bookings Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden relative">
+      <div className="agent-bookings-list bg-white rounded-lg shadow overflow-hidden relative">
         {fetching && (
           <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
         )}
         <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse">
+          <table className="agent-bookings-table">
+            <colgroup>
+              <col style={{ width: "19%" }} />
+              <col style={{ width: "18%" }} />
+              <col style={{ width: "28%" }} />
+              <col style={{ width: "14%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "11%" }} />
+            </colgroup>
             <thead className="bg-linear-to-r from-[#1e3a5f] to-[#2d5a8f]">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-white border-r border-[#3d6fa8]">
@@ -346,13 +357,13 @@ export default function MyBookings() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-white border-r border-[#3d6fa8]">
                   <div className="flex items-center gap-1">
                     <span>Group</span>
-                    <span>✈</span>
+                    <Plane size={14} aria-hidden="true" />
                   </div>
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-white border-r border-[#3d6fa8]">
                   <div className="flex items-center gap-1">
                     <span>Passengers</span>
-                    <span>👥</span>
+                    <Users size={14} aria-hidden="true" />
                   </div>
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-white border-r border-[#3d6fa8]">
@@ -368,7 +379,7 @@ export default function MyBookings() {
             </thead>
             <tbody className="bg-white">
               {bookings.length === 0 ? (
-                <tr>
+                <tr className="agent-bookings-empty">
                   <td
                     colSpan="6"
                     className="px-4 py-8 text-center text-gray-500 text-sm border"
@@ -380,7 +391,6 @@ export default function MyBookings() {
                 bookings.map((booking) => {
                   const statusBadge = getStatusBadge(booking.status);
                   const firstPassenger = booking.passengers?.[0];
-                  console.log("Booking Data", booking);
                   return (
                     <tr
                       key={booking._id}
@@ -388,56 +398,56 @@ export default function MyBookings() {
                     >
                       {/* Booking Details */}
                       <td className="px-4 py-4 align-middle border-r border-gray-300">
-                        <div className="space-y-1.5">
+                        <div className="agent-booking-details">
                           {booking.status === "confirmed" && (
                             <div className="flex items-center gap-2">
-                              <span className="inline-block bg-linear-to-r from-amber-600 to-amber-700 text-white px-3 py-1.5 rounded-md text-xs font-semibold shadow-md">
+                              <span className="agent-booking-pnr">
+                                <Ticket size={16} aria-hidden="true" />
                                 Airline PNR #: {booking.pnr || "N/A"}
                               </span>
                             </div>
                           )}
-                          <div className="text-xs text-gray-700 leading-relaxed">
-                            <span className="font-semibold text-gray-800">
-                              Agency:
-                            </span>{" "}
-                            {booking.userId?.companyName || "N/A"}
+                          <div className="agent-booking-detail-line">
+                            <Landmark size={16} aria-hidden="true" />
+                            <span><span className="agent-booking-detail-label">Agency:</span> <strong>{booking.userId?.companyName || "N/A"}</strong></span>
                           </div>
-                          <div className="text-xs text-gray-700 leading-relaxed">
-                            <span className="font-semibold text-gray-800">
-                              AGT #:
-                            </span>
-                            {booking.userId.agencyCode}
-                            <span className="mx-2 font-semibold text-gray-800">
-                              BK#:
-                            </span>
-                            {booking.bookingReference}
+                          <div className="agent-booking-detail-line">
+                            <Users size={16} aria-hidden="true" />
+                            <span><span className="agent-booking-detail-label">AGT #:</span> {booking.userId?.agencyCode || "N/A"}</span>
                           </div>
-                          <div className="text-xs text-gray-600 pt-0.5">
-                            Created: {formatDate(booking.createdAt)}
+                          <div className="agent-booking-detail-line">
+                            <FileText size={16} aria-hidden="true" />
+                            <span><span className="agent-booking-detail-label">BK#:</span> {booking.bookingReference}</span>
+                          </div>
+                          <div className="agent-booking-detail-line">
+                            <CalendarDays size={16} aria-hidden="true" />
+                            <span><span className="agent-booking-detail-label">Created:</span> {formatDate(booking.createdAt)}</span>
                           </div>
                         </div>
                       </td>
 
                       {/* Group */}
                       <td className="px-4 py-4 align-middle border-r border-gray-300">
-                        <div className="space-y-1.5">
-                          <div className="font-bold text-sm text-gray-900">
-                            {booking.airline?.name || "Air Sial"}
+                        <div className="agent-booking-group">
+                          <div className="agent-booking-airline">
+                            {booking.airline?.logoUrl && <img src={booking.airline.logoUrl} alt="" loading="lazy" />}
+                            <strong>{booking.airline?.name || "Air Sial"}</strong>
                           </div>
-                          <div className="text-xs text-gray-700 font-medium">
-                            {booking.sector || "ISB-DXB"}
+                          <div className="agent-booking-group-line">
+                            <Plane size={16} aria-hidden="true" />
+                            <span><strong>{booking.sector || "ISB-DXB"}</strong><small>{booking.sector?.replace(/\s*[-–]\s*/, " to ")}</small></span>
                           </div>
-                          <div className="text-xs text-gray-700">
-                            {formatDate(booking.departureDate)}
+                          <div className="agent-booking-group-line">
+                            <CalendarDays size={16} aria-hidden="true" />
+                            <span><strong>{formatDate(booking.departureDate)}</strong><small>Departure Date</small></span>
                           </div>
-                          <div className="text-xs text-gray-600 font-medium pt-0.5">
-                            {/* {booking.passengers[0].givenName} {booking.passengers[0].surName} X {booking.totalPassengers} */}
-                            <div className="text-xs text-gray-600 font-medium pt-0.5">
+                          <div className="agent-booking-group-line">
+                            <UserRound size={16} aria-hidden="true" />
+                            <span><strong>
                               {firstPassenger
                                 ? `${firstPassenger.givenName} ${firstPassenger.surName}`
-                                : "N/A"}{" "}
-                              X {booking.totalPassengers || 0}
-                            </div>
+                                : "N/A"} x {booking.totalPassengers || 0}
+                            </strong><small>Passenger(s)</small></span>
                           </div>
                           {(booking.passengers?.length || 0) <
                             (booking.totalPassengers || 0) && (
@@ -534,22 +544,23 @@ export default function MyBookings() {
 
                       {/* Price */}
                       <td
-                        className={`px-4 py-4 ${booking.status === "on hold" || booking.status === "pending" ? "align-bottom" : "align-middle"} text-center border-r border-gray-300`}
+                        className="px-4 py-4 align-middle text-center border-r border-gray-300"
                       >
-                        <div className="font-bold text-base text-gray-900">
+                        <div className="agent-booking-price">
+                          <Wallet size={22} aria-hidden="true" />
                           {booking.status === "on hold" ||
                           booking.status === "pending" ? (
-                            <div className="text-xs text-yellow-700 font-semibold bg-yellow-50 px-2.5 py-1.5 rounded-md border border-yellow-300">
+                            <div className="agent-booking-price-note">
                               Admin Review
                               <br />
                               Required
                             </div>
                           ) : isBookingPriceOnCall(booking) ? (
-                            <span className="text-red-500 font-semibold text-sm">
+                            <strong>
                               Price on Call
-                            </span>
+                            </strong>
                           ) : (
-                            `PKR ${booking.pricing?.grandTotal?.toLocaleString() || "0"}`
+                            <><small>PKR</small><strong>{booking.pricing?.grandTotal?.toLocaleString() || "0"}</strong></>
                           )}
                         </div>
                       </td>
@@ -560,6 +571,7 @@ export default function MyBookings() {
                           <span
                             className={`inline-block px-3 py-1.5 rounded-md text-xs shadow-sm ${statusBadge.color}`}
                           >
+                            {booking.status === "confirmed" && <CircleCheck size={16} aria-hidden="true" />}
                             {statusBadge.label}
                           </span>
                           {(booking.status === "on hold" ||

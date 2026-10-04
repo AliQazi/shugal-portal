@@ -131,7 +131,7 @@ app.use((req, res, next) => {
 });
 
 app.get("/", (req, res) => {
-  res.send("Shaheen Wings travel and tours | API is running");
+  res.send("Stack Works Flow | API is running");
 });
 
 const PORT = process.env.PORT || 8016;

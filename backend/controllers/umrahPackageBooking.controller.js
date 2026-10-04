@@ -707,7 +707,7 @@ const getShaheenWingsAdminContact = async () => {
 
   if (configuredPhone) {
     return {
-      name: process.env.SHAHEENWINGS_NAME || "Shaheen Wings Travels",
+      name: process.env.SHAHEENWINGS_NAME || "Stack Works Flow",
       phone: configuredPhone,
     };
   }
@@ -718,7 +718,7 @@ const getShaheenWingsAdminContact = async () => {
     .lean();
 
   return {
-    name: admin?.companyName || admin?.name || "Shaheen Wings Travels",
+    name: admin?.companyName || admin?.name || "Stack Works Flow",
     phone: admin?.phone || "",
   };
 };

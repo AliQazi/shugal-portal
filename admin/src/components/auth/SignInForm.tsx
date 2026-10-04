@@ -51,7 +51,7 @@ export default function SignInForm() {
 
     return (
         <div
-            className="flex items-center justify-center min-h-screen w-full"
+            className="admin-signin flex items-center justify-center min-h-screen w-full"
             style={{
                 backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(/admin-portal/images/carousel/bg.jpg)',
                 backgroundSize: 'cover',

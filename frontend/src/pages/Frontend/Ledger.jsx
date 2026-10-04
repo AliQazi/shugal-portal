@@ -3,8 +3,8 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import axiosInstance from "../../api/axios";
 import MaskedDatePicker from "../../components/MaskedDatePicker";
-import TopBar from "../../components/TopBar/TopBar";
 import logo from "../../assets/images/logo2-.png";
+import { Building2, CalendarDays, ChevronRight, Coins, Copy, FileText, Filter, Home, Mail, Printer, RotateCcw, Search, Table2, Wallet } from "lucide-react";
 import {
   getFrontendUserName,
   getStoredFrontendUser,
@@ -45,12 +45,6 @@ const Ledger = () => {
       maximumFractionDigits: 2,
     }).format(Math.abs(Number(amount || 0)));
   };
-
-  const formatPrintAmount = (amount) =>
-    Number(amount || 0).toLocaleString("en-US", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    });
 
   const formatBalance = (amount) => {
     const numericAmount = Number(amount || 0);
@@ -115,6 +109,7 @@ const Ledger = () => {
           params: {
             dateFrom: filters.dateFrom,
             dateTo: filters.dateTo,
+            ledgerView: "agent",
           },
         },
       );
@@ -148,6 +143,11 @@ const Ledger = () => {
     setFilters((prev) => ({ ...prev, [filterName]: value }));
   };
 
+  const dateForPicker = (value) => value ? new Date(`${value}T00:00:00`) : null;
+  const dateFromPicker = (date) => date
+    ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+    : "";
+
   const resetFilters = () => {
     setFilters({
       dateFrom: getCurrentYearStart(),
@@ -172,159 +172,7 @@ const Ledger = () => {
 
     const wrapper = document.createElement("div");
     const clone = source.cloneNode(true);
-    const style = document.createElement("style");
-
-    style.textContent = `
-      .ledger-statement {
-        width: 794px !important;
-        min-height: auto !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #ffffff !important;
-        color: #111827 !important;
-        box-shadow: none !important;
-        font-family: Arial, Helvetica, sans-serif !important;
-        font-size: 8.5pt !important;
-      }
-      .ledger-fetching,
-      .no-print {
-        display: none !important;
-      }
-      .ledger-print-date {
-        color: #555 !important;
-        font-size: 8pt !important;
-        line-height: 1 !important;
-        margin-bottom: 14px !important;
-        text-align: right !important;
-      }
-      .ledger-company-row {
-        display: flex !important;
-        align-items: flex-start !important;
-        justify-content: space-between !important;
-        gap: 18px !important;
-        margin-bottom: 18px !important;
-      }
-      .ledger-company {
-        display: flex !important;
-        align-items: center !important;
-        gap: 12px !important;
-        min-width: 0 !important;
-      }
-      .ledger-company img {
-        width: 86px !important;
-        height: auto !important;
-        object-fit: contain !important;
-        flex: 0 0 auto !important;
-      }
-      .ledger-company h1 {
-        margin: 0 0 2px !important;
-        color: #111827 !important;
-        font-size: 9pt !important;
-        font-weight: 800 !important;
-        line-height: 1.1 !important;
-      }
-      .ledger-company p {
-        margin: 2px 0 !important;
-        color: #111827 !important;
-        font-size: 8.5pt !important;
-        line-height: 1.35 !important;
-      }
-      .ledger-opening-box {
-        width: 210px !important;
-        margin-top: 0 !important;
-        border: 1px solid #9ca3af !important;
-        text-align: center !important;
-        color: #111827 !important;
-        flex: 0 0 auto !important;
-        font-size: 8.5pt !important;
-        font-weight: 700 !important;
-      }
-      .ledger-opening-box div,
-      .ledger-opening-box strong {
-        display: block !important;
-        min-height: 0 !important;
-        padding: 7px 10px !important;
-      }
-      .ledger-opening-box div {
-        background: #f9fafb !important;
-        border-bottom: 1px solid #9ca3af !important;
-      }
-      .ledger-opening-box strong {
-        border-top: 0 !important;
-      }
-      .ledger-divider {
-        display: none !important;
-      }
-      .ledger-title-bar {
-        display: flex !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-        gap: 18px !important;
-        min-height: 0 !important;
-        margin-bottom: 0 !important;
-        border: 1px solid #111827 !important;
-        background: #56b4ee !important;
-        padding: 7px 8px !important;
-        color: #000 !important;
-        font-size: 8.5pt !important;
-        font-weight: 700 !important;
-        line-height: 1.25 !important;
-      }
-      .ledger-title-bar span {
-        flex: 0 0 auto !important;
-      }
-      .ledger-table-scroll {
-        width: 100% !important;
-        overflow: visible !important;
-      }
-      .ledger-report-table {
-        width: 100% !important;
-        min-width: 0 !important;
-        border-collapse: collapse !important;
-        table-layout: fixed !important;
-        color: #111827 !important;
-        font-size: 8pt !important;
-      }
-      .ledger-report-table th,
-      .ledger-report-table td {
-        border: 1px solid #b6b6b6 !important;
-        padding: 5px 4px !important;
-        vertical-align: top !important;
-        line-height: 1.3 !important;
-        word-break: break-word !important;
-      }
-      .ledger-report-table th {
-        background: #d1d5db !important;
-        color: #111827 !important;
-        border-color: #9ca3af !important;
-        text-align: left !important;
-        font-weight: 700 !important;
-      }
-      .ledger-report-table th:nth-child(1) { width: 13% !important; }
-      .ledger-report-table th:nth-child(2) { width: 13% !important; }
-      .ledger-report-table th:nth-child(4),
-      .ledger-report-table th:nth-child(5) { width: 13% !important; }
-      .ledger-report-table th:nth-child(6) { width: 15% !important; }
-      .ledger-report-table tbody td {
-        color: #1f2937 !important;
-        font-weight: 400 !important;
-      }
-      .ledger-report-table tfoot td {
-        background: #f3f4f6 !important;
-        font-weight: 700 !important;
-      }
-      .ledger-number {
-        text-align: right !important;
-        white-space: nowrap !important;
-      }
-      .ledger-voucher {
-        color: #0070c0 !important;
-      }
-      .ledger-balance {
-        color: #ff0000 !important;
-        font-weight: 700 !important;
-      }
-    `;
+    clone.classList.add("ledger-pdf-layout");
 
     Object.assign(wrapper.style, {
       position: "fixed",
@@ -335,7 +183,6 @@ const Ledger = () => {
       pointerEvents: "none",
     });
 
-    wrapper.appendChild(style);
     wrapper.appendChild(clone);
     document.body.appendChild(wrapper);
 
@@ -436,12 +283,13 @@ const Ledger = () => {
       }
 
       const response = await axiosInstance.get(
-        `/payment/ledger/me/export/${type}`,
+        `/payment/ledger/${storedUser.id}/export/${type}`,
         {
           params: {
             dateFrom: filters.dateFrom,
             dateTo: filters.dateTo,
             userName,
+            ledgerView: "agent",
           },
           responseType: "blob",
         },
@@ -508,333 +356,59 @@ const Ledger = () => {
 
   return (
     <div className="ledger-page w-full min-h-screen mx-auto">
-      <style>{`
-        .agent-ledger-print-only {
-          display: none;
-        }
-
-        @media print {
-          @page { size: A4; margin: 10mm; }
-          * {
-            box-shadow: none !important;
-            text-shadow: none !important;
-          }
-          html, body, #root {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-          }
-          body {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          body * {
-            visibility: hidden !important;
-          }
-          nav, aside, header, footer, .no-print, .dashboard-sidebar, .dashboard-header, .ledger-statement-shell {
-            display: none !important;
-          }
-          .agent-ledger-print-only,
-          .agent-ledger-print-only * {
-            visibility: visible !important;
-          }
-          .agent-ledger-print-only {
-            display: block !important;
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            background: white !important;
-          }
-          .agent-ledger-print-page {
-            display: block !important;
-            width: 100% !important;
-            color: #111827 !important;
-            font-family: Arial, Helvetica, sans-serif !important;
-            font-size: 8.5pt !important;
-          }
-          .agent-ledger-print-topline {
-            text-align: right !important;
-            color: #555 !important;
-            font-size: 8pt !important;
-            margin-bottom: 14px !important;
-          }
-          .agent-ledger-print-company {
-            display: flex !important;
-            align-items: flex-start !important;
-            justify-content: space-between !important;
-            gap: 18px !important;
-            margin-bottom: 18px !important;
-          }
-          .agent-ledger-print-brand {
-            display: flex !important;
-            align-items: center !important;
-            gap: 12px !important;
-            min-width: 0 !important;
-          }
-          .agent-ledger-print-logo {
-            width: 86px !important;
-            height: auto !important;
-            object-fit: contain !important;
-          }
-          .agent-ledger-print-company-text {
-            line-height: 1.35 !important;
-            color: #111827 !important;
-            max-width: 430px !important;
-          }
-          .agent-ledger-print-company-text strong {
-            display: inline-block !important;
-            font-size: 9pt !important;
-            margin-bottom: 2px !important;
-          }
-          .agent-ledger-print-opening {
-            width: 210px !important;
-            border: 1px solid #9ca3af !important;
-            text-align: center !important;
-            flex: 0 0 auto !important;
-          }
-          .agent-ledger-print-opening div {
-            padding: 7px 10px !important;
-            font-weight: 700 !important;
-          }
-          .agent-ledger-print-opening div:first-child {
-            border-bottom: 1px solid #9ca3af !important;
-            background: #f9fafb !important;
-          }
-          .agent-ledger-print-titlebar {
-            display: flex !important;
-            justify-content: space-between !important;
-            align-items: center !important;
-            background: #56b4ee !important;
-            border: 1px solid #111827 !important;
-            color: #000 !important;
-            font-weight: 700 !important;
-            padding: 7px 8px !important;
-            margin-bottom: 0 !important;
-          }
-          .agent-ledger-print-table {
-            width: 100% !important;
-            border-collapse: collapse !important;
-            table-layout: fixed !important;
-            font-size: 8pt !important;
-          }
-          .agent-ledger-print-table thead {
-            display: table-header-group !important;
-          }
-          .agent-ledger-print-table th {
-            background: #d1d5db !important;
-            color: #111827 !important;
-            border: 1px solid #9ca3af !important;
-            padding: 5px 4px !important;
-            font-weight: 700 !important;
-            text-align: left !important;
-          }
-          .agent-ledger-print-table td {
-            border: 1px solid #b6b6b6 !important;
-            color: #1f2937 !important;
-            padding: 5px 4px !important;
-            vertical-align: top !important;
-            line-height: 1.3 !important;
-            word-break: break-word !important;
-          }
-          .agent-ledger-print-table .text-right {
-            text-align: right !important;
-          }
-          .agent-ledger-print-table .agent-ledger-print-voucher {
-            color: #0070c0 !important;
-          }
-          .agent-ledger-print-table .agent-ledger-print-balance {
-            color: #ff0000 !important;
-            font-weight: 700 !important;
-            white-space: nowrap !important;
-          }
-          .agent-ledger-print-table tfoot td {
-            background: #f3f4f6 !important;
-            font-weight: 700 !important;
-          }
-            .agent-ledger-print-table tfoot td {
-            background: #f3f4f6 !important;
-            font-weight: 700 !important;
-            border: 1px solid #b6b6b6 !important;
-          }
-        }
-      `}</style>
-
-      <div className="agent-ledger-print-only">
-        <div className="agent-ledger-print-page">
-          <div className="agent-ledger-print-topline">
-            Print Date:{formatPrintDate()}
+      <div className="no-print">
+        {/* <div className="ledger-page-heading">
+          <div className="ledger-page-heading-title"><span><Wallet aria-hidden="true" /></span><h1>Ledger</h1></div>
+          <nav aria-label="Breadcrumb"><Home aria-hidden="true" /> Home <ChevronRight aria-hidden="true" /> <strong>Ledger</strong></nav>
+        </div> */}
+        <div className="ledger-filter-panel">
+          <div className="ledger-filter-heading">
+            <span className="ledger-filter-heading-icon"><Filter aria-hidden="true" /></span>
+            <div>
+              <h3>Filter Ledger</h3>
+              <p>Select a date range to view ledger statement.</p>
+            </div>
+            <div className="ledger-filter-utilities">
+              <div className="ledger-filter-search"><Search aria-hidden="true" /><input aria-label="Search ledger" type="search" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search ledger..." /></div>
+              <button type="button" className="ledger-filter-reset" onClick={resetFilters}><RotateCcw aria-hidden="true" /> Reset</button>
+            </div>
           </div>
 
-          <div className="agent-ledger-print-company">
-            <div className="agent-ledger-print-brand">
-              <img
-                src={logo}
-                alt="Company logo"
-                className="agent-ledger-print-logo"
-              />
-              <div className="agent-ledger-print-company-text">
-                <strong>{accountName.toUpperCase()}</strong>
-                <div>Shaheen Wings Travels</div>
-                <div>Email: shaheenwingsgrouptkt@gmail.com</div>
-                <div>
-                  Account statement generated from Shaheen Wings Travel portal
-                </div>
+          <div className="ledger-filter-fields">
+            <div className="ledger-filter-field">
+              <label>Date From</label>
+              <div className="ledger-filter-date">
+                <CalendarDays aria-hidden="true" />
+                <MaskedDatePicker
+                  value={dateForPicker(filters.dateFrom)}
+                  onChange={(date) => handleFilterChange("dateFrom", dateFromPicker(date))}
+                  placeholderText="DD/MM/YYYY"
+                />
               </div>
             </div>
-
-            <div className="agent-ledger-print-opening">
-              <div>Opening Balance</div>
-              <div>{formatBalance(totals.openingBalance)}</div>
+            <div className="ledger-filter-field">
+              <label>Date To</label>
+              <div className="ledger-filter-date">
+                <CalendarDays aria-hidden="true" />
+                <MaskedDatePicker
+                  value={dateForPicker(filters.dateTo)}
+                  onChange={(date) => handleFilterChange("dateTo", dateFromPicker(date))}
+                  placeholderText="DD/MM/YYYY"
+                />
+              </div>
             </div>
+            <button type="button" className="ledger-apply-button" onClick={fetchLedger}><Filter aria-hidden="true" /> Apply Filter</button>
           </div>
 
-          <div className="agent-ledger-print-titlebar">
-            <span>Account Statement of Ledger</span>
-            <span>
-              From {formatStatementDate(filters.dateFrom)} To{" "}
-              {formatStatementDate(filters.dateTo)}
-            </span>
-          </div>
-
-          <table className="agent-ledger-print-table">
-            <thead>
-              <tr>
-                <th style={{ width: "13%" }}>Date</th>
-                <th style={{ width: "10%" }}>V.no</th>
-                <th>Details</th>
-                <th className="text-right" style={{ width: "11%" }}>
-                  Debit
-                </th>
-                <th className="text-right" style={{ width: "11%" }}>
-                  Credit
-                </th>
-                <th className="text-right" style={{ width: "13%" }}>
-                  Balance
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rowsWithBalance.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="text-center">
-                    No data available in table
-                  </td>
-                </tr>
-              ) : (
-                rowsWithBalance.map((entry, index) => (
-                  <tr key={`${entry.voucherId || "print-entry"}-${index}`}>
-                    <td>{formatStatementDate(entry.date)}</td>
-                    <td className="agent-ledger-print-voucher">
-                      {entry.voucherId || "-"}
-                    </td>
-                    <td>{entry.description || entry.ticketNumber || "-"}</td>
-                    <td className="text-right">
-                      {entry.debit > 0 ? formatPrintAmount(entry.debit) : "0"}
-                    </td>
-                    <td className="text-right">
-                      {entry.credit > 0 ? formatPrintAmount(entry.credit) : "0"}
-                    </td>
-                    <td className="text-right agent-ledger-print-balance">
-                      {formatBalance(entry.runningBalance)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan="3">Total</td>
-                <td className="text-right">
-                  {formatPrintAmount(totals.debit)}
-                </td>
-                <td className="text-right">
-                  {formatPrintAmount(totals.credit)}
-                </td>
-                <td className="text-right agent-ledger-print-balance">
-                  {formatBalance(totals.closingBalance)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
-
-      <div className="no-print">
-        <TopBar title={`Ledger of ${userName.toUpperCase()}`} />
-
-        <div className="mb-5 bg-white rounded-lg shadow p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900">
-              Date Range & Export
-            </h3>
-            <button
-              onClick={resetFilters}
-              className="text-sm text-red-600 hover:text-red-800 font-medium self-start sm:self-auto"
-            >
-              Reset
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                From Date
-              </label>
-              <MaskedDatePicker
-                value={filters.dateFrom}
-                onChange={(date) => handleFilterChange("dateFrom", date)}
-                placeholderText="From Date"
-              />
+          <div className="ledger-export-row">
+            <div className="ledger-export-heading"><span className="ledger-export-icon"><FileText aria-hidden="true" /></span><div><strong>Export / Print</strong><p>Download or print the ledger in your preferred format.</p></div></div>
+            <div className="ledger-filter-actions">
+              <button type="button" onClick={() => handleExport("copy")}><Copy aria-hidden="true" /> Copy</button>
+              <button type="button" onClick={() => handleExport("csv")}><FileText aria-hidden="true" /> CSV</button>
+              <button type="button" onClick={() => handleExport("excel")}><Table2 aria-hidden="true" /> Excel</button>
+              <button type="button" onClick={() => handleExport("pdf")}><FileText aria-hidden="true" /> PDF</button>
+              <button type="button" className="ledger-filter-print" onClick={handlePrint}><Printer aria-hidden="true" /> Print</button>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                To Date
-              </label>
-              <MaskedDatePicker
-                value={filters.dateTo}
-                onChange={(date) => handleFilterChange("dateTo", date)}
-                placeholderText="To Date"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Search
-              </label>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search by voucher, ticket, or description..."
-                className="w-full min-h-10 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {["copy", "csv", "excel", "pdf"].map((type) => (
-              <button
-                key={type}
-                onClick={() => handleExport(type)}
-                className="px-3 sm:px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-colors"
-              >
-                {type === "copy"
-                  ? "Copy"
-                  : type === "csv"
-                    ? "CSV"
-                    : type === "pdf"
-                      ? "PDF"
-                      : "Excel"}
-              </button>
-            ))}
-            <button
-              onClick={handlePrint}
-              className="px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-colors"
-            >
-              Print
-            </button>
           </div>
         </div>
       </div>
@@ -847,37 +421,26 @@ const Ledger = () => {
             </div>
           )}
 
-          <div className="ledger-print-date">
-            Print Date:{formatPrintDate()}
-          </div>
-
           <div className="ledger-company-row">
             <div className="ledger-company">
               <img src={logo} alt="Company logo" />
-              <div>
+              <div className="ledger-company-details">
                 <h1>{accountName.toUpperCase()}</h1>
-                <p>Shaheen Wings Travels</p>
-                <p>Email: shaheenwingsgrouptkt@gmail.com</p>
-                <p>
-                  Account statement generated from Shaheen Wings Travels portal
-                </p>
+                <p><Building2 aria-hidden="true" />Stack Works Flow</p>
+                <p><Mail aria-hidden="true" />{storedUser?.email || "Email unavailable"}</p>
+                <p><FileText aria-hidden="true" />Account statement generated from Stack Works Flow portal</p>
               </div>
             </div>
-
-            <div className="ledger-opening-box">
-              <div>Opening Balance</div>
-              <strong>{formatBalance(totals.openingBalance)}</strong>
+            <div className="ledger-summary-cards">
+              <div className="ledger-info-card"><span className="ledger-info-icon"><CalendarDays aria-hidden="true" /></span><div><span>Print Date</span><strong>{formatPrintDate()}</strong></div></div>
+              <div className="ledger-info-card"><span className="ledger-info-icon"><Coins aria-hidden="true" /></span><div><span>Opening Balance</span><strong>{formatBalance(totals.openingBalance)}</strong></div></div>
             </div>
           </div>
 
-          <div className="ledger-divider" />
-
+          <div className="ledger-report-card">
           <div className="ledger-title-bar">
-            <strong>Account Statement of Ledger</strong>
-            <span>
-              From {formatStatementDate(filters.dateFrom)} To{" "}
-              {formatStatementDate(filters.dateTo)}
-            </span>
+            <span className="ledger-title-icon"><FileText aria-hidden="true" /></span>
+            <div><strong>Account Statement of {accountName.toUpperCase()}</strong><span>From {formatStatementDate(filters.dateFrom)} To {formatStatementDate(filters.dateTo)}</span></div>
           </div>
 
           <div className="ledger-table-scroll">
@@ -895,10 +458,10 @@ const Ledger = () => {
               <tbody>
                 {rowsWithBalance.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="ledger-closing-row">
-                      Closing Balance as on{" "}
-                      {formatStatementDate(filters.dateTo)}
-                      <strong>{formatBalance(totals.closingBalance)}</strong>
+                    <td colSpan="6" className="ledger-empty-cell">
+                      <div className="ledger-empty-icon"><FileText aria-hidden="true" /></div>
+                      <strong>No transactions found for the selected period</strong>
+                      <span>There are no ledger entries to display between the selected dates.</span>
                     </td>
                   </tr>
                 ) : (
@@ -923,6 +486,7 @@ const Ledger = () => {
                 )}
               </tbody>
               <tfoot>
+                <tr className="ledger-closing-total"><td colSpan="5">Closing Balance as on {formatStatementDate(filters.dateTo)}</td><td className="ledger-number">{formatBalance(totals.closingBalance)}</td></tr>
                 <tr>
                   <td colSpan="3">Total</td>
                   <td className="ledger-number">
@@ -937,6 +501,7 @@ const Ledger = () => {
                 </tr>
               </tfoot>
             </table>
+          </div>
           </div>
         </section>
       </div>

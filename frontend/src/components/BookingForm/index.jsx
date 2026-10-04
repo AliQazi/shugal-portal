@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import axiosInstance from "../../api/axios";
 import { toast } from "react-toastify";
 import { buildPassengers } from "../../utils/passengerBuilder";
@@ -8,6 +8,8 @@ import { X, CheckCircle } from "lucide-react";
 import TopBar from "../TopBar/TopBar";
 import { parseMRZ } from "../../utils/parseMRZ";
 import countryCodes from "../../data/countryCodes.json";
+import { useBookingSelection } from "../../context/BookingSelectionContext";
+import { findSelectedGroup } from "../../utils/bookingSelection";
 
 const nationalityOptions = countryCodes
   .map((item) => item.country)
@@ -25,7 +27,7 @@ const isAbidAirGroup = (group = {}) => {
 export default function BookingForm({ user }) {
   // const user = JSON.parse(localStorage.getItem("frontend_user"));
   const navigate = useNavigate();
-  const location = useLocation();
+  const { selectedGroup } = useBookingSelection();
   const { id: bookingId } = useParams();
   const isEditMode = !!bookingId;
 
@@ -225,8 +227,9 @@ export default function BookingForm({ user }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingBooking, setLoadingBooking] = useState(isEditMode);
   // const [existingBooking, setExistingBooking] = useState(null);
-  const [groupData, setGroupData] = useState(location.state?.groupData || null);
-  console.log(groupData);
+  const [groupData, setGroupData] = useState(null);
+  const [loadingGroup, setLoadingGroup] = useState(!isEditMode && Boolean(selectedGroup));
+  const [groupLoadError, setGroupLoadError] = useState("");
   // const [totalSeats, setTotalSeats] = useState(null);
 
   const [mrzModal, setMrzModal] = useState({ open: false, index: null });
@@ -254,6 +257,43 @@ export default function BookingForm({ user }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookingId, isEditMode]);
+
+  useEffect(() => {
+    if (isEditMode || !selectedGroup?.id) return;
+
+    let cancelled = false;
+    const loadCurrentGroup = async () => {
+      setLoadingGroup(true);
+      setGroupLoadError("");
+
+      try {
+        const response = await axiosInstance.get("/sector/getUnifiedGroups");
+        if (!response.data?.success || !Array.isArray(response.data.data)) {
+          throw new Error("Unable to load current group data");
+        }
+
+        const currentGroup = findSelectedGroup(response.data.data, selectedGroup);
+
+        if (!currentGroup) {
+          throw new Error("This group is no longer available. Please select it again from Group Tickets.");
+        }
+
+        if (!cancelled) setGroupData(currentGroup);
+      } catch (error) {
+        if (!cancelled) {
+          setGroupData(null);
+          setGroupLoadError(
+            error.message || "Unable to refresh this group. Please try again from Group Tickets.",
+          );
+        }
+      } finally {
+        if (!cancelled) setLoadingGroup(false);
+      }
+    };
+
+    loadCurrentGroup();
+    return () => { cancelled = true; };
+  }, [isEditMode, selectedGroup]);
 
   const fetchBookingVoucher = async () => {
     try {
@@ -1014,11 +1054,25 @@ export default function BookingForm({ user }) {
     }
   };
 
+  const seatsOnCall = isAbidAirGroup(groupData) || Boolean(groupData?.priceOnCall?.seats);
+  const seatsHidden = Boolean(groupData?.isOwnGroup && !groupData?.showSeat);
+
+  if (loadingGroup || loadingBooking) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading booking...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!groupData && !isEditMode) {
     return (
       <div className="w-full min-h-screen bg-gray-50 py-8 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600 mb-4">No flight data available</p>
+          <p className="text-red-600 mb-4">{groupLoadError || "No flight data available"}</p>
           <button
             onClick={() => navigate("/dashboard/all-groups")}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -1030,26 +1084,15 @@ export default function BookingForm({ user }) {
     );
   }
 
-  if (loadingBooking) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading booking...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="w-full min-h-screen mx-auto flex flex-col gap-2">
+    <div className="booking-workspace w-full min-h-screen mx-auto flex flex-col gap-2">
       <TopBar title={isEditMode ? "Edit Booking" : "Add New Booking"} />
-      <div className="mb-4 sm:mb-6 md:mb-8">
+      <div>
         {/* <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-2"></h1> */}
       </div>
       <div className="bg-white border border-gray-300 shadow-sm rounded-2xl">
         {groupData && (
-          <div className="px-4 py-2 flex flex-col lg:flex-row justify-between gap-3 items-start lg:items-center border-b border-gray-200 text-xs">
+          <div className="booking-summary px-4 py-2 flex flex-col lg:flex-row justify-between gap-3 items-start lg:items-center border-b border-gray-200 text-xs">
             {/* Airline Logo */}
             <>
               {groupData.airline?.logo_url && (
@@ -1106,15 +1149,14 @@ export default function BookingForm({ user }) {
             </div>
 
             {/* Pricing Info */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-8 lg:gap-32 w-full lg:w-auto">
-              <div className="flex flex-row gap-4 sm:gap-8 lg:gap-32 w-full sm:w-auto flex-wrap">
-                {!isAbidAirGroup(groupData) && (
-                  <div className="flex flex-col">
-                    <p className="text-xs text-gray-600 font-semibold mb-0.5">
-                      Available Seats
-                    </p>
-                    <p className="text-sm font-extrabold text-[#3d6a8f] bg-blue-50 px-2 py-1 rounded-2xl">
-                      {(() => {
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-8 lg:gap-8 w-full lg:w-auto">
+              <div className="flex flex-row gap-4 sm:gap-8 lg:gap-8 w-full sm:w-auto flex-wrap">
+                <div className="flex flex-col">
+                  <p className="text-xs text-gray-600 font-semibold mb-0.5">
+                    {seatsOnCall || seatsHidden ? "Seats" : "Available Seats"}
+                  </p>
+                  <p className={`text-sm font-extrabold px-2 py-1 rounded-2xl ${seatsOnCall ? "text-red-600 bg-red-50" : "text-[#3d6a8f] bg-blue-50"}`}>
+                    {seatsOnCall ? "Seats on call" : seatsHidden ? "—" : (() => {
                         if (!groupData?.details?.[0]) return 0;
 
                         const flight = groupData.details[0];
@@ -1136,15 +1178,14 @@ export default function BookingForm({ user }) {
 
                         return total - booked + currentBookingPassengers;
                       })()}
-                    </p>
-                  </div>
-                )}
+                  </p>
+                </div>
                 <div className="flex flex-col">
                   <p className="text-xs text-gray-600 font-semibold mb-0.5">
                     Adult Price
                   </p>
                   <p
-                    className={`${user?.priceOnCall || !isAdultPriceAvailable() ? "text-white bg-red-600" : "text-[#3d6a8f] bg-blue-50"} text-sm font-extrabold px-2 py-1 rounded-2xl whitespace-nowrap`}
+                    className={`${user?.priceOnCall || !isAdultPriceAvailable() ? "text-red-600 bg-red-50" : "text-[#3d6a8f] bg-blue-50"} text-sm font-extrabold px-2 py-1 rounded-2xl whitespace-nowrap`}
                   >
                     {user?.priceOnCall || !isAdultPriceAvailable()
                       ? "Price on Call"
@@ -1158,7 +1199,7 @@ export default function BookingForm({ user }) {
                     Child
                   </p>
                   <p
-                    className={`text-sm font-extrabold px-2 py-1 rounded-2xl whitespace-nowrap ${isChildPriceAvailable() ? "text-[#3d6a8f] bg-blue-50" : "text-white bg-red-600"}`}
+                    className={`text-sm font-extrabold px-2 py-1 rounded-2xl whitespace-nowrap ${isChildPriceAvailable() ? "text-[#3d6a8f] bg-blue-50" : "text-red-600 bg-red-50"}`}
                   >
                     {isChildPriceAvailable()
                       ? `PKR ${calculateB2BPrice(groupData?.childPrice, groupData)?.toLocaleString()}`
@@ -1171,7 +1212,7 @@ export default function BookingForm({ user }) {
                     Infant
                   </p>
                   <p
-                    className={`text-sm font-extrabold px-2 py-1 rounded-2xl whitespace-nowrap ${isInfantPriceAvailable() ? "text-[#3d6a8f] bg-blue-50" : "text-white bg-red-600"}`}
+                    className={`text-sm font-extrabold px-2 py-1 rounded-2xl whitespace-nowrap ${isInfantPriceAvailable() ? "text-[#3d6a8f] bg-blue-50" : "text-red-600 bg-red-50"}`}
                   >{`${isInfantPriceAvailable() ? `PKR ${calculateB2BPrice(groupData?.infantPrice, groupData)?.toLocaleString()}` : "Price On Call"}`}</p>
                 </div>
               </div>

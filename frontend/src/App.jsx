@@ -5,7 +5,7 @@ import Routes from "./pages/Routes.jsx";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const WHATSAPP_NUMBER = "923099802154";
+const WHATSAPP_NUMBER = "923247629076";
 const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}`;
 
 export default function App() {

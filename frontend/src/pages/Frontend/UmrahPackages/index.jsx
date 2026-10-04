@@ -710,7 +710,7 @@ export default function UmrahPackages({ user }) {
   };
 
   // Loads the logged-in agent's own uploaded logo for the PDF header,
-  // falling back to the default Shaheen Wings logo when the agent has
+  // falling back to the default Stack Works Flow logo when the agent has
   // not uploaded one (or it fails to load).
   const loadPdfLogo = async () => {
     let logoSrc = companyLogo;
@@ -767,7 +767,7 @@ export default function UmrahPackages({ user }) {
     setPdfColor(pdf, "#21397C");
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(18);
-    pdf.text("SHAHEEN WINGS", 40, 24);
+    pdf.text("Stack Works Flow", 40, 24);
     setPdfColor(pdf, "#64748b");
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(8);
@@ -851,7 +851,7 @@ export default function UmrahPackages({ user }) {
     setIsDownloadingPdf(true);
     try {
       const pdf = new jsPDF("p", "mm", "a4");
-      pdf.setProperties({ title: "Shaheen Wings Umrah Packages" });
+      pdf.setProperties({ title: "Stack Works Flow Umrah Packages" });
       const logoImage = await loadPdfLogo();
 
       filteredPackages.forEach((pkg, index) => {
@@ -860,7 +860,7 @@ export default function UmrahPackages({ user }) {
         drawPackageCard(pdf, pkg, index, 42 + (index % 3) * 80);
       });
 
-      pdf.save(`shaheen-wings-umrah-packages-${new Date().toISOString().slice(0, 10)}.pdf`);
+      pdf.save(`stack-works-flow-umrah-packages-${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch (error) {
       console.error("Failed to generate package PDF", error);
       toast.error("Failed to download PDF");

@@ -1,12 +1,14 @@
-import Login from '../../Auth/Login'
 import HeroSection from '../../../components/HeroSection'
 import CommonSections from '../../../components/CommonSections'
+import HomeIntro from '../../../components/HomeIntro'
+import './home.css'
 
-export default function Home({ user, onLogin }) {
+export default function Home({ user }) {
     return (
-        <>
-            {user ? <HeroSection /> : <Login onLogin={onLogin} />}
+        <div className="home-page">
+            <HomeIntro user={user} />
+            <HeroSection isGuest={!user} />
             <CommonSections />
-        </>
+        </div>
     )
 }

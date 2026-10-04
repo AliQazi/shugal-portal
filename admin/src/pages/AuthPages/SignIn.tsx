@@ -6,8 +6,8 @@ export default function SignIn() {
   return (
     <>
       <PageMeta
-        title="Shaheen Wings travel and tours | SignIn Dashboard"
-        description="This is Admin SignIn Dashboard page for Shaheen Wings travel and tours"
+        title="Stack Works Flow | SignIn Dashboard"
+        description="This is Admin SignIn Dashboard page for Stack Works Flow"
       />
       <AuthLayout>
         <SignInForm />

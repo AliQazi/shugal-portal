@@ -1,8 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { ArrowRight, ArrowUpRight, CalendarCheck2, ChevronLeft, ChevronRight, CircleAlert, Clock3, Compass, Plane, Sparkles, Ticket, XCircle } from "lucide-react";
 import axiosInstance from "../../../api/axios";
 import { groupTypes } from "../../../data/groupTypes";
-import TopBar from "../../../components/TopBar/TopBar";
+import "./dashboard.css";
 
 import madinaImg from "../../../assets/images/allgroupsbgg.jpg";
 import jeddahImg from "../../../assets/images/jeddah.webp";
@@ -92,122 +93,57 @@ const Dashboard = () => {
   const prevSlide = () => setCurrentIndex((prev) => (prev === 0 ? indexCards.length - 1 : prev - 1));
 
   return (
-    <>
-      {/* News Headline Bar */}
-      <div className="w-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 text-white py-2 overflow-hidden shadow-md mb-4 relative flex items-center">
-        <div className="whitespace-nowrap font-semibold tracking-wide animate-marquee">
-          Welcome to Shaheen Wings Travels. We book comfort for you &nbsp; — &nbsp; Check out our latest Umrah and UAE Special Offers below!
+    <div className="agent-overview">
+      <div className="agent-overview-notice"><Sparkles size={18} aria-hidden="true" /><span>Welcome to Stack Works Flow. We book comfort for you. Explore the latest Umrah and UAE special offers below.</span></div>
+
+      <div className="agent-overview-heading">
+        <div>
+          <span className="agent-overview-eyebrow">Your agency workspace</span>
+          <h1>Agency overview</h1>
+          <p>Keep bookings in view and get straight to the journeys your clients need.</p>
         </div>
-        <style dangerouslySetInnerHTML={{
-          __html: `
-            @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
-            .animate-marquee { display: inline-block; animation: marquee 20s linear infinite; }
-          ` }} />
+        <button type="button" className="agent-overview-primary" onClick={() => navigate("/dashboard/all-groups")}>Explore all groups <ArrowRight size={18} aria-hidden="true" /></button>
       </div>
 
-      <div className="w-full p-4 md:p-8 mx-auto max-w-[1600px]">
-        <TopBar title={"Manage your Agent Dashboard"} />
-
-        {/* --- Summary Section (3 Cards) --- */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-          <div className="rounded-2xl p-6 text-center shadow-lg bg-gradient-to-br from-green-500 to-emerald-600 text-white relative overflow-hidden h-32 flex flex-col justify-center">
-            <div className="absolute inset-0 bg-white/10 blur-2xl opacity-30"></div>
-            <div className="relative z-10">
-              <div className="text-3xl font-extrabold">{summary.confirmed}</div>
-              <div className="mt-2 font-bold text-xs uppercase tracking-wider opacity-80">Confirmed Bookings</div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl p-6 text-center shadow-lg bg-gradient-to-br from-amber-400 to-yellow-500 text-white relative overflow-hidden h-32 flex flex-col justify-center">
-            <div className="absolute inset-0 bg-white/10 blur-2xl opacity-30"></div>
-            <div className="relative z-10">
-              <div className="text-3xl font-extrabold">{summary.hold}</div>
-              <div className="mt-2 font-bold text-xs uppercase tracking-wider opacity-80">Hold Tickets</div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl p-6 text-center shadow-lg bg-gradient-to-br from-red-500 to-rose-600 text-white relative overflow-hidden h-32 flex flex-col justify-center">
-            <div className="absolute inset-0 bg-white/10 blur-2xl opacity-30"></div>
-            <div className="relative z-10">
-              <div className="text-3xl font-extrabold">{summary.cancelled}</div>
-              <div className="mt-2 font-bold text-xs uppercase tracking-wider opacity-80">Cancelled Tickets</div>
-            </div>
-          </div>
-        </div>
-
-        {/* --- Lower Section (Aligned with Summary Cards) --- */}
-        <div className="flex flex-col lg:flex-row gap-6">
-
-          {/* Left: Group Categories (Takes 2/3 width on LG) */}
-          <div className="lg:w-2/3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-              {groupTypes.map((group) => (
-                <div
-                  key={group.value}
-                  onClick={() => navigate(`/dashboard/${group.path}`)}
-                  className="group relative cursor-pointer"
-                >
-                  <div className="relative h-48 overflow-hidden rounded-2xl shadow-md border border-gray-100">
-                    <img
-                      src={groupImages[group.label]}
-                      alt={group.label}
-                      className="h-full w-full object-cover group-hover:scale-110 transition duration-700"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-80" />
-                  </div>
-
-                  <div className="absolute bottom-3 left-3 right-3 bg-white/10 backdrop-blur-md rounded-xl p-3 text-white flex justify-between items-center border border-white/20">
-                    <h3 className="font-bold text-sm tracking-wide">{group.label}</h3>
-                    <span className="text-xl group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform">↗</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Right: Special Offers Carousel (Takes 1/3 width on LG) */}
-          <div className="lg:w-1/3 flex">
-            {loadingCards ? (
-              <div className="w-full min-h-[100px] flex items-center justify-center bg-gray-50 rounded-2xl border-2 border-dashed">Loading...</div>
-            ) : indexCards.length === 0 ? (
-              <div className="w-full min-h-[100px] flex items-center justify-center bg-gray-50 rounded-2xl">No Offers</div>
-            ) : (
-              <div className="relative w-full group">
-                <div className="w-full bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col border border-gray-100">
-                  {/* ✅ Only render image container if image exists */}
-                  {indexCards[currentIndex].image && (
-                    <div className="relative flex-1 overflow-hidden">
-                      <img
-                        src={indexCards[currentIndex].image}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                      {/* Navigation Buttons inside the card on hover */}
-                      <div className="absolute inset-0 flex items-center justify-between px-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={prevSlide} className="bg-white/90 p-2 rounded-full shadow hover:bg-white">←</button>
-                        <button onClick={nextSlide} className="bg-white/90 p-2 rounded-full shadow hover:bg-white">→</button>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="p-5 bg-white">
-                    <div className="flex justify-between items-start mb-1">
-                      <h3 className="font-black text-gray-800 text-lg uppercase leading-tight">
-                        {indexCards[currentIndex].title}
-                      </h3>
-                    </div>
-                    <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">
-                      Special Offer • {new Date(indexCards[currentIndex].createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-        </div>
+      <div className="agent-overview-stats" aria-label="Booking status summary">
+        <div className="agent-overview-stat agent-overview-stat-confirmed"><div className="agent-overview-stat-icon"><CalendarCheck2 size={23} aria-hidden="true" /></div><div><span>Confirmed bookings</span><strong>{summary.confirmed}</strong><small>Ready for your travellers</small></div></div>
+        <div className="agent-overview-stat agent-overview-stat-hold"><div className="agent-overview-stat-icon"><Clock3 size={23} aria-hidden="true" /></div><div><span>Hold tickets</span><strong>{summary.hold}</strong><small>Awaiting confirmation</small></div></div>
+        <div className="agent-overview-stat agent-overview-stat-cancelled"><div className="agent-overview-stat-icon"><XCircle size={23} aria-hidden="true" /></div><div><span>Cancelled tickets</span><strong>{summary.cancelled}</strong><small>Past cancellations</small></div></div>
       </div>
-    </>
+
+      <div className="agent-overview-content">
+        <section className="agent-overview-groups" aria-labelledby="agent-groups-heading">
+          <div className="agent-overview-section-heading"><div><span className="agent-overview-eyebrow">Plan the next trip</span><h2 id="agent-groups-heading">Browse group journeys</h2><p>Choose a destination or view the full inventory.</p></div><Compass size={23} aria-hidden="true" /></div>
+          <div className="agent-overview-group-grid">
+            {groupTypes.map((group) => (
+              <button key={group.value} type="button" onClick={() => navigate(`/dashboard/${group.path}`)} className="agent-overview-group">
+                <img src={groupImages[group.label]} alt="" loading="lazy" />
+                <span className="agent-overview-group-shade" />
+                <span className="agent-overview-group-label"><span>{group.label}</span><ArrowUpRight size={18} aria-hidden="true" /></span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <aside className="agent-overview-offers" aria-labelledby="agent-offers-heading">
+          <div className="agent-overview-section-heading"><div><span className="agent-overview-eyebrow">Curated for your clients</span><h2 id="agent-offers-heading">Special offers</h2><p>Fresh opportunities from our travel team.</p></div><Ticket size={23} aria-hidden="true" /></div>
+          {loadingCards ? (
+            <div className="agent-overview-offer-state" role="status"><div className="agent-overview-offer-skeleton" /><span>Loading offers...</span></div>
+          ) : cardsError ? (
+            <div className="agent-overview-offer-state"><CircleAlert size={25} aria-hidden="true" /><strong>Offers could not be loaded</strong><span>{cardsError}</span></div>
+          ) : indexCards.length === 0 ? (
+            <div className="agent-overview-offer-state"><Plane size={27} aria-hidden="true" /><strong>No offers available right now</strong><span>New travel offers will appear here when they are published.</span></div>
+          ) : (
+            <div className="agent-overview-offer-card">
+              {indexCards[currentIndex].image && <img className="agent-overview-offer-image" src={indexCards[currentIndex].image} alt="" />}
+              <div className="agent-overview-offer-body"><span className="agent-overview-eyebrow">Special offer · {new Date(indexCards[currentIndex].createdAt).toLocaleDateString()}</span><h3>{indexCards[currentIndex].title}</h3></div>
+              {indexCards.length > 1 && <div className="agent-overview-offer-controls"><button type="button" onClick={prevSlide} aria-label="Previous offer"><ChevronLeft size={18} /></button><span>{currentIndex + 1} / {indexCards.length}</span><button type="button" onClick={nextSlide} aria-label="Next offer"><ChevronRight size={18} /></button></div>}
+            </div>
+          )}
+          <div className="agent-overview-help"><div className="agent-overview-help-icon"><Plane size={22} aria-hidden="true" /></div><div><strong>Need help planning a trip?</strong><p>Your travel team is ready to help with routes, fares, and packages.</p></div></div>
+        </aside>
+      </div>
+    </div>
   );
 };
 

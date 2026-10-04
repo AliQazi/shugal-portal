@@ -6,6 +6,7 @@ import { cloudinary } from "../config/cloudinary.js";
 import PDFDocument from "pdfkit";
 import ExcelJS from "exceljs";
 import RegisterSchema from "../models/Register.js";
+import { orientLedgerEntries } from "../utils/ledgerPerspective.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -258,20 +259,19 @@ export const deletePayment = async (req, res) => {
   }
 };
 
-// Get ledger for a specific user
-export const getLedgerByUser = async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { dateFrom, dateTo, ledgerView } = req.query;
-    const isAgentView = String(ledgerView || "").toLowerCase() === "agent";
-
+// Build the statement once so the screen and downloads use the same entries.
+const buildLedgerEntries = async ({ userId, dateFrom, dateTo, ledgerView }) => {
     // Build filter query — only Approved payments hit the ledger
     let filter = { user: userId, status: "Approved" };
 
     if (dateFrom || dateTo) {
       filter.date = {};
       if (dateFrom) filter.date.$gte = new Date(dateFrom);
-      if (dateTo) filter.date.$lte = new Date(dateTo);
+      if (dateTo) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        filter.date.$lte = end;
+      }
     }
 
     // Fetch payments for the user
@@ -443,6 +443,19 @@ export const getLedgerByUser = async (req, res) => {
       (a, b) => new Date(a.date) - new Date(b.date),
     );
 
+    return orientLedgerEntries(ledgerEntries, ledgerView);
+};
+
+// Get ledger for a specific user
+export const getLedgerByUser = async (req, res) => {
+  try {
+    const ledgerEntries = await buildLedgerEntries({
+      userId: req.params.userId,
+      dateFrom: req.query.dateFrom,
+      dateTo: req.query.dateTo,
+      ledgerView: req.query.ledgerView,
+    });
+
     res.status(200).json({
       success: true,
       data: ledgerEntries,
@@ -461,28 +474,8 @@ export const getLedgerByUser = async (req, res) => {
 export const exportLedgerCSV = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { dateFrom, dateTo, userName } = req.query;
-
-    let filter = { user: userId };
-    if (dateFrom || dateTo) {
-      filter.date = {};
-      if (dateFrom) filter.date.$gte = new Date(dateFrom);
-      if (dateTo) filter.date.$lte = new Date(dateTo);
-    }
-
-    const payments = await Payment.find(filter)
-      .populate("bankAccount", "bankName accountNumber")
-      .populate("booking", "pnr")
-      .sort({ date: 1 });
-
-    const ledgerEntries = payments.map((payment) => ({
-      voucherId: payment.voucherId,
-      date: payment.date,
-      ticketNumber: payment.booking?.pnr || "-",
-      description: payment.description,
-      debit: payment.status === "Approved" ? payment.amount : 0,
-      credit: payment.status === "Applied" ? payment.amount : 0,
-    }));
+    const { dateFrom, dateTo, userName, ledgerView } = req.query;
+    const ledgerEntries = await buildLedgerEntries({ userId, dateFrom, dateTo, ledgerView });
 
     // Calculate totals
     const totalDebit = ledgerEntries.reduce(
@@ -505,8 +498,8 @@ export const exportLedgerCSV = async (req, res) => {
       csvContent += `${entry.voucherId},${formattedDate},${entry.ticketNumber},"${entry.description}",${entry.debit},${entry.credit}\n`;
     });
 
-    csvContent += `\nTotal,,,${totalDebit.toFixed(2)},${totalCredit.toFixed(2)}\n`;
-    csvContent += `\nClosing Balance,,,${closingBalance.toFixed(2)}\n`;
+    csvContent += `\nTotal,,,,${totalDebit.toFixed(2)},${totalCredit.toFixed(2)}\n`;
+    csvContent += `\nClosing Balance,,,,,${closingBalance.toFixed(2)}\n`;
 
     res.setHeader("Content-Type", "text/csv");
     res.setHeader(
@@ -532,7 +525,7 @@ export const exportLedgerCSV = async (req, res) => {
 export const exportLedgerExcel = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { dateFrom, dateTo, userName } = req.query;
+    const { dateFrom, dateTo, userName, ledgerView } = req.query;
 
     console.log("Excel Export Request:", {
       userId,
@@ -541,26 +534,7 @@ export const exportLedgerExcel = async (req, res) => {
       userName,
     });
 
-    let filter = { user: userId };
-    if (dateFrom || dateTo) {
-      filter.date = {};
-      if (dateFrom) filter.date.$gte = new Date(dateFrom);
-      if (dateTo) filter.date.$lte = new Date(dateTo);
-    }
-
-    const payments = await Payment.find(filter)
-      .populate("bankAccount", "bankName accountNumber")
-      .populate("booking", "pnr")
-      .sort({ date: 1 });
-
-    const ledgerEntries = payments.map((payment) => ({
-      voucherId: payment.voucherId,
-      date: payment.date,
-      ticketNumber: payment.booking?.pnr || "-",
-      description: payment.description,
-      debit: payment.status === "Approved" ? payment.amount : 0,
-      credit: payment.status === "Applied" ? payment.amount : 0,
-    }));
+    const ledgerEntries = await buildLedgerEntries({ userId, dateFrom, dateTo, ledgerView });
 
     const totalDebit = ledgerEntries.reduce(
       (sum, entry) => sum + entry.debit,
@@ -693,36 +667,15 @@ export const exportLedgerExcel = async (req, res) => {
 export const exportLedgerPDF = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { dateFrom, dateTo, userName } = req.query;
+    const { dateFrom, dateTo, userName, ledgerView } = req.query;
 
     console.log("PDF Export Request:", { userId, dateFrom, dateTo, userName });
 
-    let filter = { user: userId };
-    if (dateFrom || dateTo) {
-      filter.date = {};
-      if (dateFrom) filter.date.$gte = new Date(dateFrom);
-      if (dateTo) filter.date.$lte = new Date(dateTo);
-    }
     const user = await RegisterSchema.findById(userId);
-
-    const payments = await Payment.find(filter)
-      .populate("bankAccount", "bankName accountNumber")
-      .populate("booking", "pnr")
-      .sort({ date: 1 });
-
-    console.log("Found payments:", payments.length);
+    const ledgerEntries = await buildLedgerEntries({ userId, dateFrom, dateTo, ledgerView });
 
     // Calculate opening balance (you may need to adjust this logic)
     const openingBalance = 0; // Replace with actual calculation if needed
-
-    const ledgerEntries = payments.map((payment) => ({
-      voucherId: payment.voucherId,
-      date: payment.date,
-      ticketNumber: payment.booking?.pnr || "-",
-      description: payment.description,
-      debit: payment.status === "Approved" ? payment.amount : 0,
-      credit: payment.status === "Applied" ? payment.amount : 0,
-    }));
 
     const totalDebit = ledgerEntries.reduce(
       (sum, entry) => sum + entry.debit,
@@ -809,7 +762,7 @@ export const exportLedgerPDF = async (req, res) => {
       .fontSize(11)
       .font("Helvetica-Bold")
       .fillColor("white")
-      .text("Account Statement of Visa Income", 35, headerY + 7)
+      .text("Account Statement of Ledger", 35, headerY + 7)
       .text(
         `From ${new Date(dateFrom).toLocaleDateString("en-US", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })} To ${new Date(dateTo).toLocaleDateString("en-US", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })}`,
         350,
@@ -869,9 +822,9 @@ export const exportLedgerPDF = async (req, res) => {
         { width: 50, align: "right" },
       );
       doc
-        .fillColor(runningBalance > 0 ? "black" : "red")
+        .fillColor(runningBalance >= 0 ? "black" : "red")
         .text(
-          `${Math.abs(runningBalance).toFixed(0)} ${runningBalance > 0 ? "DR" : "CR"}`,
+          `${Math.abs(runningBalance).toFixed(0)} ${runningBalance >= 0 ? "DR" : "CR"}`,
           col7X,
           currentY,
           { width: 50, align: "right" },
@@ -900,9 +853,9 @@ export const exportLedgerPDF = async (req, res) => {
       currentY + 5,
     );
     doc
-      .fillColor(closingBalance > 0 ? "black" : "red")
+      .fillColor(closingBalance >= 0 ? "black" : "red")
       .text(
-        `${Math.abs(closingBalance).toFixed(0)} ${closingBalance > 0 ? "DR" : "CR"}`,
+        `${Math.abs(closingBalance).toFixed(0)} ${closingBalance >= 0 ? "DR" : "CR"}`,
         col6X,
         currentY + 5,
         { width: 50, align: "right" },
@@ -926,9 +879,9 @@ export const exportLedgerPDF = async (req, res) => {
       { width: 40, align: "right" },
     );
     doc
-      .fillColor(closingBalance > 0 ? "black" : "red")
+      .fillColor(closingBalance >= 0 ? "black" : "red")
       .text(
-        `${Math.abs(closingBalance).toFixed(0)} ${closingBalance > 0 ? "DR" : "CR"}`,
+        `${Math.abs(closingBalance).toFixed(0)} ${closingBalance >= 0 ? "DR" : "CR"}`,
         col6X,
         currentY + 5,
         { width: 50, align: "right" },

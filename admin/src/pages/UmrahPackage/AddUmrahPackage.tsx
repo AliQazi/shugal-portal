@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import axiosInstance from "../../Api/axios";
 import { toast } from "react-toastify";
+import { companyContact, getCurrentWebsite } from "../../data/companyContact";
 
 interface Hotel { _id: string; name: string; city: string; distance: number; rating: number; mapUrl: string; }
 interface Transport { _id: string; route: string; transportType: string; }
@@ -333,7 +334,7 @@ export default function AddUmrahPackage() {
 
   const buildCopyText = (pkg: Record<string, any>) => {
     const rt = pkg.roomTypes || roomTypes;
-    return `*${pkg.packageName}*\nDuration: ${pkg.packageDuration} Days\nSharing: ${rt.sharing?.toLocaleString()} | Quint: ${rt.quint?.toLocaleString()} | Quad: ${rt.quad?.toLocaleString()} | Triple: ${rt.triple?.toLocaleString()} | Double: ${rt.double?.toLocaleString()}\n\nShaheen Wings Travels\nMobile: 0309-9802154\nWebsite: shaheenwingstravels.com`;
+    return `*${pkg.packageName}*\nDuration: ${pkg.packageDuration} Days\nSharing: ${rt.sharing?.toLocaleString()} | Quint: ${rt.quint?.toLocaleString()} | Quad: ${rt.quad?.toLocaleString()} | Triple: ${rt.triple?.toLocaleString()} | Double: ${rt.double?.toLocaleString()}\n\n${companyContact.name}\nMobile: ${companyContact.mobile}\nEmail: ${companyContact.email}\nAddress: ${companyContact.address}\nWebsite: ${getCurrentWebsite()}`;
   };
 
   const inputCls = "border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-full";

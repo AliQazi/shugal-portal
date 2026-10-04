@@ -1,24 +1,9 @@
-import PageMeta from "../../components/common/PageMeta";
-import {
-  ArrowRightIcon,
-  BanknotesIcon,
-  BuildingLibraryIcon,
-  BuildingOffice2Icon,
-  CircleStackIcon,
-  Cog6ToothIcon,
-  MapPinIcon,
-  PaperAirplaneIcon,
-  PhoneIcon,
-  Squares2X2Icon,
-  TagIcon,
-  TicketIcon,
-  UserGroupIcon,
-} from "@heroicons/react/24/outline";
-import { Link } from "react-router";
-import AgentStatusChart from "../../components/charts/AgentStatusChart";
+﻿import PageMeta from "../../components/common/PageMeta";
+import DashboardContent from "./DashboardContent";
 import { useEffect, useState } from "react";
 import axiosInstance from "../../Api/axios";
 import { Modal } from "../../components/ui/modal";
+import { getGroupCopyFooter } from "../../data/companyContact";
 
 interface UnifiedGroup {
   id: string;
@@ -38,140 +23,6 @@ interface UnifiedGroup {
 
 const MONTHS_TITLE = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-const DASHBOARD_CATEGORIES = [
-  {
-    title: "All Groups",
-    description: "Fetch all available bookings.",
-    category: "all",
-    accentClass: "from-slate-500 to-blue-600",
-    badgeClass: "bg-blue-50 text-blue-700 border-blue-100",
-  },
-  {
-    title: "UAE",
-    description: "Fetch UAE group bookings.",
-    category: "uae",
-    accentClass: "from-cyan-500 to-sky-600",
-    badgeClass: "bg-sky-50 text-sky-700 border-sky-100",
-  },
-  {
-    title: "KSA",
-    description: "Fetch KSA group bookings.",
-    category: "ksa",
-    accentClass: "from-emerald-500 to-teal-600",
-    badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-100",
-  },
-  {
-    title: "Bahrain",
-    description: "Fetch Bahrain group bookings.",
-    category: "bahrain",
-    accentClass: "from-indigo-500 to-blue-600",
-    badgeClass: "bg-indigo-50 text-indigo-700 border-indigo-100",
-  },
-  {
-    title: "Muscat",
-    description: "Fetch Muscat group bookings.",
-    category: "muscat",
-    accentClass: "from-violet-500 to-indigo-600",
-    badgeClass: "bg-violet-50 text-violet-700 border-violet-100",
-  },
-  {
-    title: "Umrah Tickets",
-    description: "Fetch Umrah ticket bookings.",
-    category: "umrah-tickets",
-    accentClass: "from-rose-500 to-red-600",
-    badgeClass: "bg-rose-50 text-rose-700 border-rose-100",
-  },
-  {
-    title: "Umrah Packages",
-    description: "Fetch Umrah package bookings.",
-    category: "umrah-packages",
-    accentClass: "from-fuchsia-500 to-fuchsia-600",
-    badgeClass: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100",
-  },
-  {
-    title: "UK",
-    description: "Fetch UK group bookings.",
-    category: "uk",
-    accentClass: "from-amber-500 to-orange-600",
-    badgeClass: "bg-amber-50 text-amber-700 border-amber-100",
-  },
-];
-
-const DASHBOARD_SHORTCUTS = [
-  {
-    title: "Add Sector",
-    path: "/sector",
-    colorClass: "from-blue-500 to-blue-600",
-    icon: MapPinIcon,
-  },
-  {
-    title: "Add Airline",
-    path: "/airline",
-    colorClass: "from-sky-500 to-cyan-500",
-    icon: PaperAirplaneIcon,
-  },
-  {
-    title: "Add Group",
-    path: "/group-ticketing/create",
-    colorClass: "from-emerald-500 to-teal-500",
-    icon: UserGroupIcon,
-  },
-  {
-    title: "All Bookings",
-    path: "/all-bookings",
-    colorClass: "from-violet-500 to-purple-500",
-    icon: TicketIcon,
-  },
-  {
-    title: "Special Offers",
-    path: "/special-offers",
-    colorClass: "from-pink-500 to-rose-500",
-    icon: TagIcon,
-  },
-  {
-    title: "Manage Sectors",
-    path: "/manage-sectors",
-    colorClass: "from-amber-500 to-orange-500",
-    icon: Cog6ToothIcon,
-  },
-  {
-    title: "Agencies",
-    path: "/registered-agencies",
-    colorClass: "from-teal-500 to-cyan-500",
-    icon: BuildingOffice2Icon,
-  },
-  {
-    title: "Add Bank",
-    path: "/add-bank",
-    colorClass: "from-indigo-500 to-violet-500",
-    icon: BuildingLibraryIcon,
-  },
-  {
-    title: "Group Ticketing",
-    path: "/group-ticketing",
-    colorClass: "from-orange-500 to-amber-500",
-    icon: TicketIcon,
-  },
-  {
-    title: "Accounts",
-    path: "/view-accounts",
-    colorClass: "from-cyan-600 to-sky-600",
-    icon: BanknotesIcon,
-  },
-  {
-    title: "API Groups",
-    path: "/api-groups",
-    colorClass: "from-fuchsia-500 to-pink-500",
-    icon: CircleStackIcon,
-  },
-  {
-    title: "Team Contacts",
-    path: "/team-contacts",
-    colorClass: "from-lime-500 to-green-600",
-    icon: PhoneIcon,
-  },
-];
 
 function trimTime(t: string): string {
   if (!t) return "";
@@ -274,14 +125,7 @@ function buildCopyText(groups: UnifiedGroup[]): string {
     entries.forEach((e) => lines.push(e.line));
   });
 
-  const footer =
-    `*ALL GROUPS ARE NON REFUNDABLE AND NON CHANGEABLE*
-=======================
-Shaheen Wings Travels
-Mobile: 0309-9802154
-Address: MA Plaza Ground Floor Shop # 3, Kahror Pacca.
-Ptcl: 0608340174
-Website: shaheenwings.com`;
+  const footer = getGroupCopyFooter();
 
   return [header, ...lines, "=======================", footer].join("\n");
 }
@@ -381,161 +225,11 @@ export default function Home() {
   return (
     <>
       <PageMeta
-        title="Dashboard | Shaheen Wings Ticket Travel"
-        description="Dashboard overview for Shaheen Wings Ticket Travel"
+        title="Dashboard | Stack Works Flow"
+        description="Dashboard overview for Stack Works Flow"
       />
 
-      <div className="mb-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-semibold text-black dark:text-white">Dashboard</h1>
-          <div className="text-sm text-gray-500">
-            <span className="text-blue-600">Home</span> / Profile
-          </div>
-        </div>
-      </div>
-
-      <div className="flex justify-end mb-3">
-        <button
-          onClick={handleCopyData}
-          disabled={unifiedGroups.length === 0}
-          title={unifiedGroups.length === 0 ? "No data available to copy" : "Copy flight data"}
-          style={{
-            backgroundColor: unifiedGroups.length === 0 ? '#d1d5db' : copied ? '#22c55e' : '#3b82f6',
-            color: 'white',
-            opacity: unifiedGroups.length === 0 ? 0.6 : 1
-          }}
-          className="flex items-center gap-2 px-4 py-2 rounded text-sm font-medium transition-all cursor-pointer"
-        >
-          {copied ? (
-            <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              Copied!
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              Copy Sectors Data ({unifiedGroups.length})
-            </> 
-          )}
-        </button> 
-
-        <button
-          onClick={() => setIsMarginModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded text-sm font-medium transition-all cursor-pointer ml-3 bg-purple-600 hover:bg-purple-700 text-white"
-          title="Apply margin to all groups"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          Apply Margin
-        </button>
-      </div>
-
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        {DASHBOARD_SHORTCUTS.map((tab) => (
-          <Link
-            key={tab.title}
-            to={tab.path}
-            className={`group flex min-h-20 items-center justify-center gap-3 rounded-2xl bg-linear-to-r px-4 py-4 text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${tab.colorClass}`}
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/40 bg-white/20">
-              <tab.icon className="h-5 w-5" />
-            </div>
-            <span className="text-sm font-semibold tracking-wide">{tab.title}</span>
-          </Link>
-        ))}
-      </div>
-
-      {/* Categories Section */}
-      <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-white/3 sm:p-6">
-        <div className="mb-5 flex flex-col gap-3 border-b border-gray-100 pb-5 dark:border-gray-800 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white/90">
-              Group Categories
-            </h2>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          {DASHBOARD_CATEGORIES.map((category) => {
-            const target = category.category === "all"
-              ? "/api-groups"
-              : `/api-groups?category=${encodeURIComponent(category.category)}`;
-
-            return (
-              <div
-                key={category.title}
-                className={`relative overflow-hidden rounded-2xl bg-linear-to-r p-4 text-white shadow-sm ${category.accentClass}`}
-              >
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.25),transparent_55%)]" />
-                <div className="relative z-10 flex h-full flex-col">
-                  <div className="mb-4 flex items-start justify-between">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/40 bg-white/15">
-                      <Squares2X2Icon className="h-5 w-5" />
-                    </div>
-                    <span className="text-xs font-bold uppercase tracking-wider text-white/80">
-                      {category.title}
-                    </span>
-                  </div>
-                  <div className="flex flex-1 flex-col justify-between">
-                    <div>
-                      <h3 className="text-3xl font-extrabold tracking-tight">
-                        {category.title}
-                      </h3>
-                      <p className="mt-1 text-sm text-white/85">
-                        {category.description}
-                      </p>
-                    </div>
-                    <div className="mt-5 grid grid-cols-2 gap-2">
-                      <Link
-                        to={target}
-                        className="inline-flex items-center justify-center gap-1 rounded-lg border border-white/40 bg-white/15 px-3 py-2 text-xs font-semibold transition-colors hover:bg-white/25"
-                      >
-                        View Groups
-                        <ArrowRightIcon className="h-4 w-4" />
-                      </Link>
-
-                      {category.category === "all" ? (
-                        <button
-                          type="button"
-                          className="rounded-lg bg-white/80 px-3 py-2 text-xs font-semibold text-slate-700"
-                          disabled
-                        >
-                          All
-                        </button>
-                      ) : (
-                        <Link
-                          to="/sector"
-                          className="inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100"
-                        >
-                          + Add Sector
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Agent Status Chart */}
-      <div className="mb-6">
-        <AgentStatusChart />
-      </div>
-
-      {/* View Sections */}
-      {/* <div className="grid grid-cols-1 gap-4 mb-6">
-        <button className="bg-linear-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-white font-semibold py-4 px-6 rounded-lg transition-all shadow-lg text-lg">
-          View All Groups
-        </button>
-      </div> */}
+      <DashboardContent groupCount={unifiedGroups.length} sectors={[...new Set(unifiedGroups.map(group => group.sector).filter(Boolean))]} copied={copied} onCopy={handleCopyData} onApplyMargin={() => setIsMarginModalOpen(true)} />
 
       {/* Apply Margin Modal */}
       <Modal

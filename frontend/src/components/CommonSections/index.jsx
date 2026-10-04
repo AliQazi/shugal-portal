@@ -5,11 +5,11 @@ import SpecialOffer from "../SpecialOffer/SpecialOffer";
 
 export default function CommonSections() {
   return (
-    <>
-      <AboutSection />
-      <SpecialOffer />
-      <ServicesSection />
-      <ChooseUsSection />
+        <>
+            <ServicesSection />
+            <AboutSection />
+            <SpecialOffer />
+            <ChooseUsSection />
     </>
   );
 }

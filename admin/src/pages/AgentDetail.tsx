@@ -1,8 +1,15 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
+import {
+  ArrowLeftIcon, BuildingOffice2Icon, ComputerDesktopIcon, EnvelopeIcon,
+  GlobeAltIcon, HashtagIcon, IdentificationIcon, MapPinIcon, PencilSquareIcon,
+  PhoneIcon, ShieldCheckIcon, TagIcon, UserIcon,
+} from "@heroicons/react/24/outline";
 import axiosInstance from "../Api/axios";
 import PageMeta from "../components/common/PageMeta";
-import PageBreadCrumb from "../components/common/PageBreadCrumb";
+import banner from "../assets/images/agent-detail-sky.png";
+import AgentEditForm from "./AgentEditForm";
+import "./agent-detail.css";
 
 interface Agent {
   _id: string;
@@ -21,7 +28,6 @@ interface Agent {
   flightMarginPercent?: number;
   flightMarginAmount?: number;
 
-  // ADD THESE
   discountType?: "Percentage" | "Amount";
   discountPercent?: number;
   discountAmount?: number;
@@ -47,7 +53,6 @@ interface FormState {
   flightMarginPercent: number;
   flightMarginAmount: number;
 
-  // ADD THESE
   discountType: "Percentage" | "Amount";
   discountPercent: number;
   discountAmount: number;
@@ -55,6 +60,19 @@ interface FormState {
   status: "Active" | "Inactive" | "Pending" | "Suspended";
   password: string;
 }
+
+const toFormState = (data: Agent): FormState => ({
+  name: data.name || "", email: data.email || "", phone: data.phone || "",
+  companyName: data.companyName || "", address: data.address || "",
+  city: data.city || "", country: data.country || "",
+  marginType: data.marginType || "Percentage",
+  flightMarginPercent: data.flightMarginPercent ?? 0,
+  flightMarginAmount: data.flightMarginAmount ?? 0,
+  discountType: data.discountType || "Percentage",
+  discountPercent: data.discountPercent ?? 0,
+  discountAmount: data.discountAmount ?? 0,
+  status: data.status || "Inactive", password: "",
+});
 
 const AgentDetail = () => {
   const { id } = useParams();
@@ -84,28 +102,7 @@ const AgentDetail = () => {
         if (response.data?.success) {
           const data: Agent = response.data.data;
           setAgent(data);
-          setFormState({
-            name: data.name || "",
-            email: data.email || "",
-            phone: data.phone || "",
-            companyName: data.companyName || "",
-            address: data.address || "",
-            city: data.city || "",
-            country: data.country || "",
-
-            marginType: data.marginType || "Percentage",
-            flightMarginPercent: data.flightMarginPercent ?? 0,
-            flightMarginAmount: data.flightMarginAmount ?? 0,
-
-            // ADD THESE
-            discountType: data.discountType || "Percentage",
-            discountPercent: data.discountPercent ?? 0,
-            discountAmount: data.discountAmount ?? 0,
-
-            status: (data.status as FormState["status"]) || "Inactive",
-
-            password: "",
-          });
+          setFormState(toFormState(data));
         }
       } catch (err: unknown) {
         setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to load agent details");
@@ -167,7 +164,6 @@ const AgentDetail = () => {
         flightMarginPercent: Number(formState.flightMarginPercent) || 0,
         flightMarginAmount: Number(formState.flightMarginAmount) || 0,
 
-        // ADD THESE
         discountPercent: Number(formState.discountPercent) || 0,
         discountAmount: Number(formState.discountAmount) || 0,
       };
@@ -188,8 +184,7 @@ const AgentDetail = () => {
         setAgent(response.data.data);
         setEditMode(false);
         setSuccess("Agent updated successfully");
-        // Reset password field to blank after save
-        setFormState({ ...formState, password: "" });
+        setFormState(toFormState(response.data.data));
       }
     } catch (err: unknown) {
       setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to update agent");
@@ -216,6 +211,15 @@ const AgentDetail = () => {
     return `${agent.discountPercent ?? 0}%`;
   }, [agent]);
 
+  const statusLabel = agent?.status === "Inactive" ? "De-Active" : agent?.status || "Unknown";
+  const registeredFrom = agent?.registeredFrom?.userAgent ? "Browser" : agent?.registeredFrom?.ipAddress ? "IP Address" : "Browser";
+  const agentInitials = agent?.name?.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "A";
+  const cancelEdit = () => {
+    if (agent) setFormState(toFormState(agent));
+    setError(null);
+    setEditMode(false);
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -235,264 +239,85 @@ const AgentDetail = () => {
   }
 
   return (
-    <>
-      <PageMeta title="Agent Detail" description="View and edit agent" />
-      <PageBreadCrumb pageTitle="Agent Detail" />
-
-      <div className="flex items-center justify-between mb-4">
-        <button
-          onClick={() => navigate(-1)}
-          className="rounded bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-        >
-          Back
-        </button>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setEditMode(!editMode)}
-            className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-          >
-            {editMode ? "Cancel Edit" : "Edit Agent"}
-          </button>
-        </div>
+    <div className={`agent-detail-page ${editMode ? "is-editing" : ""}`}>
+      <PageMeta title={editMode ? "Edit Agent" : "Agent Detail"} description="View and edit agent" />
+      {editMode && <><div className="agent-edit-heading"><button type="button" className="agent-edit-back-icon" onClick={cancelEdit} aria-label="Back to agent detail"><ArrowLeftIcon /></button><div><h1>Edit Agent</h1><p>Update agent information and settings</p></div><div className="agent-detail-breadcrumb">Home <span>›</span> Agents <span>›</span> <b>Edit Agent</b></div></div>
+      <section className="agent-edit-summary"><div className="agent-edit-summary-person"><span className="agent-edit-avatar">{agentInitials}</span><div><div className="agent-edit-summary-name"><h2>{agent.name}</h2><span className={`agent-detail-badge ${agent.status.toLowerCase()}`}>{statusLabel}</span></div><p>Agency: {agent.companyName || "N/A"}</p><small>Code: {agent.agencyCode || "N/A"} <span>|</span> Registered from: {registeredFrom}</small></div></div><div className="agent-edit-summary-facts"><SummaryFact icon={<EnvelopeIcon />} value={agent.email || "N/A"} label="Email" /><SummaryFact icon={<PhoneIcon />} value={agent.phone || "N/A"} label="Phone" /><SummaryFact icon={<BuildingOffice2Icon />} value={agent.companyName || "N/A"} label="Agency" /><SummaryFact icon={<MapPinIcon />} value={agent.city || "N/A"} label="City" /></div></section></>}
+      <div className="agent-detail-heading">
+        <div><h1>Agent Detail</h1><p>View complete information about the travel agent and account details.</p></div>
+        <div className="agent-detail-breadcrumb">Home <span>â€º</span> Agent Detail</div>
+      </div>
+      <div className="agent-detail-actions">
+        <button className="agent-detail-back" onClick={() => navigate("/registered-agencies")}><ArrowLeftIcon />Back</button>
+        <button className="agent-detail-edit-button" onClick={() => setEditMode(!editMode)}><PencilSquareIcon />{editMode ? "Cancel Edit" : "Edit Agent"}</button>
       </div>
 
       {(error || success) && (
-        <div
-          className={`mb-4 rounded px-4 py-3 text-sm ${error ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"
-            }`}
-        >
-          {error || success}
-        </div>
+        <div role="status" className={`agent-detail-notice ${error ? "error" : "success"}`}>{error || success}</div>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-white/2">
-        <div className="bg-blue-600 px-6 py-4 text-white">
-          <div className="text-lg font-semibold">Agent Details</div>
-          <div className="text-sm text-blue-100">Code: {agent.agencyCode || "N/A"}</div>
+      <section className="agent-detail-hero" style={{ backgroundImage: `linear-gradient(90deg, #fff 0%, #fffffffa 42%, #f2f9ffb8 73%, #eaf7ff7a 100%), url(${banner})` }}>
+        <div className="agent-detail-identity">
+          <div className="agent-detail-avatar">{agent.name?.charAt(0).toUpperCase() || "A"}<span className={agent.status === "Active" ? "online" : ""} /></div>
+          <div>
+            <div className="agent-detail-name"><h2>{agent.name}</h2><span className={`agent-detail-badge ${agent.status.toLowerCase()}`}>{statusLabel}</span></div>
+            <div className="agent-detail-meta">Agent Code: <b>{agent.agencyCode || "N/A"}</b><i />Agency: <b>{agent.companyName || "N/A"}</b></div>
+          </div>
         </div>
+        <div className="agent-detail-contact">
+          <div><span><EnvelopeIcon /></span><div><small>Email</small><strong>{agent.email || "N/A"}</strong></div></div>
+          <div><span><PhoneIcon /></span><div><small>Phone No</small><strong>{agent.phone || "N/A"}</strong></div></div>
+          <div><span><BuildingOffice2Icon /></span><div><small>Agency Name</small><strong>{agent.companyName || "N/A"}</strong></div></div>
+        </div>
+      </section>
+
+      <section className="agent-detail-metrics" aria-label="Agent summary">
+        <Metric tone="blue" icon={<TagIcon />} label="Flight Ticket Margin" value={marginDisplay} detail={`${agent.marginType || "Percentage"} based`} />
+        <Metric tone="mint" icon={<TagIcon />} label="Discount" value={discountDisplay} detail={`${agent.discountType || "Percentage"} based`} />
+        <Metric tone="green" icon={<ShieldCheckIcon />} label="Account Status" value={statusLabel} detail="Agent account status" />
+        <Metric tone="blue" icon={<BuildingOffice2Icon />} label="City" value={agent.city || "N/A"} detail="Location" />
+        <Metric tone="violet" icon={<ComputerDesktopIcon />} label="Registered From" value={registeredFrom} detail="Account source" />
+      </section>
 
         {!editMode ? (
-          <div className="divide-y divide-gray-200 text-sm text-gray-800 dark:text-white/90">
-            <DetailRow label="Contact Person Name" value={agent.name} />
-            <DetailRow label="Agent Code" value={agent.agencyCode || "N/A"} />
-            <DetailRow label="Email" value={agent.email} />
-            <DetailRow label="Phone No" value={agent.phone} />
-            <DetailRow label="Agency Name" value={agent.companyName || "N/A"} />
-            <DetailRow label="Status" value={agent.status} />
-            <DetailRow label="Flight Ticket Margin" value={`${agent.marginType || "Percentage"} (${marginDisplay})`} />
-            <DetailRow
-              label="Discount"
-              value={`${agent.discountType || "Percentage"} (${discountDisplay})`}
-            />
-            <DetailRow label="Address" value={agent.address || "N/A"} />
-            <DetailRow label="City" value={agent.city || "N/A"} />
-            <DetailRow label="Country" value={agent.country || "N/A"} />
-            <DetailRow
-              label="Registered From"
-              value={`${agent.registeredFrom?.ipAddress || "-"} | ${agent.registeredFrom?.userAgent || "Browser"}`}
-            />
-          </div>
+          <section className="agent-detail-panel">
+            <div className="agent-detail-panel-heading"><span><IdentificationIcon /></span><div><h3>Agent Information</h3><p>Complete details and configuration for this agent.</p></div></div>
+            <div className="agent-detail-info-grid">
+              <div>
+                <InfoRow icon={<UserIcon />} label="Contact Person Name" value={agent.name} />
+                <InfoRow icon={<EnvelopeIcon />} label="Email" value={agent.email} />
+                <InfoRow icon={<BuildingOffice2Icon />} label="Agency Name" value={agent.companyName || "N/A"} />
+                <InfoRow icon={<TagIcon />} label="Flight Ticket Margin" value={`${agent.marginType || "Percentage"} (${marginDisplay})`} />
+                <InfoRow icon={<MapPinIcon />} label="Address" value={agent.address || "N/A"} />
+                <InfoRow icon={<GlobeAltIcon />} label="Country" value={agent.country || "N/A"} />
+              </div>
+              <div>
+                <InfoRow icon={<HashtagIcon />} label="Agent Code" value={agent.agencyCode || "N/A"} />
+                <InfoRow icon={<PhoneIcon />} label="Phone No" value={agent.phone} />
+                <InfoRow icon={<ShieldCheckIcon />} label="Status" value={<span className={`agent-detail-badge ${agent.status.toLowerCase()}`}>{statusLabel}</span>} />
+                <InfoRow icon={<TagIcon />} label="Discount" value={`${agent.discountType || "Percentage"} (${discountDisplay})`} />
+                <InfoRow icon={<BuildingOffice2Icon />} label="City" value={agent.city || "N/A"} />
+                <InfoRow icon={<ComputerDesktopIcon />} label="Registered From" value={<span title={`${agent.registeredFrom?.ipAddress || ""} ${agent.registeredFrom?.userAgent || ""}`.trim()}>{registeredFrom}</span>} />
+              </div>
+            </div>
+          </section>
         ) : (
-          <div className="grid gap-4 p-6 text-sm text-gray-800 dark:text-white/90">
-            <FormRow label="Contact Person Name">
-              <input
-                value={formState.name}
-                onChange={(e) => handleChange("name", e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              />
-            </FormRow>
-            <FormRow label="Email">
-              <input
-                type="email"
-                value={formState.email}
-                onChange={(e) => handleChange("email", e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              />
-            </FormRow>
-            <FormRow label="Phone No">
-              <input
-                value={formState.phone}
-                onChange={(e) => handleChange("phone", e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              />
-            </FormRow>
-            <FormRow label="Agency Name">
-              <input
-                value={formState.companyName}
-                onChange={(e) => handleChange("companyName", e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              />
-            </FormRow>
-            <FormRow label="Status">
-              <select
-                value={formState.status}
-                onChange={(e) => handleChange("status", e.target.value as FormState["status"])}
-                className="w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              >
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-                <option value="Pending">Pending</option>
-                <option value="Suspended">Suspended</option>
-              </select>
-            </FormRow>
-
-            <div className="grid gap-3 md:grid-cols-3">
-              <FormRow label="Margin Type">
-                <select
-                  value={formState.marginType}
-                  onChange={(e) => handleChange("marginType", e.target.value as FormState["marginType"])}
-                  className="w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                >
-                  <option value="Percentage">Percentage</option>
-                  <option value="Amount">Amount</option>
-                </select>
-              </FormRow>
-              <FormRow label="Flight Margin%">
-                <input
-                  type="number"
-                  value={formState.flightMarginPercent > 0 ? formState.flightMarginPercent : ""}
-                  placeholder="0"
-                  onChange={(e) => handleChange("flightMarginPercent", Number(e.target.value))}
-                  disabled={formState.marginType !== "Percentage"}
-                  className={`w-full rounded border px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${formState.marginType !== "Percentage"
-                    ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "border-gray-300"
-                    }`}
-                />
-              </FormRow>
-              <FormRow label="Flight Margin Amount PKR">
-                <input
-                  type="number"
-                  value={formState.flightMarginAmount > 0 ? formState.flightMarginAmount : ""}
-                  placeholder="0"
-                  onChange={(e) => handleChange("flightMarginAmount", Number(e.target.value))}
-                  disabled={formState.marginType !== "Amount"}
-                  className={`w-full rounded border px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${formState.marginType !== "Amount"
-                    ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "border-gray-300"
-                    }`}
-                />
-              </FormRow>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-3">
-              <FormRow label="Discount Type">
-                <select
-                  value={formState.discountType}
-                  onChange={(e) =>
-                    handleChange(
-                      "discountType",
-                      e.target.value as FormState["discountType"]
-                    )
-                  }
-                  className="w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                >
-                  <option value="Percentage">Percentage</option>
-                  <option value="Amount">Amount</option>
-                </select>
-              </FormRow>
-
-              <FormRow label="Discount %">
-                <input
-                  type="number"
-                  value={formState.discountPercent > 0 ? formState.discountPercent : ""}
-                  placeholder="0"
-                  onChange={(e) =>
-                    handleChange("discountPercent", Number(e.target.value))
-                  }
-                  disabled={formState.discountType !== "Percentage"}
-                  className={`w-full rounded border px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${formState.discountType !== "Percentage"
-                    ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "border-gray-300"
-                    }`}
-                />
-              </FormRow>
-
-              <FormRow label="Discount Amount PKR">
-                <input
-                  type="number"
-                  value={formState.discountAmount > 0 ? formState.discountAmount : ""}
-                  placeholder="0"
-                  onChange={(e) =>
-                    handleChange("discountAmount", Number(e.target.value))
-                  }
-                  disabled={formState.discountType !== "Amount"}
-                  className={`w-full rounded border px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${formState.discountType !== "Amount"
-                    ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "border-gray-300"
-                    }`}
-                />
-              </FormRow>
-            </div>
-
-            <FormRow label="Address">
-              <input
-                value={formState.address}
-                onChange={(e) => handleChange("address", e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              />
-            </FormRow>
-            <FormRow label="City">
-              <input
-                value={formState.city}
-                onChange={(e) => handleChange("city", e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              />
-            </FormRow>
-            <FormRow label="Country">
-              <input
-                value={formState.country}
-                onChange={(e) => handleChange("country", e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              />
-            </FormRow>
-            <FormRow label="New Password">
-              <input
-                type="password"
-                value={formState.password}
-                onChange={(e) => handleChange("password", e.target.value)}
-                placeholder="Leave blank to keep current password"
-                className="w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              />
-            </FormRow>
-
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                onClick={() => setEditMode(false)}
-                className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
-                disabled={saving}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleUpdate}
-                disabled={saving}
-                className="rounded bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
-              >
-                {saving ? "Updating..." : "Update"}
-              </button>
-            </div>
-          </div>
+          <AgentEditForm values={formState} agencyCode={agent.agencyCode} saving={saving} onChange={handleChange} onSubmit={handleUpdate} onCancel={cancelEdit} onBackToAgents={() => navigate("/registered-agencies")} />
         )}
-      </div>
-    </>
+    </div>
   );
 };
 
-const DetailRow = ({ label, value }: { label: string; value?: string }) => (
-  <div className="flex flex-col border-b border-gray-200 px-6 py-4 last:border-b-0 md:flex-row md:items-center">
-    <div className="w-full md:w-1/3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-      {label}
-    </div>
-    <div className="w-full md:w-2/3 text-sm text-gray-900 dark:text-white/90">{value || "-"}</div>
-  </div>
+const Metric = ({ tone, icon, label, value, detail }: { tone: string; icon: ReactNode; label: string; value: string; detail: string }) => (
+  <div className={`agent-detail-metric ${tone}`}><span>{icon}</span><div><small>{label}</small><strong>{value}</strong><em>{detail}</em></div></div>
 );
 
-const FormRow = ({ label, children }: { label: string; children: ReactNode }) => (
-  <div className="flex flex-col gap-2">
-    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</label>
-    {children}
-  </div>
+const InfoRow = ({ icon, label, value }: { icon: ReactNode; label: string; value?: ReactNode }) => (
+  <div className="agent-detail-info-row"><span>{icon}</span><small>{label}</small><strong>{value || "N/A"}</strong></div>
+);
+
+const SummaryFact = ({ icon, value, label }: { icon: ReactNode; value: string; label: string }) => (
+  <div className="agent-edit-summary-fact"><span>{icon}</span><div><strong title={value}>{value}</strong><small>{label}</small></div></div>
 );
 
 export default AgentDetail;

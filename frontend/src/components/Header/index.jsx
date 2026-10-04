@@ -87,7 +87,7 @@ export default function Header({ user, handleLogout }) {
 
     //       <div className="flex flex-col">
     //         {/* <h1 className="m-0 font-roboto leading-tight font-bold italic tracking-wider text-[1rem] sm:text-[1.1rem] md:text-[1.25rem] text-white whitespace-nowrap">
-    //           Shaheen Wings travel and tours
+    //           Stack Works Flow
     //         </h1> */}
     //         {/* Tagline visible only on small/medium screens under the title */}
     //         {/* <p className="m-0 font-roboto leading-tight italic text-white text-[0.65rem] sm:text-[0.75rem] md:hidden">

@@ -7,7 +7,6 @@ import {
   BoxIcon,
   ChevronDownIcon,
   GridIcon,
-  HorizontaLDots,
   ListIcon,
   TableIcon,
   UserCircleIcon,
@@ -29,7 +28,7 @@ const navItems: NavItem[] = [
   },
   {
     icon: <UserCircleIcon />,
-    name: "Registered Agencies",
+    name: "Agents",
     path: "/registered-agencies",
   },
   {
@@ -109,8 +108,22 @@ const navItems: NavItem[] = [
 ];
 
 const AppSidebar: React.FC = () => {
-  const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
+  const { isExpanded, isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
   const location = useLocation();
+  const isOpen = isExpanded || isMobileOpen;
+  const closeSidebar = useCallback(() => {
+    if (isMobileOpen) toggleMobileSidebar();
+    else if (isExpanded) toggleSidebar();
+  }, [isExpanded, isMobileOpen, toggleSidebar, toggleMobileSidebar]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeSidebar();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, closeSidebar]);
 
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "main" | "others";
@@ -183,10 +196,7 @@ const AppSidebar: React.FC = () => {
               className={`menu-item group ${openSubmenu?.type === menuType && openSubmenu?.index === index
                 ? "menu-item-active"
                 : "menu-item-inactive"
-                } cursor-pointer ${!isExpanded && !isHovered
-                  ? "lg:justify-center"
-                  : "lg:justify-start"
-                }`}
+                } cursor-pointer`}
             >
               <span
                 className={`menu-item-icon-size  ${openSubmenu?.type === menuType && openSubmenu?.index === index
@@ -196,23 +206,20 @@ const AppSidebar: React.FC = () => {
               >
                 {nav.icon}
               </span>
-              {(isExpanded || isHovered || isMobileOpen) && (
-                <span className="menu-item-text">{nav.name}</span>
-              )}
-              {(isExpanded || isHovered || isMobileOpen) && (
-                <ChevronDownIcon
+              <span className="menu-item-text">{nav.name}</span>
+              <ChevronDownIcon
                   className={`ml-auto w-5 h-5 transition-transform duration-200 ${openSubmenu?.type === menuType &&
                     openSubmenu?.index === index
                     ? "rotate-180 text-brand-500"
                     : ""
                     }`}
-                />
-              )}
+              />
             </button>
           ) : (
             nav.path && (
               <Link
                 to={nav.path}
+                onClick={closeSidebar}
                 className={`menu-item group ${isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
                   }`}
               >
@@ -224,13 +231,11 @@ const AppSidebar: React.FC = () => {
                 >
                   {nav.icon}
                 </span>
-                {(isExpanded || isHovered || isMobileOpen) && (
-                  <span className="menu-item-text">{nav.name}</span>
-                )}
+                <span className="menu-item-text">{nav.name}</span>
               </Link>
             )
           )}
-          {nav.subItems && (isExpanded || isHovered || isMobileOpen) && (
+          {nav.subItems && (
             <div
               ref={(el) => {
                 subMenuRefs.current[`${menuType}-${index}`] = el;
@@ -248,6 +253,7 @@ const AppSidebar: React.FC = () => {
                   <li key={subItem.name}>
                     <Link
                       to={subItem.path}
+                      onClick={closeSidebar}
                       className={`menu-dropdown-item ${isActive(subItem.path)
                         ? "menu-dropdown-item-active"
                         : "menu-dropdown-item-inactive"
@@ -289,65 +295,24 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
-        ${isExpanded || isMobileOpen
-          ? "w-72.5"
-          : isHovered
-            ? "w-72.5"
-            : "w-22.5"
-        }
-        ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
-        lg:translate-x-0`}
-      onMouseEnter={() => !isExpanded && setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      className={`workspace-sidebar fixed top-0 left-0 z-[100000] flex h-dvh w-72.5 max-w-[85vw] flex-col border-r border-gray-200 bg-white px-5 text-gray-900 transition-transform duration-300 ease-in-out dark:border-gray-800 dark:bg-gray-900
+        ${isOpen ? "translate-x-0" : "-translate-x-full pointer-events-none"}`}
+      aria-hidden={!isOpen}
+      inert={!isOpen}
     >
-      <div
-        className={`py-8 flex ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-center"
-          }`}
-      >
-        <Link to="/">
-          {isExpanded || isHovered || isMobileOpen ? (
-            <>
-              <img
-                src={logo}
-                alt="Logo"
-                width={150}
-                height={40}
-              />
-              {/* <img
-                className="hidden dark:block"
-                src="/admin-portal/images/logo/logo-dark.webp"
-                alt="Logo"
-                width={150}
-                height={40}
-              /> */}
-            </>
-          ) : (
-            <img
-              src={logo}
-              alt="Logo"
-              width={32}
-              height={32}
-            />
-          )}
+      <button type="button" onClick={closeSidebar} aria-label="Close sidebar" className="absolute right-2 top-3 rounded-lg p-2 text-[#bbccdc] hover:bg-[#1c3b55] hover:text-white">
+        <span aria-hidden="true" className="text-2xl leading-none">&times;</span>
+      </button>
+      <div className="flex justify-center py-8">
+        <Link to="/" onClick={closeSidebar}>
+          <img src={logo} alt="Logo" width={150} height={40} />
         </Link>
       </div>
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar flex-1">
         <nav className="mb-6">
           <div className="flex flex-col gap-4">
             <div>
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-5 text-gray-400 ${!isExpanded && !isHovered
-                  ? "lg:justify-center"
-                  : "justify-start"
-                  }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  "Menu"
-                ) : (
-                  <HorizontaLDots className="size-6" />
-                )}
-              </h2>
+              <h2 className="mb-4 flex text-xs uppercase leading-5 text-gray-400">Menu</h2>
               {renderMenuItems(navItems, "main")}
             </div>
           </div>
@@ -355,16 +320,10 @@ const AppSidebar: React.FC = () => {
       </div>
 
       {/* Copyright Footer */}
-      <div className={`py-4 border-t border-gray-200 dark:border-gray-800 ${!isExpanded && !isHovered ? "lg:text-center" : "text-center"}`}>
-        {isExpanded || isHovered || isMobileOpen ? (
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            © {new Date().getFullYear()} <a href="https://shaheenwingstravels.com/" target="_blank">Shaheen Wings Travels</a><br />All rights reserved.
-          </p>
-        ) : (
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            © {new Date().getFullYear()}
-          </p>
-        )}
+      <div className="border-t border-gray-200 py-4 text-center dark:border-gray-800">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          &copy; {new Date().getFullYear()} <a href="https://shaheenwingstravels.com/" target="_blank" rel="noreferrer">Stack Works Flow</a><br />All rights reserved.
+        </p>
       </div>
     </aside>
   );

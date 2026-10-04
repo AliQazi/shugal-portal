@@ -2,6 +2,7 @@ import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 import { useEffect, useState } from "react";
 import axiosInstance from "../../Api/axios";
+import { ArrowTrendingUpIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 
 interface User {
   _id: string;
@@ -65,12 +66,12 @@ export default function AgentStatusChart() {
     chart: {
       fontFamily: "Outfit, sans-serif",
       type: "donut",
-      height: 280,
+      height: 230,
     },
     colors: ["#10b981", "#ef4444"],
     labels: ["Active Agents", "Inactive Agents"],
     legend: {
-      show: true,
+      show: false,
       position: "bottom",
       fontFamily: "Outfit, sans-serif",
       labels: {
@@ -146,27 +147,32 @@ export default function AgentStatusChart() {
 
   if (loading) {
     return (
-      <div className="rounded-lg border border-stroke bg-white p-6 shadow-default dark:border-strokedark dark:bg-boxdark">
-        <div className="flex justify-center items-center h-[280px]">
+      <div className="agent-status-card rounded-lg border border-stroke bg-white p-6 shadow-default dark:border-strokedark dark:bg-boxdark">
+        <div className="flex justify-center items-center h-[230px]">
           <div className="text-gray-500 dark:text-gray-400">Loading agent statistics...</div>
         </div>
       </div>
     );
   }
 
+  const total = activeCount + inactiveCount;
+  const activePercent = total ? Math.round(activeCount / total * 100) : 0;
+
   return (
-    <div className="rounded-lg border border-stroke bg-white p-6 shadow-default dark:border-strokedark dark:bg-boxdark">
-      <div className="mb-4">
-        <h4 className="text-xl font-semibold text-black dark:text-white">
-          Agent Status Overview
-        </h4>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Distribution of active and inactive agents
-        </p>
+    <section className="agent-status-card rounded-lg border border-stroke bg-white p-6 shadow-default dark:border-strokedark dark:bg-boxdark" aria-labelledby="agent-status-title">
+      <div className="agent-status-heading">
+        <span><UserGroupIcon /></span>
+        <div><h2 id="agent-status-title">Agent Status Overview</h2><p>Distribution of active and inactive agents</p></div>
+        <span className="agent-status-period">All agencies</span>
       </div>
-      <div className="flex justify-center">
-        <Chart options={options} series={series} type="donut" height={280} />
+      <div className="agent-status-content">
+        <div className="agent-status-chart">{total ? <Chart options={options} series={series} type="donut" height={230} width={230} /> : <div className="agent-status-empty">No agency data</div>}</div>
+        <div className="agent-status-legend">
+          <div><span className="agent-dot active" />Active Agents <strong>{activeCount}</strong><em>{activePercent}%</em></div>
+          <div><span className="agent-dot inactive" />Inactive Agents <strong>{inactiveCount}</strong><em>{total ? 100 - activePercent : 0}%</em></div>
+        </div>
+        <div className="agent-status-highlight"><span><ArrowTrendingUpIcon /></span><div>Active Agents<strong>{activePercent}%</strong><small>{total ? `${activeCount} of ${total} agencies active` : 'No agencies yet'}</small></div></div>
       </div>
-    </div>
+    </section>
   );
 }

@@ -5,6 +5,21 @@ import axiosInstance from '../../Api/axios'
 import MaskedDatePicker from '../../components/maskedDatePicker'
 import { toast } from 'react-toastify'
 import { printGDSBooking } from '../../utils/bookingPDFService'
+import {
+    ArrowPathIcon,
+    BuildingLibraryIcon,
+    CalendarDaysIcon,
+    CheckCircleIcon,
+    DocumentTextIcon,
+    HomeIcon,
+    MagnifyingGlassIcon,
+    PaperAirplaneIcon,
+    TicketIcon,
+    UserCircleIcon,
+    UsersIcon,
+    WalletIcon,
+} from '@heroicons/react/24/outline'
+import './all-bookings.css'
 
 interface Booking {
     _id: string
@@ -30,7 +45,7 @@ interface Booking {
     departureDate: string
     createdAt: string
     pnr?: string
-    pricing: { grandTotal: number }
+    pricing?: { grandTotal?: number; priceOnCall?: { adult?: boolean; child?: boolean; infant?: boolean } }
     status: string,
     expiresAt: string | null
     sabaoonTransactionId?: number | null
@@ -55,8 +70,16 @@ interface BookingsTableProps {
 const BookingsTable = memo(({ bookings, getStatusBadge, formatDate, navigate, timers, setBookings }: BookingsTableProps) => {
     const [deletingId, setDeletingId] = useState<string | null>(null);
     return (
-        <table className="min-w-full border-collapse">
-            <thead className="bg-linear-to-r from-[#1e3a5f] to-[#2d5a8f]">
+        <table className="admin-bookings-table">
+            <colgroup>
+                <col style={{ width: '19%' }} />
+                <col style={{ width: '18%' }} />
+                <col style={{ width: '28%' }} />
+                <col style={{ width: '14%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '11%' }} />
+            </colgroup>
+            <thead>
                 <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-white border-r border-[#3d6fa8]">
                         Booking Details
@@ -69,8 +92,7 @@ const BookingsTable = memo(({ bookings, getStatusBadge, formatDate, navigate, ti
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-white border-r border-[#3d6fa8]">
                         <div className="flex items-center gap-1">
-                            <span>Passengers</span>
-                            <span>👥</span>
+                            <span>Passenger Summary</span>
                         </div>
                     </th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white border-r border-[#3d6fa8]">
@@ -83,7 +105,7 @@ const BookingsTable = memo(({ bookings, getStatusBadge, formatDate, navigate, ti
                         <span>Al-Haider Hitting</span>
                     </th> */}
                     <th className="px-4 py-3 text-center text-xs font-semibold text-white">
-                        Action
+                        Actions
                     </th>
                 </tr>
             </thead>
@@ -99,55 +121,70 @@ const BookingsTable = memo(({ bookings, getStatusBadge, formatDate, navigate, ti
                         const statusBadge = getStatusBadge(booking.status)
                         const userId = typeof booking.userId === 'object' ? booking.userId : null
                         const firstPassenger = booking.passengers?.[0]
+                        const priceOnCall = Boolean(
+                            booking.pricing?.priceOnCall?.adult ||
+                            ((booking.childrenCount || 0) > 0 && booking.pricing?.priceOnCall?.child) ||
+                            ((booking.infantsCount || 0) > 0 && booking.pricing?.priceOnCall?.infant)
+                        )
+                        const total = booking.pricing?.grandTotal
                         return (
-                            <tr key={booking._id} className="border-b border-gray-300 hover:bg-blue-50/20 transition-colors">
+                            <tr key={booking._id}>
                                 {/* Booking Details */}
-                                <td className="px-4 py-4 align-top border-r border-gray-300">
+                                <td className="px-4 py-4 align-middle border-r border-gray-300">
                                     <div className="space-y-1.5">
                                         <div className="flex items-center gap-2">
-                                            <span className="inline-block bg-linear-to-r from-amber-600 to-amber-700 text-white px-3 py-1.5 rounded-md text-xs font-semibold shadow-md">
+                                            <span className="booking-pnr inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold">
+                                                <TicketIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
                                                 Airline PNR #: {booking.pnr || 'N/A'}
                                             </span>
                                         </div>
-                                        <div className="text-xs text-gray-700 leading-relaxed">
-                                            <span className="font-semibold text-gray-800">Agency:</span> {userId?.companyName || 'N/A'}
+                                        <div className="booking-detail-line">
+                                            <BuildingLibraryIcon aria-hidden="true" />
+                                            <span><span className="booking-detail-label">Agency:</span> <strong>{userId?.companyName || 'N/A'}</strong></span>
                                         </div>
-                                        <div className="text-xs text-gray-700 leading-relaxed">
-                                            <span className="font-semibold text-gray-800">AGT #:</span>{userId?.agencyCode || 'N/A'}
-                                            <span className="mx-2 font-semibold text-gray-800">BK#:</span>{booking.bookingReference}
+                                        <div className="booking-detail-line">
+                                            <UsersIcon aria-hidden="true" />
+                                            <span><span className="booking-detail-label">AGT #:</span> {userId?.agencyCode || 'N/A'}</span>
                                         </div>
-                                        <div className="text-xs text-gray-600 pt-0.5">
-                                            Created: {formatDate(booking.createdAt)}
+                                        <div className="booking-detail-line">
+                                            <DocumentTextIcon aria-hidden="true" />
+                                            <span><span className="booking-detail-label">BK#:</span> {booking.bookingReference}</span>
+                                        </div>
+                                        <div className="booking-detail-line">
+                                            <CalendarDaysIcon aria-hidden="true" />
+                                            <span><span className="booking-detail-label">Created:</span> {formatDate(booking.createdAt)}</span>
                                         </div>
                                     </div>
                                 </td>
 
                                 {/* Group */}
-                                <td className="px-4 py-4 align-top border-r border-gray-300">
+                                <td className="px-4 py-4 align-middle border-r border-gray-300">
                                     <div className="space-y-1.5">
-                                        <div className="font-bold text-sm text-gray-900">
-                                            {booking.airline?.name || 'N/A'}
+                                        <div className="booking-airline font-bold text-sm text-gray-900">
+                                            {booking.airline?.logoUrl && <img src={booking.airline.logoUrl} alt="" loading="lazy" />}
+                                            <span>{booking.airline?.name || 'N/A'}</span>
                                         </div>
-                                        <div className="text-xs text-gray-700 font-medium">
-                                            {booking.sector}
+                                        <div className="booking-group-line">
+                                            <PaperAirplaneIcon aria-hidden="true" />
+                                            <span><strong>{booking.sector}</strong><small>{booking.sector?.replace(/\s*[-–]\s*/, ' to ')}</small></span>
                                         </div>
-                                        <div className="text-xs text-gray-700">
-                                            {formatDate(booking.departureDate)}
+                                        <div className="booking-group-line">
+                                            <CalendarDaysIcon aria-hidden="true" />
+                                            <span><strong>{formatDate(booking.departureDate)}</strong><small>Departure Date</small></span>
                                         </div>
-                                        <div className="text-xs text-gray-600 font-medium pt-0.5">
-                                            <div className="text-xs text-gray-600 font-medium pt-0.5">
+                                        <div className="booking-group-line">
+                                            <UserCircleIcon aria-hidden="true" />
+                                            <span><strong>
                                                 {firstPassenger
                                                     ? `${firstPassenger.givenName} ${firstPassenger.surName}`
-                                                    : 'N/A'}{' '}
-                                                X {booking.totalPassengers || 0}
-                                            </div>
-
+                                                    : 'N/A'} x {booking.totalPassengers || 0}
+                                            </strong><small>Passenger(s)</small></span>
                                         </div>
                                     </div>
                                 </td>
 
                                 {/* Passengers */}
-                                <td className="px-4 py-4 align-top border-r border-gray-300">
+                                <td className="px-4 py-4 align-middle border-r border-gray-300">
                                     <div className="inline-block w-full">
                                         <table className="w-full text-xs border border-slate-300 rounded-lg overflow-hidden">
                                             <thead className="bg-[#2d5a8f] text-white">
@@ -172,7 +209,7 @@ const BookingsTable = memo(({ bookings, getStatusBadge, formatDate, navigate, ti
 
                                             <tbody className="bg-white divide-y divide-slate-200">
                                                 {[
-                                                    { key: 'on hold', label: 'Requested', match: ['on hold', 'pending', 'cancelled'] },
+                                                    { key: 'on hold', label: 'Requested', match: ['on hold', 'pending'] },
                                                     { key: 'confirmed', label: 'Confirmed', match: ['confirmed'] },
                                                 ].map(({ key, label, match }) => {
                                                     const active = match.includes(booking.status)
@@ -180,7 +217,7 @@ const BookingsTable = memo(({ bookings, getStatusBadge, formatDate, navigate, ti
                                                     const adults = active ? booking.adultsCount || 0 : 0
                                                     const children = active ? booking.childrenCount || 0 : 0
                                                     const infants = active ? booking.infantsCount || 0 : 0
-                                                    const seats = adults + children + infants
+                                                    const seats = adults + children
 
                                                     return (
                                                         <tr
@@ -215,20 +252,25 @@ const BookingsTable = memo(({ bookings, getStatusBadge, formatDate, navigate, ti
                                 </td>
 
                                 {/* Price */}
-                                <td className={`px-4 py-4 ${(booking.status === 'on hold' || booking.status === 'pending') ? "align-bottom" : "align-middle"} text-center border-r border-gray-300`}>
-                                    <div className="font-bold text-base text-gray-900">
-                                        {(booking.status === 'on hold' || booking.status === 'pending') ? (<div className="text-xs text-yellow-700 font-semibold bg-yellow-50 px-2.5 py-1.5 rounded-md border border-yellow-300">
-                                            Admin Review<br />Required
-                                        </div>) :
-                                            `PKR ${booking.pricing?.grandTotal?.toLocaleString() || '0'}`
-                                        }
+                                <td className="px-4 py-4 align-middle text-center border-r border-gray-300">
+                                    <div className="booking-price">
+                                        <WalletIcon aria-hidden="true" />
+                                        {typeof total === 'number' && Number.isFinite(total) && (!priceOnCall || total > 0) ? (
+                                            <><small>PKR</small><strong>{total.toLocaleString('en-PK')}</strong></>
+                                        ) : (
+                                            <strong>{priceOnCall ? 'Price on call' : 'Price unavailable'}</strong>
+                                        )}
                                     </div>
+                                    {priceOnCall && (
+                                        <div className="booking-price-note">Price on call for agency</div>
+                                    )}
                                 </td>
 
                                 {/* Status */}
-                                <td className="px-4 py-4 align-top border-r border-gray-300">
+                                <td className="px-4 py-4 align-middle border-r border-gray-300">
                                     <div className="flex flex-col gap-2 items-center">
                                         <span className={`inline-block px-3 py-1.5 rounded-md text-xs shadow-sm ${statusBadge.color}`}>
+                                            {booking.status === 'confirmed' && <CheckCircleIcon className="h-4 w-4" aria-hidden="true" />}
                                             {statusBadge.label}
                                         </span>
                                         {(booking.status === 'on hold' || booking.status === 'pending') && (
@@ -563,7 +605,6 @@ export default function AllBookings() {
     // }
 
     const calculateRemainingTime = (expiresAt: string | null) => {
-        console.log('Calculating remaining time for expiryAt:', expiresAt)
         if (!expiresAt) return { hours: 0, minutes: 0, seconds: 0, expired: true }
 
         const diff = new Date(expiresAt).getTime() - new Date().getTime()
@@ -586,13 +627,15 @@ export default function AllBookings() {
 
         if (onHoldBookings.length === 0) return
 
-        const interval = setInterval(() => {
+        const updateTimers = () => {
             const newTimers: Record<string, Timer> = {}
             onHoldBookings.forEach(booking => {
                 newTimers[booking._id] = calculateRemainingTime(booking.expiresAt)
             })
             setTimers(newTimers)
-        }, 1000)
+        }
+        updateTimers()
+        const interval = setInterval(updateTimers, 1000)
 
         return () => clearInterval(interval)
     }, [bookings])
@@ -689,18 +732,25 @@ export default function AllBookings() {
     }
 
     return (
-        <div className="w-full min-h-screen mx-auto">
+        <div className="admin-bookings-page w-full min-h-screen mx-auto">
             {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">All Bookings</h1>
-                <p className="text-gray-600">Manage all customer flight bookings</p>
+            <div className="admin-bookings-heading">
+                <div>
+                    <h1>All Bookings</h1>
+                    <p>Manage all customer flight bookings</p>
+                </div>
+                <nav aria-label="Breadcrumb" className="admin-bookings-breadcrumb">
+                    <HomeIcon aria-hidden="true" />
+                    <span>/</span><span>Bookings</span><span>/</span><strong>All Bookings</strong>
+                </nav>
             </div>
 
             {/* Search and Filters in One Row */}
-            <div className="mb-4 bg-white rounded-lg shadow p-3 sm:p-4">
-                <div className="flex flex-wrap items-center gap-3">
+            <div className="admin-bookings-filters">
+                <div className="admin-bookings-filter-grid">
                     {/* Search Input */}
-                    <div className="flex-1 min-w-50">
+                    <div className="admin-bookings-search">
+                        <MagnifyingGlassIcon aria-hidden="true" />
                         <input
                             type="text"
                             value={searchQuery}
@@ -709,11 +759,11 @@ export default function AllBookings() {
                                 setSearchQuery(e.target.value)
                             }}
                             placeholder="Search by reference, PNR, or customer name..."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            aria-label="Search bookings"
                         />
                     </div>
                      {/* Status Filter Dropdown */}
-                    <div className="w-full sm:w-auto min-w-37.5">
+                    <div>
                         <select
                             value={activeStatus}
                             onChange={(e) => {
@@ -721,7 +771,7 @@ export default function AllBookings() {
                                 setCurrentPage(1);
                                 navigate(val ? `/all-bookings?status=${encodeURIComponent(val)}` : '/all-bookings');
                             }}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            aria-label="Filter by status"
                         >
                             <option value="">All Statuses</option>
                             <option value="on hold">On Hold</option>
@@ -731,11 +781,11 @@ export default function AllBookings() {
                     </div>
 
                     {/* Sector Filter */}
-                    <div className="w-full sm:w-auto min-w-37.5">
+                    <div>
                         <select
                             value={filters.sector}
                             onChange={(e) => handleFilterChange('sector', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            aria-label="Filter by sector"
                         >
                             <option value="">All Sectors</option>
                             {uniqueSectors.map(sector => (
@@ -747,11 +797,11 @@ export default function AllBookings() {
                     </div>
 
                     {/* Airline Filter */}
-                    <div className="w-full sm:w-auto min-w-37.5">
+                    <div>
                         <select
                             value={filters.airline}
                             onChange={(e) => handleFilterChange('airline', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            aria-label="Filter by airline"
                         >
                             <option value="">All Airlines</option>
                             {uniqueAirlines.map(airline => (
@@ -763,27 +813,28 @@ export default function AllBookings() {
                     </div>
 
                     {/* From Date */}
-                    <div className="w-full sm:w-auto min-w-37.5">
+                    <div className="admin-bookings-date">
+                        <CalendarDaysIcon aria-hidden="true" />
                         <MaskedDatePicker
                             value={filters.fromDate}
                             onChange={(date) => handleFilterChange('fromDate', date)}
                             placeholderText="Dept Date"
-                            minDate={new Date()}
                         />
                     </div>
 
                     {/* Reset Button */}
                     <button
                         onClick={resetFilters}
-                        className="px-4 py-2 text-sm text-red-600 hover:text-red-800 font-medium border border-red-300 rounded-md hover:bg-red-50 transition-colors"
+                        className="admin-bookings-reset"
                     >
+                        <ArrowPathIcon aria-hidden="true" />
                         Reset
                     </button>
                 </div>
             </div>
 
             {/* Bookings Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden relative">
+            <div className="admin-bookings-list bg-white rounded-lg shadow overflow-hidden relative">
                 {fetching && (
                     <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>

@@ -19,6 +19,7 @@ import Bank from "./Bank";
 import Footer from "../../components/Footer";
 import NoPage from "../../components/NoPage";
 import Register from "../Auth/Register";
+import Login from "../Auth/Login";
 import ForgotPassword from "../Auth/ForgotPassword";
 import Payment from "./Payment";
 import DashboardLayout from "../../components/Dashboard/DashboardLayout";
@@ -32,6 +33,7 @@ import BookingDetail from "../BookingDetail";
 import UmrahPackageBookingDetail from "./UmrahPackages/BookingDetail";
 import { groupTypes } from "../../data/groupTypes";
 import { getUserProfile } from "../../api/profileApi";
+import { BookingSelectionProvider } from "../../context/BookingSelectionProvider";
 
 export default function Frontend() {
   const [user, setUser] = useState(null);
@@ -70,6 +72,7 @@ export default function Frontend() {
     console.log("Logging out...");
     sessionStorage.removeItem("frontend_token");
     sessionStorage.removeItem("frontend_user");
+    sessionStorage.removeItem("selected_group_booking");
     window.location.href = "/";
     setUser(null);
   };
@@ -115,7 +118,10 @@ export default function Frontend() {
     );
   }
 
+  const bookingUserKey = String(user?._id || user?.id || user?.email || "");
+
   return (
+    <BookingSelectionProvider key={bookingUserKey} userKey={bookingUserKey}>
     <Routes>
       {/* Public Routes with Header and Footer */}
       <Route
@@ -139,11 +145,20 @@ export default function Frontend() {
         }
       />
       <Route
+        path="/auth/login"
+        element={
+          !user ? (
+            <Login onLogin={handleLogin} />
+          ) : (
+            <Navigate to="/dashboard" replace />
+          )
+        }
+      />
+      <Route
         path="/auth/register"
         element={
           !user ? (
             <>
-              <Header user={user} handleLogout={handleLogout} />
               <Register />
               <Footer user={user} />
             </>
@@ -323,5 +338,6 @@ export default function Frontend() {
         }
       />
     </Routes>
+    </BookingSelectionProvider>
   );
 }
