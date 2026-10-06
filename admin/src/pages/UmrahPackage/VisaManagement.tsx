@@ -1,6 +1,12 @@
-import React, { useEffect, useState } from "react";
-import axiosInstance from "../../Api/axios";
+import React, { useEffect, useRef, useState } from "react";
+import { isAxiosError } from "axios";
+import { Link } from "react-router";
 import { toast } from "react-toastify";
+import { TbBan, TbCalendar, TbChevronRight, TbCirclePlus, TbDatabase, TbFileDescription, TbHome, TbInbox, TbPencil, TbPlus, TbStack2, TbTrash, TbX } from "react-icons/tb";
+import { FaBus, FaPassport } from "react-icons/fa";
+import axiosInstance from "../../Api/axios";
+import PageMeta from "../../components/common/PageMeta";
+import "./visa-management.css";
 
 interface Visa {
   _id: string;
@@ -21,336 +27,156 @@ const CURRENCIES = [
   "GBP — British Pound",
   "EUR — Euro",
 ];
-
 const emptyForm = {
-  visaType: "",
-  processingTime: 0,
-  buyingPrice: 0,
-  sellingPrice: 0,
-  currency: "PKR",
-  transport: "without" as "without" | "with",
-  description: "",
+  visaType: "", processingTime: 0, buyingPrice: 0, sellingPrice: 0,
+  currency: "PKR", transport: "without" as "without" | "with", description: "",
 };
+const errorMessage = (error: unknown, fallback: string) =>
+  isAxiosError<{ message?: string }>(error) ? error.response?.data?.message || fallback : fallback;
+const margin = (visa: Visa) => visa.sellingPrice > 0
+  ? `${((visa.sellingPrice - visa.buyingPrice) / visa.sellingPrice * 100).toFixed(1)}%` : "—";
+
+function VisaTable({ list, busy, deletingId, onEdit, onDelete }: {
+  list: Visa[];
+  busy: boolean;
+  deletingId: string | null;
+  onEdit: (visa: Visa) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div className="vm-table-scroll" role="region" aria-label="Visa packages" tabIndex={0}>
+      <table className={`vm-table${list.length ? "" : " is-empty"}`}>
+        <thead><tr>{["Visa Type", "Processing", "Buy Price", "Sell Price", "Margin", "Currency", "Actions"].map((label) => <th key={label} scope="col">{label}</th>)}</tr></thead>
+        <tbody>{list.length ? list.map((visa) => (
+          <tr key={visa._id}>
+            <td className="vm-visa-type">{visa.visaType}</td><td>{visa.processingTime} days</td>
+            <td>{visa.buyingPrice.toLocaleString()}</td><td>{visa.sellingPrice.toLocaleString()}</td>
+            <td>{margin(visa)}</td><td>{visa.currency}</td>
+            <td><div className="vm-row-actions">
+              <button type="button" className="vm-action vm-action-edit" disabled={busy} onClick={() => onEdit(visa)} aria-label={`Edit ${visa.visaType}`}><TbPencil aria-hidden="true" />Edit</button>
+              <button type="button" className="vm-action vm-action-delete" disabled={busy} onClick={() => onDelete(visa._id)} aria-label={`Delete ${visa.visaType}`}><TbTrash aria-hidden="true" />{deletingId === visa._id ? "Deleting..." : "Delete"}</button>
+            </div></td>
+          </tr>
+        )) : <tr><td colSpan={7} className="vm-empty"><TbInbox aria-hidden="true" /><strong>No records found</strong><span>Add a visa package to get started.</span></td></tr>}</tbody>
+      </table>
+    </div>
+  );
+}
 
 export default function VisaManagement() {
   const [visas, setVisas] = useState<Visa[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    fetchVisas();
-  }, []);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const formCard = useRef<HTMLElement>(null);
+  const typeInput = useRef<HTMLInputElement>(null);
+  const busy = submitting || deletingId !== null;
 
   const fetchVisas = async () => {
     setLoading(true);
+    setFetchError("");
     try {
-      const res = await axiosInstance.get("/visas");
-      if (res.data.success) setVisas(res.data.data);
-    } catch {
-      toast.error("Failed to fetch visas");
-    } finally {
-      setLoading(false);
-    }
+      const response = await axiosInstance.get("/visas");
+      if (response.data.success) setVisas(response.data.data);
+      else setFetchError(response.data.message || "Failed to fetch visas");
+    } catch (error) {
+      setFetchError(errorMessage(error, "Failed to fetch visas"));
+    } finally { setLoading(false); }
   };
+  useEffect(() => { fetchVisas(); }, []);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]:
-        name === "processingTime" || name === "buyingPrice" || name === "sellingPrice"
-          ? Number(value)
-          : value,
-    }));
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = event.target;
+    setForm((previous) => ({ ...previous, [name]: ["processingTime", "buyingPrice", "sellingPrice"].includes(name) ? Number(value) : value }));
   };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.visaType.trim()) return toast.error("Visa type is required");
+  const cancelEdit = () => { setEditId(null); setForm(emptyForm); };
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (busy) return;
+    if (!form.visaType.trim()) { toast.error("Visa type is required"); return; }
     setSubmitting(true);
     try {
-      if (editId) {
-        const res = await axiosInstance.put("/visas", { id: editId, ...form });
-        if (res.data.success) {
-          toast.success("Visa updated");
-          setVisas((prev) => prev.map((v) => (v._id === editId ? res.data.data : v)));
-          cancelEdit();
-        }
-      } else {
-        const res = await axiosInstance.post("/visas", form);
-        if (res.data.success) {
-          toast.success("Visa added");
-          setVisas((prev) => [res.data.data, ...prev]);
-          setForm(emptyForm);
-        }
-      }
-    } catch {
-      toast.error("Operation failed");
-    } finally {
-      setSubmitting(false);
-    }
+      const response = editId
+        ? await axiosInstance.put("/visas", { id: editId, ...form })
+        : await axiosInstance.post("/visas", form);
+      if (response.data.success) {
+        toast.success(editId ? "Visa updated" : "Visa added");
+        setVisas((previous) => editId ? previous.map((visa) => visa._id === editId ? response.data.data : visa) : [response.data.data, ...previous]);
+        cancelEdit();
+      } else toast.error(response.data.message || "Operation failed");
+    } catch (error) { toast.error(errorMessage(error, "Operation failed")); }
+    finally { setSubmitting(false); }
   };
-
-  const handleEdit = (v: Visa) => {
-    setEditId(v._id);
-    setForm({
-      visaType: v.visaType,
-      processingTime: v.processingTime,
-      buyingPrice: v.buyingPrice,
-      sellingPrice: v.sellingPrice,
-      currency: v.currency,
-      transport: v.transport,
-      description: v.description,
+  const handleEdit = (visa: Visa) => {
+    setEditId(visa._id);
+    setForm({ visaType: visa.visaType, processingTime: visa.processingTime, buyingPrice: visa.buyingPrice, sellingPrice: visa.sellingPrice, currency: visa.currency, transport: visa.transport, description: visa.description || "" });
+    requestAnimationFrame(() => {
+      formCard.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" });
+      typeInput.current?.focus({ preventScroll: true });
     });
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
-
-  const cancelEdit = () => {
-    setEditId(null);
-    setForm(emptyForm);
-  };
-
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Delete this visa?")) return;
+    if (busy || !window.confirm("Delete this visa?")) return;
+    setDeletingId(id);
     try {
-      const res = await axiosInstance.delete("/visas", { data: { id } });
-      if (res.data.success) {
+      const response = await axiosInstance.delete("/visas", { data: { id } });
+      if (response.data.success) {
         toast.success("Visa deleted");
-        setVisas((prev) => prev.filter((v) => v._id !== id));
-      }
-    } catch {
-      toast.error("Delete failed");
-    }
+        setVisas((previous) => previous.filter((visa) => visa._id !== id));
+        if (editId === id) cancelEdit();
+      } else toast.error(response.data.message || "Delete failed");
+    } catch (error) { toast.error(errorMessage(error, "Delete failed")); }
+    finally { setDeletingId(null); }
   };
 
-  const withoutTransport = visas.filter((v) => v.transport === "without");
-  const withTransport = visas.filter((v) => v.transport === "with");
-
-  const margin = (v: Visa) =>
-    v.sellingPrice > 0 ? ((v.sellingPrice - v.buyingPrice) / v.sellingPrice * 100).toFixed(1) + "%" : "—";
-
-  const VisaTable = ({ list }: { list: Visa[] }) =>
-    list.length === 0 ? (
-      <div className="flex flex-col items-center py-8 text-gray-400">
-        <span className="text-3xl mb-2">☰</span>
-        <span className="text-sm">No records found</span>
-      </div>
-    ) : (
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left">
-          <thead>
-            <tr className="border-b border-gray-200 dark:border-gray-700">
-              {["VISA TYPE", "PROCESSING", "BUY PRICE", "SELL PRICE", "MARGIN", "CURRENCY", "ACTIONS"].map((h) => (
-                <th key={h} className="py-3 pr-4 text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((v) => (
-              <tr key={v._id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
-                <td className="py-3 pr-4 font-medium text-gray-900 dark:text-white">{v.visaType}</td>
-                <td className="py-3 pr-4 text-gray-600 dark:text-gray-300">{v.processingTime} days</td>
-                <td className="py-3 pr-4 text-gray-600 dark:text-gray-300">{v.buyingPrice.toLocaleString()}</td>
-                <td className="py-3 pr-4 text-gray-600 dark:text-gray-300">{v.sellingPrice.toLocaleString()}</td>
-                <td className="py-3 pr-4 text-gray-600 dark:text-gray-300">{margin(v)}</td>
-                <td className="py-3 pr-4 text-gray-600 dark:text-gray-300">{v.currency}</td>
-                <td className="py-3 flex gap-2">
-                  <button onClick={() => handleEdit(v)} className="bg-yellow-400 hover:bg-yellow-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition">
-                    Edit
-                  </button>
-                  <button onClick={() => handleDelete(v._id)} className="bg-red-500 hover:bg-red-600 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition">
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
+  const withoutTransport = visas.filter((visa) => visa.transport === "without");
+  const withTransport = visas.filter((visa) => visa.transport === "with");
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white text-lg">🪪</div>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Visa Management</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Manage Umrah visa packages and pricing</p>
-        </div>
-        <div className="ml-auto flex gap-3">
-          {[
-            { label: "TOTAL", value: visas.length, color: "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700" },
-            { label: "NO TRANSPORT", value: withoutTransport.length, color: "bg-cyan-50 dark:bg-cyan-900/30 border-cyan-200 dark:border-cyan-700" },
-            { label: "WITH TRANSPORT", value: withTransport.length, color: "bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700" },
-          ].map((stat) => (
-            <div key={stat.label} className={`flex items-center gap-2 border rounded-xl px-4 py-2 ${stat.color}`}>
-              <span className="text-xl font-bold text-gray-900 dark:text-white">{stat.value}</span>
-              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{stat.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+    <div className="visa-management">
+      <PageMeta title="Visa Management | Stack Works Flow" description="Manage Umrah visa packages and pricing." />
+      <nav className="vm-breadcrumb" aria-label="Breadcrumb"><TbHome aria-hidden="true" /><Link to="/">Dashboard</Link><TbChevronRight aria-hidden="true" /><span aria-current="page">Visa Management</span></nav>
+      <header className="vm-heading">
+        <div className="vm-heading-title"><span className="vm-heading-icon"><FaPassport aria-hidden="true" /></span><div><h1>Visa Management</h1><p>Manage Umrah visa packages and pricing</p></div></div>
+        <div className="vm-stats" aria-label="Visa summary">{[
+          { label: "Total", value: visas.length, detail: "Visa packages", icon: TbStack2, tone: "blue" },
+          { label: "No Transport", value: withoutTransport.length, detail: "Without transport", icon: TbBan, tone: "cyan" },
+          { label: "With Transport", value: withTransport.length, detail: "With transport", icon: FaBus, tone: "green" },
+        ].map(({ label, value, detail, icon: Icon, tone }) => <div className={`vm-stat vm-stat-${tone}`} key={label}><span className="vm-stat-icon"><Icon aria-hidden="true" /></span><div><strong>{loading || fetchError ? "—" : value}</strong><span>{label}</span><p>{detail}</p></div></div>)}</div>
+      </header>
 
-      {/* Form */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
-        <h2 className="text-base font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-          <span className="text-blue-600">+</span> {editId ? "Edit Visa" : "Add New Visa"}
-        </h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400">VISA TYPE *</label>
-              <input
-                name="visaType"
-                value={form.visaType}
-                onChange={handleChange}
-                placeholder="e.g. Umrah 15 Days"
-                className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400">PROCESSING TIME (DAYS)</label>
-              <input
-                name="processingTime"
-                type="number"
-                min={0}
-                value={form.processingTime}
-                onChange={handleChange}
-                className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400">BUYING PRICE *</label>
-              <input
-                name="buyingPrice"
-                type="number"
-                min={0}
-                value={form.buyingPrice}
-                onChange={handleChange}
-                className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400">SELLING PRICE *</label>
-              <input
-                name="sellingPrice"
-                type="number"
-                min={0}
-                value={form.sellingPrice}
-                onChange={handleChange}
-                className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400">CURRENCY</label>
-              <select
-                name="currency"
-                value={form.currency}
-                onChange={handleChange}
-                className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {CURRENCIES.map((c) => (
-                  <option key={c} value={c.split(" — ")[0]}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
+      <section className="vm-card vm-form-card" ref={formCard} aria-labelledby="vm-form-heading">
+        <img src={`${import.meta.env.BASE_URL}images/visa/mosque-skyline.png`} alt="" className="vm-form-art" aria-hidden="true" />
+        <div className="vm-card-title"><span className="vm-section-icon vm-section-icon-add"><TbCirclePlus aria-hidden="true" /></span><div><h2 id="vm-form-heading">{editId ? "Edit Visa" : "Add New Visa"}</h2><p>{editId ? "Update the visa package and its pricing details" : "Create a new Umrah visa package with pricing details"}</p></div></div>
+        <form id="vm-visa-form" onSubmit={handleSubmit}>
+          <div className="vm-form-grid">
+            <div className="vm-field"><label htmlFor="vm-visa-type">Visa Type <span>*</span></label><div className="vm-input-wrap"><input ref={typeInput} id="vm-visa-type" name="visaType" type="text" value={form.visaType} onChange={handleChange} placeholder="e.g. Umrah 15 Days" required disabled={busy} /></div></div>
+            {[
+              { name: "processingTime", label: "Processing Time (Days)", icon: TbCalendar, required: false, step: "1" },
+              { name: "buyingPrice", label: "Buying Price", icon: TbDatabase, required: true, step: "any" },
+              { name: "sellingPrice", label: "Selling Price", icon: TbDatabase, required: true, step: "any" },
+            ].map(({ name, label, icon: Icon, required, step }) => <div className="vm-field" key={name}><label htmlFor={`vm-${name}`}>{label}{required && <span> *</span>}</label><div className="vm-input-wrap"><input id={`vm-${name}`} name={name} type="number" min={0} step={step} value={form[name as "processingTime" | "buyingPrice" | "sellingPrice"]} onChange={handleChange} required={required} disabled={busy} /><Icon aria-hidden="true" /></div></div>)}
+            <div className="vm-field vm-currency-field"><label htmlFor="vm-currency">Currency</label><select id="vm-currency" name="currency" value={form.currency} onChange={handleChange} disabled={busy}>
+              {CURRENCIES.map((currency) => <option key={currency} value={currency.split(" — ")[0]}>{currency}</option>)}
+              {!CURRENCIES.some((currency) => currency.split(" — ")[0] === form.currency) && <option value={form.currency}>{form.currency}</option>}
+            </select></div>
           </div>
-
-          {/* Transport Toggle */}
-          <div>
-            <label className="text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400 block mb-2">TRANSPORT</label>
-            <div className="flex gap-2">
-              {(["without", "with"] as const).map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => setForm((prev) => ({ ...prev, transport: opt }))}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition ${
-                    form.transport === opt
-                      ? "bg-blue-600 border-blue-600 text-white"
-                      : "bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  {opt === "without" ? "🚫" : "🚌"} {opt.charAt(0).toUpperCase() + opt.slice(1)}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Description */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400">DESCRIPTION</label>
-            <textarea
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              rows={3}
-              placeholder="Additional details, inclusions, restrictions..."
-              className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-            />
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg text-sm transition disabled:opacity-60"
-            >
-              {submitting ? "Saving..." : editId ? "Update Visa" : "+ Add Visa"}
-            </button>
-            {editId && (
-              <button
-                type="button"
-                onClick={cancelEdit}
-                className="bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-semibold px-6 py-2 rounded-lg text-sm transition"
-              >
-                Cancel
-              </button>
-            )}
-          </div>
+          <div className="vm-transport-field"><span id="vm-transport-label">Transport</span><div className="vm-transport-toggle" role="group" aria-labelledby="vm-transport-label">{(["without", "with"] as const).map((option) => <button key={option} type="button" disabled={busy} aria-pressed={form.transport === option} className={`vm-transport-option${form.transport === option ? " is-selected" : ""}`} onClick={() => setForm((previous) => ({ ...previous, transport: option }))}>{option === "without" ? <TbBan aria-hidden="true" /> : <FaBus aria-hidden="true" />}{option === "without" ? "Without" : "With"}</button>)}</div></div>
+          <div className="vm-field vm-description-field"><label htmlFor="vm-description">Description</label><div className="vm-description-wrap"><TbFileDescription aria-hidden="true" /><textarea id="vm-description" name="description" value={form.description} onChange={handleChange} rows={3} disabled={busy} placeholder="Additional details, inclusions, restrictions..." /></div><span className="vm-description-count">{form.description.length} characters</span></div>
+          <div className="vm-form-actions"><button type="submit" className="vm-button vm-button-primary" disabled={busy}><TbPlus aria-hidden="true" />{submitting ? "Saving..." : editId ? "Update Visa" : "Add Visa"}</button>{editId && <button type="button" className="vm-button vm-button-secondary" onClick={cancelEdit} disabled={busy}><TbX aria-hidden="true" />Cancel</button>}</div>
         </form>
-      </div>
+      </section>
 
-      {/* Without Transport */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-cyan-100 dark:bg-cyan-900/40 flex items-center justify-center text-cyan-600">🚫</div>
-            <span className="font-semibold text-gray-800 dark:text-white">Umrah Visa — Without Transport</span>
-          </div>
-          <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1 rounded-full font-medium">
-            {withoutTransport.length} RECORDS
-          </span>
-        </div>
-        <div className="p-6">
-          {loading ? <p className="text-sm text-gray-500">Loading...</p> : <VisaTable list={withoutTransport} />}
-        </div>
-      </div>
-
-      {/* With Transport */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/40 flex items-center justify-center text-green-600">🚌</div>
-            <span className="font-semibold text-gray-800 dark:text-white">Umrah Visa — With Transport</span>
-          </div>
-          <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1 rounded-full font-medium">
-            {withTransport.length} RECORDS
-          </span>
-        </div>
-        <div className="p-6">
-          {loading ? <p className="text-sm text-gray-500">Loading...</p> : <VisaTable list={withTransport} />}
-        </div>
-      </div>
+      {[
+        { transport: "without", title: "Without Transport", detail: "Visa packages without transport facilities", icon: TbBan, list: withoutTransport },
+        { transport: "with", title: "With Transport", detail: "Visa packages with transport facilities", icon: FaBus, list: withTransport },
+      ].map(({ transport, title, detail, icon: Icon, list }) => <section key={transport} className={`vm-card vm-list-card vm-list-${transport}`} aria-labelledby={`vm-list-${transport}-heading`} aria-busy={loading}>
+        <div className="vm-list-heading"><div className="vm-card-title"><span className={`vm-section-icon vm-section-icon-${transport}`}><Icon aria-hidden="true" /></span><div><h2 id={`vm-list-${transport}-heading`}>Umrah Visa — {title}</h2><p>{detail}</p></div></div><span className="vm-record-count">{loading || fetchError ? "—" : `${list.length} ${list.length === 1 ? "Record" : "Records"}`}</span></div>
+        {loading ? <div className="vm-list-state" role="status">Loading visas...</div> : fetchError ? <div className="vm-list-state" role="alert"><strong>Unable to load visas</strong><p>{fetchError}</p><button type="button" className="vm-button vm-button-primary" onClick={fetchVisas}>Retry</button></div> : <VisaTable list={list} busy={busy} deletingId={deletingId} onEdit={handleEdit} onDelete={handleDelete} />}
+      </section>)}
     </div>
   );
 }

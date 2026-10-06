@@ -1,101 +1,50 @@
-import React, { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { TbBriefcase, TbMail, TbPhone, TbPlus, TbRotateClockwise, TbUser, TbX } from "react-icons/tb";
 
-const TeamContactForm = ({ onSubmit, initialValues, isEditing, onCancel }) => {
-  const [form, setForm] = useState({
-    name: "",
-    designation: "",
-    gmail: "",
-    number: "",
-  });
+const emptyForm = { name: "", designation: "", gmail: "", number: "" };
 
-  // Update form when initialValues changes (for editing)
+const TeamContactForm = ({ onSubmit, initialValues, isEditing, onCancel, submitting = false }) => {
+  const [form, setForm] = useState(emptyForm);
+
   useEffect(() => {
-    if (initialValues) {
-      setForm({
-        name: initialValues.name || "",
-        designation: initialValues.designation || "",
-        gmail: initialValues.gmail || "",
-        number: initialValues.number || "",
-      });
-    } else {
-      setForm({ name: "", designation: "", gmail: "", number: "" });
-    }
+    setForm(initialValues ? {
+      name: initialValues.name || "",
+      designation: initialValues.designation || "",
+      gmail: initialValues.gmail || "",
+      number: initialValues.number || "",
+    } : emptyForm);
   }, [initialValues]);
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (event) => {
+    setForm((previous) => ({ ...previous, [event.target.name]: event.target.value }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(form);
-    if (!isEditing) {
-      setForm({ name: "", designation: "", gmail: "", number: "" });
-    }
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const saved = await onSubmit(form);
+    if (saved && !isEditing) setForm(emptyForm);
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-4 max-w-md mx-auto p-6 bg-white rounded-xl shadow"
-    >
-      <div>
-        <label className="block font-semibold mb-1">Name</label>
-        <input
-          name="name"
-          value={form.name}
-          onChange={handleChange}
-          required
-          className="w-full border rounded px-3 py-2"
-        />
+    <form id="tc-contact-form" onSubmit={handleSubmit}>
+      <div className="tc-form-grid">
+        {[
+          { name: "name", label: "Name", placeholder: "Enter full name", icon: TbUser, type: "text", autoComplete: "name" },
+          { name: "designation", label: "Designation", placeholder: "Enter designation", icon: TbBriefcase, type: "text", autoComplete: "organization-title" },
+          { name: "gmail", label: "Email", placeholder: "Enter email address", icon: TbMail, type: "email", autoComplete: "email" },
+          { name: "number", label: "Number", placeholder: "Enter phone number", icon: TbPhone, type: "tel", autoComplete: "tel" },
+        ].map(({ name, label, placeholder, icon: Icon, type, autoComplete }) => (
+          <div className="tc-field" key={name}>
+            <label htmlFor={`tc-${name}`}>{label} <span>*</span></label>
+            <div className="tc-input-wrap"><Icon aria-hidden="true" /><input id={`tc-${name}`} name={name} type={type} autoComplete={autoComplete} value={form[name]} onChange={handleChange} placeholder={placeholder} required disabled={submitting} /></div>
+          </div>
+        ))}
       </div>
-      <div>
-        <label className="block font-semibold mb-1">Designation</label>
-        <input
-          name="designation"
-          value={form.designation}
-          onChange={handleChange}
-          required
-          className="w-full border rounded px-3 py-2"
-        />
-      </div>
-      <div>
-        <label className="block font-semibold mb-1">Gmail</label>
-        <input
-          name="gmail"
-          type="email"
-          value={form.gmail}
-          onChange={handleChange}
-          required
-          className="w-full border rounded px-3 py-2"
-        />
-      </div>
-      <div>
-        <label className="block font-semibold mb-1">Number</label>
-        <input
-          name="number"
-          value={form.number}
-          onChange={handleChange}
-          required
-          className="w-full border rounded px-3 py-2"
-        />
-      </div>
-      <div className="flex gap-3">
-        <button
-          type="submit"
-          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-        >
-          {isEditing ? "Update Contact" : "Add Team Contact"}
+      <div className="tc-form-actions">
+        <button type="submit" disabled={submitting} className="tc-button tc-button-primary"><TbPlus aria-hidden="true" />{submitting ? "Saving..." : isEditing ? "Update Contact" : "Add Team Contact"}</button>
+        <button type="button" disabled={submitting} className="tc-button tc-button-secondary" onClick={() => { if (isEditing) onCancel?.(); else setForm(emptyForm); }}>
+          {isEditing ? <TbX aria-hidden="true" /> : <TbRotateClockwise aria-hidden="true" />}{isEditing ? "Cancel" : "Reset"}
         </button>
-        {isEditing && onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition"
-          >
-            Cancel
-          </button>
-        )}
       </div>
     </form>
   );
