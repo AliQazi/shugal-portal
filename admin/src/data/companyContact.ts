@@ -1,9 +1,9 @@
 export const companyContact = {
   name: "Stack Works Flow",
   mobile: "03331546241",
-  email: "aliqazi1996@gmail.com",
+  email: "info@stackworksflow.com",
   address: "Faisalabad",
-  website: "shaheenwingstravels.com",
+  website: "stackworksflow.com",
 };
 
 export const getCurrentWebsite = () =>

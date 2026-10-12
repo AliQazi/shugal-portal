@@ -450,9 +450,9 @@ const Login = ({ onLogin }) => {
                   Email
                 </h4>
                 <p>
-                  aliqazi1996@gmail.com
+                  info@stackworksflow.com
                   <br />
-                  aliqazi1996@gmail.com
+                  info@stackworksflow.com
                 </p>
               </div>
             </div>

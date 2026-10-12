@@ -205,7 +205,7 @@ export default function UserMetaCard() {
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Email Address</Label>
-                    <Input type="text" value="aliqazi1996@gmail.com" />
+                    <Input type="text" value="info@stackworksflow.com" />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">

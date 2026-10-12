@@ -17,7 +17,6 @@ type NavSection = { title: string; items: (NavLink | NavGroup)[] };
 
 const sections: NavSection[] = [
   { title: "Flights", items: [
-    { name: "Bookings", path: "/all-bookings", icon: FaPlane, matchPaths: ["/booking-detail"] },
     { name: "Special Offers", path: "/special-offers", icon: FaThLarge },
     { name: "Manage Sectors", path: "/manage-sectors", icon: FaBuilding },
     { name: "Sector", path: "/sector", icon: FaBuilding },
@@ -34,12 +33,13 @@ const sections: NavSection[] = [
     { name: "Transport", path: "/umrah-transport", icon: FaBus },
     { name: "Visa", path: "/umrah-visa", icon: FaPassport },
     { name: "Create Packages", path: "/umrah-packages", icon: FaPlusCircle },
-    { name: "Manage External Packages", path: "/manage-umrah-packages", icon: FaCog },
+    // { name: "Manage External Packages", path: "/manage-umrah-packages", icon: FaCog },
     { name: "Umrah Packages Bookings", path: "/umrah-package-bookings", icon: FaFileAlt },
   ] }] },
   { title: "Group Ticketing", items: [{ name: "Group Ticketing", icon: FaUsers, subItems: [
     { name: "View Groups", path: "/group-ticketing", icon: FaListUl, matchPaths: ["/group-ticketing/edit"] },
     { name: "Create Group", path: "/group-ticketing/create", icon: FaPlusCircle },
+    { name: "Bookings", path: "/all-bookings", icon: FaPlane, matchPaths: ["/booking-detail"] },
   ] }] },
   { title: "Accounting", items: [{ name: "Ledger", icon: FaWallet, subItems: [
     { name: "View Accounts", path: "/view-accounts", icon: FaListUl, matchPaths: ["/ledger"] },
