@@ -345,7 +345,6 @@ const Ledger = () => {
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  onClick={(e) => e.currentTarget.showPicker()}
                   className="ledger-native-date"
                   required
                 />
@@ -357,7 +356,6 @@ const Ledger = () => {
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  onClick={(e) => e.currentTarget.showPicker()}
                   className="ledger-native-date"
                   required
                 />

@@ -1,400 +1,164 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
+import { Link, useNavigate, useParams } from "react-router";
+import { isAxiosError } from "axios";
+import { toast } from "react-toastify";
+import { TbBuildingBank, TbCalendarEvent, TbChevronDown, TbChevronRight, TbCircleCheck, TbCircleX, TbClock, TbCoin, TbCreditCard, TbExternalLink, TbFileDescription, TbInfoCircle, TbMessage, TbRefresh, TbDeviceFloppy, TbShieldCheck, TbUpload, TbUser, TbUsers, TbX } from "react-icons/tb";
 import axiosInstance from "../Api/axios";
 import { useAuth } from "../context/AuthContext";
+import PageMeta from "../components/common/PageMeta";
+import "./edit-payment-voucher.css";
 
 interface Payment {
   _id: string;
   voucherId: string;
   date: string;
   description: string;
-  bankAccount: {
-    _id: string;
-    bankName: string;
-    accountNo: string;
-  };
-  user: {
-    _id: string;
-    name: string;
-    email: string;
-    companyName?: string;
-  };
+  bankAccount?: { _id: string; bankName: string; accountNo: string } | null;
+  user?: { _id: string; name: string; companyName?: string } | null;
   amount: number;
   status: string;
   remarks?: string;
-  receipt?: string;
-  editedBy?: {
-    _id: string;
-    name: string;
-    email: string;
-  };
-  editedAt?: string;
+  receipt?: string | null;
+}
+interface VoucherForm { description: string; amount: string; status: string; date: string; remarks: string }
+const emptyForm: VoucherForm = { description: "", amount: "", status: "Applied", date: "", remarks: "" };
+const receiptTypes = ["image/jpeg", "image/png", "image/gif", "image/svg+xml", "image/webp"];
+
+function errorMessage(error: unknown, fallback: string) {
+  return isAxiosError<{ message?: string }>(error) ? error.response?.data?.message || fallback : error instanceof Error ? error.message : fallback;
+}
+function Field({ label, id, icon, children, className = "" }: { label: string; id: string; icon: ReactNode; children: ReactNode; className?: string }) {
+  return <div className={`ev-field ${className}`}><label htmlFor={id}>{label}</label><div className="ev-control"><span className="ev-input-icon" aria-hidden="true">{icon}</span>{children}</div></div>;
+}
+function StatusBadge({ status }: { status: string }) {
+  const Icon = status === "Approved" ? TbCircleCheck : status === "Rejected" ? TbCircleX : TbClock;
+  return <span className={`ev-status ev-status-${status.toLowerCase()}`}><Icon aria-hidden="true" />{status}</span>;
 }
 
-interface Bank {
-  _id: string;
-  bankName: string;
-  accountNo: string;
-}
-
-const EditPaymentVoucher = () => {
+export default function EditPaymentVoucher() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [banks, setBanks] = useState<Bank[]>([]);
-
-  const [formData, setFormData] = useState({
-    evoucherAgentCreditAccountName: "",
-    bankName: "",
-    agentName: "",
-    description: "",
-    amount: "",
-    accountNo: "",
-    status: "Approved",
-    remarks: "",
-    date: "",
-  });
-
-  const [receipt, setReceipt] = useState<string | null>(null);
+  const [payment, setPayment] = useState<Payment | null>(null);
+  const [form, setForm] = useState<VoucherForm>(emptyForm);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const [receiptError, setReceiptError] = useState("");
+  const [failedPreview, setFailedPreview] = useState<string>();
+  const uploadInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchBanks();
-    if (id) {
-      fetchPaymentDetails();
-    }
-  }, [id]);
+    let cancelled = false;
+    setLoading(true); setLoadError(""); setSaveError(""); setPayment(null); setReceiptFile(null); setReceiptError("");
+    void axiosInstance.get(`/payment/${id}`).then((response) => {
+      if (cancelled) return;
+      if (!response.data.success || !response.data.data) throw new Error(response.data.message || "Payment voucher not found.");
+      const record: Payment = response.data.data;
+      setPayment(record);
+      const date = new Date(record.date);
+      setForm({ description: record.description || "", amount: record.amount?.toString() || "", status: record.status || "Applied", date: Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10), remarks: record.remarks || "" });
+    }).catch((error: unknown) => { if (!cancelled) setLoadError(errorMessage(error, "Unable to load this payment voucher. Please try again.")); }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [id, reloadKey]);
 
-  const fetchBanks = async () => {
+  useEffect(() => {
+    if (!receiptFile) { setReceiptPreview(null); return; }
+    const url = URL.createObjectURL(receiptFile);
+    setReceiptPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [receiptFile]);
+
+  const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = event.target;
+    setForm((current) => ({ ...current, [name]: value }));
+    setSaveError("");
+  };
+  const handleReceiptChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!receiptTypes.includes(file.type)) { setReceiptError("Choose a JPG, PNG, GIF, SVG or WEBP image."); return; }
+    if (file.size > 5 * 1024 * 1024) { setReceiptError("Receipt images must be 5 MB or smaller."); return; }
+    setReceiptError(""); setReceiptFile(file);
+  };
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (saving || !payment) return;
+    if (!form.description.trim()) { setSaveError("Enter a payment description."); return; }
+    if (!Number.isFinite(Number(form.amount)) || Number(form.amount) < 0) { setSaveError("Enter a valid amount of zero or more."); return; }
+    setSaving(true); setSaveError("");
     try {
-      const response = await axiosInstance.get("/bank");
-      if (response.data.success) {
-        setBanks(response.data.data);
-      }
-    } catch (error) {
-      console.error("Error fetching banks:", error);
-    }
+      const data = new FormData();
+      data.append("description", form.description.trim()); data.append("amount", form.amount); data.append("status", form.status); data.append("remarks", form.remarks); data.append("date", form.date);
+      if (payment.bankAccount?._id) data.append("bankAccount", payment.bankAccount._id);
+      if (user?.id) data.append("editedBy", user.id);
+      if (receiptFile) data.append("receipt", receiptFile);
+      const response = await axiosInstance.put(`/payment/${id}`, data, { headers: { "Content-Type": "multipart/form-data" } });
+      if (!response.data.success) throw new Error(response.data.message || "Failed to update payment voucher.");
+      toast.success("Payment voucher updated successfully.");
+      navigate("/view-payment-voucher");
+    } catch (error: unknown) { setSaveError(errorMessage(error, "Unable to update this payment voucher. Please try again.")); }
+    finally { setSaving(false); }
   };
 
-  const fetchPaymentDetails = async () => {
-    try {
-      setLoading(true);
-      const response = await axiosInstance.get(`/payment/${id}`);
-      if (response.data.success) {
-        const payment: Payment = response.data.data;
-        setFormData({
-          evoucherAgentCreditAccountName: payment.user?.companyName || payment.user?.name || "",
-          bankName: payment.bankAccount?._id || "",
-          agentName: payment.user?.companyName || payment.user?.name || "",
-          description: payment.description || "",
-          amount: payment.amount?.toString() || "",
-          accountNo: payment.bankAccount?.accountNo || "",
-          status: payment.status || "Posted",
-          remarks: payment.remarks || "",
-          date: payment.date ? new Date(payment.date).toISOString().split("T")[0] : "",
-        });
-        setReceipt(payment.receipt || null);
-      }
-    } catch (error: any) {
-      console.error("Error fetching payment details:", error);
-      setError("Failed to load payment details");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const agent = payment?.user?.companyName || payment?.user?.name || "Unavailable";
+  const bank = payment?.bankAccount?.bankName || "Unavailable";
+  const account = payment?.bankAccount?.accountNo || "Unavailable";
+  const receiptUrl = receiptFile ? receiptPreview : payment?.receipt;
+  const amount = new Intl.NumberFormat("en-PK", { maximumFractionDigits: 2 }).format(Number(form.amount) || 0);
+  const date = form.date ? new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", day: "2-digit", month: "short", year: "numeric" }).format(new Date(`${form.date}T00:00:00Z`)) : "Not set";
+  const summary = [
+    { label: "Status", value: <StatusBadge status={form.status} />, icon: form.status === "Approved" ? TbCircleCheck : form.status === "Rejected" ? TbCircleX : TbClock, color: form.status === "Approved" ? "green" : form.status === "Rejected" ? "red" : "amber" },
+    { label: "Amount", value: `Rs. ${amount}`, icon: TbCoin, color: "blue" },
+    { label: "Bank", value: bank, icon: TbBuildingBank, color: "purple" },
+    { label: "Date", value: date, icon: TbCalendarEvent, color: "blue" },
+    { label: "Agent", value: payment?.user?.name, icon: TbUsers, color: "blue" },
+    { label: "Account #", value: account, icon: TbCreditCard, color: "blue" },
+  ];
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-
-    // Auto-populate account number when bank is selected
-    if (name === "bankName") {
-      const selectedBank = banks.find((bank) => bank._id === value);
-      if (selectedBank) {
-        setFormData((prev) => ({
-          ...prev,
-          accountNo: selectedBank.accountNo,
-        }));
-      }
-    }
-  };
-
-  const handleReceiptChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setReceiptFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setReceipt(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    try {
-      const submitData = new FormData();
-      
-      submitData.append("description", formData.description);
-      submitData.append("amount", formData.amount);
-      submitData.append("status", formData.status);
-      submitData.append("remarks", formData.remarks);
-      submitData.append("date", formData.date);
-      submitData.append("bankAccount", formData.bankName);
-      
-      // Add the current user ID as editedBy
-      if (user?.id) {
-        submitData.append("editedBy", user.id);
-      }
-
-      if (receiptFile) {
-        submitData.append("receipt", receiptFile);
-      }
-
-      const response = await axiosInstance.put(`/payment/${id}`, submitData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-
-      if (response.data.success) {
-        alert("Payment voucher updated successfully!");
-        navigate("/view-payment-voucher");
-      }
-    } catch (error: any) {
-      console.error("Error updating payment:", error);
-      setError(error.response?.data?.message || "Failed to update payment voucher");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading && !formData.date) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">View Payment Voucher</h1>
-          <div className="text-sm text-gray-600">
-            <a href="/" className="text-blue-600 hover:underline">
-              Home
-            </a>
-            <span className="mx-2">/</span>
-            <span>View Payment</span>
-          </div>
-        </div>
-
-        {/* Form Section */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">View Payment Vouchers</h2>
-
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-              {error}
+  return <div className="edit-voucher-page">
+    <PageMeta title="View Payment Voucher" description="Review and update payment voucher details" />
+    <nav className="ev-breadcrumb" aria-label="Breadcrumb"><Link to="/">Home</Link><TbChevronRight aria-hidden="true" /><Link to="/view-payment-voucher">Payments</Link><TbChevronRight aria-hidden="true" /><span aria-current="page">View Payment Voucher</span></nav>
+    <div className="ev-page-heading"><span className="ev-heading-icon"><TbFileDescription aria-hidden="true" /></span><div><h1>View Payment Voucher</h1><p>Review and update payment voucher details.</p></div></div>
+    {loading ? <section className="ev-card ev-state" role="status"><TbRefresh className="ev-loading-icon" aria-hidden="true" /><p>Loading payment voucher...</p></section> : loadError ? <section className="ev-card ev-state" role="alert"><TbFileDescription aria-hidden="true" /><h2>Unable to load payment voucher</h2><p>{loadError}</p><div><button className="ev-secondary" type="button" onClick={() => navigate("/view-payment-voucher")}>Back to payments</button><button className="ev-primary" type="button" onClick={() => setReloadKey((key) => key + 1)}><TbRefresh aria-hidden="true" />Try again</button></div></section> : payment && <div className="ev-layout">
+      <section className="ev-card ev-details" aria-labelledby="ev-details-title">
+        <div className="ev-details-heading"><h2 id="ev-details-title">Payment Voucher Details</h2><p>Update the payment voucher information and receipt if needed.</p></div>
+        <form onSubmit={handleSubmit} aria-busy={saving}>
+          {saveError && <p className="ev-error" role="alert">{saveError}</p>}
+          <fieldset disabled={saving} className="ev-fieldset">
+            <legend className="sr-only">Payment voucher fields</legend>
+            <div className="ev-grid ev-grid-two">
+              <Field label="Agent Credit Account Name" id="ev-credit-agent" icon={<TbBuildingBank />}><input id="ev-credit-agent" value={agent} readOnly /></Field>
+              <Field label="Bank Name" id="ev-bank" icon={<TbBuildingBank />}><input id="ev-bank" value={bank} readOnly /></Field>
             </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              {/* Evoucher Agent Credit Account Name */}
-              <div>
-                <label className="block text-sm font-medium text-green-600 mb-2">
-                  Agent Credit Account Name
-                </label>
-                <input
-                  type="text"
-                  name="evoucherAgentCreditAccountName"
-                  value={formData.evoucherAgentCreditAccountName}
-                  onChange={handleChange}
-                  disabled
-                  className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md focus:outline-none"
-                />
-              </div>
-
-              {/* Bank Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Bank Name
-                </label>
-                <input
-                  type="text"
-                  value={banks.find(b => b._id === formData.bankName)?.bankName || ""}
-                  disabled
-                  className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md focus:outline-none"
-                />
-              </div>
+            <div className="ev-grid ev-grid-three">
+              <Field label="Agent Name" id="ev-agent" icon={<TbUser />}><input id="ev-agent" value={payment?.user?.name} readOnly /></Field>
+              <Field label="Description" id="ev-description" icon={<TbFileDescription />}><input id="ev-description" name="description" value={form.description} readOnly /></Field>
+              <Field label="Amount" id="ev-amount" icon={<TbCoin />}><input id="ev-amount" name="amount" type="text" value={amount} readOnly /></Field>
+              <Field label="Account #" id="ev-account" icon={<TbCreditCard />}><input id="ev-account" value={account} readOnly /></Field>
+              <Field label="Status" id="ev-status" icon={<TbShieldCheck />}><select id="ev-status" name="status" value={form.status} onChange={handleChange}><option value="Applied">Applied</option><option value="Approved">Approved</option><option value="Rejected">Rejected</option></select><TbChevronDown className="ev-chevron" aria-hidden="true" /></Field>
+              <Field label="Date" id="ev-date" icon={<TbCalendarEvent />}><input id="ev-date" name="date" type="date" value={form.date} readOnly /></Field>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              {/* Agent Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Agent Name
-                </label>
-                <input
-                  type="text"
-                  name="agentName"
-                  value={formData.agentName}
-                  onChange={handleChange}
-                  disabled
-                  className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md focus:outline-none"
-                />
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
-                </label>
-                <input
-                  type="text"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              {/* Amount */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Amount
-                </label>
-                <input
-                  type="number"
-                  name="amount"
-                  value={formData.amount}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+            <Field label="Remarks (Optional)" id="ev-remarks" icon={<TbMessage />} className="ev-remarks"><textarea id="ev-remarks" name="remarks" value={form.remarks} onChange={handleChange} placeholder="Add any additional remarks about this payment voucher..." rows={2} /></Field>
+            <div className={`ev-receipt-panel ${receiptUrl ? "ev-has-receipt" : ""}`}>
+              {receiptUrl && failedPreview !== receiptUrl ? <a className="ev-receipt-preview" href={receiptUrl} target="_blank" rel="noopener noreferrer" aria-label="Open payment receipt"><img src={receiptUrl} alt="Payment receipt" onError={() => setFailedPreview(receiptUrl)} /></a> : <span className="ev-receipt-icon"><TbFileDescription aria-hidden="true" /></span>}
+              <div className="ev-receipt-info"><h3>{receiptFile ? "Receipt selected" : receiptUrl ? "Payment Receipt" : "No Receipt"}</h3><p>{receiptFile ? receiptFile.name : receiptUrl ? failedPreview === receiptUrl ? "Preview unavailable. Open the receipt to view it." : "Current receipt attached to this payment voucher." : "No receipt uploaded for this payment voucher."}</p><div className="ev-receipt-actions"><button className="ev-upload" type="button" onClick={() => uploadInput.current?.click()}><TbUpload aria-hidden="true" />Change Receipt</button>{receiptUrl && <a className="ev-receipt-link" href={receiptUrl} target="_blank" rel="noopener noreferrer">Open receipt<TbExternalLink aria-hidden="true" /></a>}</div></div>
+              <input ref={uploadInput} type="file" accept={receiptTypes.join(",")} onChange={handleReceiptChange} className="ev-file-input" aria-label="Upload payment receipt" tabIndex={-1} />
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              {/* Account # */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Account #
-                </label>
-                <input
-                  type="text"
-                  name="accountNo"
-                  value={formData.accountNo}
-                  disabled
-                  className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md focus:outline-none"
-                />
-              </div>
-
-              {/* Status */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Status
-                </label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="Applied">Applied</option>
-                  <option value="Approved">Approved</option>
-                  <option value="Rejected">Rejected</option>
-                </select>
-              </div>
-
-              {/* Date */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Date
-                </label>
-                <input
-                  type="date"
-                  name="date"
-                  value={formData.date}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            {/* Remarks */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Remarks <span className="text-red-600">(Optional)</span>
-              </label>
-              <input
-                type="text"
-                name="remarks"
-                value={formData.remarks}
-                onChange={handleChange}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Receipt Image */}
-            <div className="mb-6 flex justify-center">
-              <div className="text-center">
-                {receipt ? (
-                  <img
-                    src={receipt}
-                    alt="Receipt"
-                    className="max-w-xs max-h-64 object-contain mx-auto mb-4 rounded shadow"
-                  />
-                ) : (
-                  <div className="w-48 h-48 bg-gray-100 flex items-center justify-center rounded mb-4 mx-auto">
-                    <span className="text-gray-400">No Receipt</span>
-                  </div>
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleReceiptChange}
-                  className="hidden"
-                  id="receipt-upload"
-                />
-                <label
-                  htmlFor="receipt-upload"
-                  className="cursor-pointer text-blue-600 hover:text-blue-700 text-sm"
-                >
-                  Change Receipt
-                </label>
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? "Updating..." : "Update Payment Voucher"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default EditPaymentVoucher;
+            {receiptError && <p className="ev-error ev-receipt-error" role="alert">{receiptError}</p>}
+            <div className="ev-form-actions"><button className="ev-secondary" type="button" onClick={() => navigate("/view-payment-voucher")}><TbX aria-hidden="true" />Cancel</button><button className="ev-primary" type="submit"><TbDeviceFloppy aria-hidden="true" />{saving ? "Updating..." : "Update Payment Voucher"}</button></div>
+          </fieldset>
+        </form>
+      </section>
+      <aside className="ev-sidebar" aria-label="Voucher information">
+        <section className="ev-card ev-summary" aria-labelledby="ev-summary-title"><h2 id="ev-summary-title"><span className="ev-section-icon"><TbFileDescription aria-hidden="true" /></span>Voucher Summary</h2><dl>{summary.map(({ label, value, icon: Icon, color }) => <div className="ev-summary-row" key={label}><dt><span className={`ev-summary-icon ev-icon-${color}`}><Icon aria-hidden="true" /></span>{label}</dt><dd>{value}</dd></div>)}</dl></section>
+        <section className="ev-card ev-quick-info" aria-labelledby="ev-info-title"><h2 id="ev-info-title"><span className="ev-section-icon"><TbInfoCircle aria-hidden="true" /></span>Quick Info</h2><div className="ev-info-panel"><span className="ev-info-icon"><TbFileDescription aria-hidden="true" /></span><div><h3>Payment Receipt</h3><p>Upload or change the receipt image for this voucher. Supported formats: JPG, PNG, GIF, SVG and WEBP (Max 5 MB).</p></div></div></section>
+      </aside>
+    </div>}
+  </div>;
+}

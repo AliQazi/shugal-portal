@@ -1,363 +1,141 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+﻿import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router";
+import { isAxiosError } from "axios";
+import { TbCalendarEvent, TbChevronDown, TbCreditCard, TbExternalLink, TbFileDescription, TbFilter, TbHome, TbList, TbRefresh, TbSearch } from "react-icons/tb";
+import { PiCheckCircleFill, PiClockFill, PiCoinsFill } from "react-icons/pi";
 import axiosInstance from "../Api/axios";
+import PageMeta from "../components/common/PageMeta";
+import emptyPayments from "../assets/images/payments-empty.png";
+import "./view-payment-voucher.css";
 
 interface Payment {
   _id: string;
   voucherId: string;
   date: string;
   description: string;
-  bankAccount: {
-    _id: string;
-    bankName: string;
-    accountNo: string;
-  };
-  user: {
-    _id: string;
-    name: string;
-    email: string;
-    companyName?: string;
-  };
+  bankAccount?: { _id: string; bankName: string; accountNo: string } | null;
+  user?: { _id: string; name: string; email: string; companyName?: string } | null;
   amount: number;
   status: string;
   remarks?: string;
   receipt?: string;
-  editedBy?: {
-    _id: string;
-    name: string;
-    email: string;
-  };
+  editedBy?: { _id: string; name: string; email: string } | null;
   editedAt?: string;
 }
+interface Filters { dateFrom: string; dateTo: string; status: string; search: string }
 
-const ViewPaymentVoucher = () => {
-  const navigate = useNavigate();
-  
-  // Get current year for default date filter
-  const getCurrentYearStart = () => {
-    const now = new Date();
-    return `${now.getFullYear()}-01-01`;
-  };
+function defaultFilters(): Filters {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Karachi", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map(({ type, value }) => [type, value]));
+  return { dateFrom: `${parts.year}-01-01`, dateTo: `${parts.year}-${parts.month}-${parts.day}`, status: "", search: "" };
+}
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat("en-PK", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+}
+function formatDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Date unavailable" : new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Karachi", day: "2-digit", month: "short", year: "numeric" }).format(date);
+}
+function Receipt({ payment }: { payment: Payment }) {
+  const [failedReceipt, setFailedReceipt] = useState<string>();
+  if (!payment.receipt) return <span className="vp-muted">N/A</span>;
+  return <a className="vp-receipt" href={payment.receipt} target="_blank" rel="noopener noreferrer" aria-label={`View receipt for ${payment.voucherId}`}>
+    {failedReceipt !== payment.receipt ? <img src={payment.receipt} alt="Payment receipt" onError={() => setFailedReceipt(payment.receipt)} /> : <span className="vp-receipt-file"><TbFileDescription aria-hidden="true" />View</span>}
+    <TbExternalLink className="vp-receipt-open" aria-hidden="true" />
+  </a>;
+}
 
-  // Filter States
-  const [filters, setFilters] = useState({
-    dateFrom: getCurrentYearStart(),
-    dateTo: new Date().toISOString().split("T")[0],
-    status: "",
-  });
-
-  // Data States
+export default function ViewPaymentVoucher() {
+  const [filters, setFilters] = useState<Filters>(defaultFilters);
+  const [appliedFilters, setAppliedFilters] = useState<Filters>(defaultFilters);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [total, setTotal] = useState(0);
-
-  // Fetch payments based on filters
-  const fetchPayments = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await axiosInstance.get("/payment", {
-        params: {
-          dateFrom: filters.dateFrom,
-          dateTo: filters.dateTo,
-          status: filters.status,
-        },
-      });
-
-      if (response.data.success) {
-        setPayments(response.data.data);
-        setTotal(response.data.total);
-      }
-    } catch (error: any) {
-      console.error("Error fetching payments:", error);
-      setError("Failed to fetch payments");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [validationError, setValidationError] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    fetchPayments();
-  }, []);
+    let cancelled = false;
+    setLoading(true); setError("");
+    void axiosInstance.get("/payment", { params: { dateFrom: appliedFilters.dateFrom, dateTo: appliedFilters.dateTo, status: appliedFilters.status } }).then((response) => {
+      if (cancelled) return;
+      if (!response.data.success) throw new Error(response.data.message || "Failed to load payments");
+      setPayments(response.data.data);
+    }).catch((caught: unknown) => {
+      if (cancelled) return;
+      setError(isAxiosError<{ message?: string }>(caught) ? caught.response?.data?.message || "Unable to load payments. Please try again." : caught instanceof Error ? caught.message : "Unable to load payments. Please try again.");
+    }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [appliedFilters, refreshKey]);
 
-  // Handle filter changes
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFilters((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+  const applyFilters = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo) {
+      setValidationError("Date From must be on or before Date To."); return;
+    }
+    setValidationError(""); setAppliedFilters({ ...filters });
   };
-
-  // Handle filter button click
-  const handleFilter = () => {
-    fetchPayments();
+  const resetFilters = () => {
+    const defaults = defaultFilters(); setValidationError(""); setFilters(defaults); setAppliedFilters(defaults);
   };
+  const query = appliedFilters.search.trim().toLowerCase();
+  const visiblePayments = loading || error ? [] : payments.filter((payment) => [payment.voucherId, payment.description].some((value) => (value || "").toLowerCase().includes(query)));
+  const approved = visiblePayments.filter((payment) => payment.status === "Approved").length;
+  const pending = visiblePayments.filter((payment) => payment.status === "Applied").length;
+  const total = visiblePayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+  const stats = [
+    { label: "Total Records", value: visiblePayments.length.toLocaleString("en-PK"), icon: TbFileDescription, color: "blue" },
+    { label: "Approved", value: approved.toLocaleString("en-PK"), icon: PiCheckCircleFill, color: "green" },
+    { label: "Pending", value: pending.toLocaleString("en-PK"), icon: PiClockFill, color: "amber" },
+    { label: "Total Amount", value: `PKR ${formatCurrency(total)}`, icon: PiCoinsFill, color: "purple" },
+  ];
 
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-PK", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  // Format date
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const day = date.getDate();
-    const month = date.toLocaleDateString("en-GB", { month: "short" });
-    const year = date.getFullYear();
-    return `${day} ${month} ${year}`;
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-full mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">View Payments</h1>
-          <div className="text-sm text-gray-600">
-            <a href="/" className="text-blue-600 hover:underline">
-              Home
-            </a>
-            <span className="mx-2">/</span>
-            <span>View Payments</span>
-          </div>
-        </div>
-
-        {/* Filters Section */}
-        <div className="bg-blue-600 rounded-lg shadow-md p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            {/* Date From */}
-            <div>
-              <label className="block text-sm font-semibold text-white mb-2">
-                Date From
-              </label>
-              <input
-                type="date"
-                name="dateFrom"
-                value={filters.dateFrom}
-                onChange={handleFilterChange}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Date To */}
-            <div>
-              <label className="block text-sm font-semibold text-white mb-2">
-                Date To
-              </label>
-              <input
-                type="date"
-                name="dateTo"
-                value={filters.dateTo}
-                onChange={handleFilterChange}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Status */}
-            <div>
-              <label className="block text-sm font-semibold text-white mb-2">
-                Status
-              </label>
-              <select
-                name="status"
-                value={filters.status}
-                onChange={handleFilterChange}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select Status</option>
-                <option value="Applied">Applied</option>
-                <option value="Approved">Approved</option>
-                <option value="Rejected">Rejected</option>
-              </select>
-            </div>
-
-            {/* Filter Button */}
-            <div>
-              <button
-                onClick={handleFilter}
-                disabled={loading}
-                className="w-full px-4 py-2 bg-yellow-500 text-gray-900 font-semibold rounded-md hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:opacity-50"
-              >
-                Filter
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Payments Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-              {error}
-            </div>
-          )}
-
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-blue-500"></div>
-            </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-800">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        #
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        Voucher Id
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        Company Agent
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        Debit Account
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        Description
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        Credit Account
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        Amount
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        Receipt
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        Edited By
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {payments.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={12}
-                          className="px-6 py-4 text-center text-sm text-gray-500"
-                        >
-                          No data available in table
-                        </td>
-                      </tr>
-                    ) : (
-                      payments.map((payment, index) => (
-                        <tr key={payment._id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {index + 1}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {payment.voucherId}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {formatDate(payment.date)}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-900">
-                            {payment.user?.companyName || payment.user?.name || "-"}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-900">
-                            -
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-900">
-                            {payment.description}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-900">
-                            {payment.remarks || "-"}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            PKR: {formatCurrency(payment.amount)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span
-                              className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded ${
-                                payment.status === "Approved"
-                                  ? "bg-green-500 text-white"
-                                  : payment.status === "Rejected"
-                                  ? "bg-red-500 text-white"
-                                  : "bg-yellow-500 text-gray-900"
-                              }`}
-                            >
-                              {payment.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            {payment.receipt ? (
-                              <a
-                                href={payment.receipt}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                <img
-                                  src={payment.receipt}
-                                  alt="Receipt"
-                                  className="w-16 h-16 object-cover rounded"
-                                />
-                              </a>
-                            ) : (
-                              <span className="text-gray-400">N/A</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-900">
-                            <div>
-                              <div className="font-medium">
-                                {payment.editedBy?.name || "Not Yet Approved"}
-                              </div>
-                              {payment.editedAt && (
-                                <div className="text-xs text-red-600">
-                                  Dated: {formatDate(payment.editedAt)}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <button
-                              onClick={() => navigate(`/view-payment-voucher/edit/${payment._id}`)}
-                              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                            >
-                              Details
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Total Section */}
-              <div className="bg-gray-100 px-6 py-4">
-                <div className="flex justify-end">
-                  <div className="text-right">
-                    <span className="text-sm font-semibold text-gray-700 mr-4">
-                      Total:
-                    </span>
-                    <span className="text-lg font-bold text-gray-900">
-                      PKR: {formatCurrency(total)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+  return <div className="view-payments-page">
+    <PageMeta title="View Payments" description="Review and filter payment vouchers and receipts" />
+    <div className="vp-page-heading">
+      <span className="vp-heading-icon"><TbCreditCard aria-hidden="true" /></span>
+      <div><h1>View Payments</h1><p>Review and filter payment vouchers and receipts</p></div>
+      <nav aria-label="Breadcrumb"><Link to="/"><TbHome aria-hidden="true" />Home</Link><span aria-hidden="true">/</span><span aria-current="page">View Payments</span></nav>
     </div>
-  );
-};
 
-export default ViewPaymentVoucher;
+    <section className="vp-filter-card" aria-labelledby="vp-filter-heading">
+      <div className="vp-filter-heading"><span><TbFilter aria-hidden="true" /></span><div><h2 id="vp-filter-heading">Filter Payments</h2><p>Use the filters below to find specific payment records</p></div></div>
+      <form onSubmit={applyFilters}>
+        <div className="vp-filter-grid">
+          <div className="vp-field"><label htmlFor="vp-date-from">Date From</label><div className="vp-control vp-date-control"><span className="vp-input-icon"><TbCalendarEvent aria-hidden="true" /></span><input id="vp-date-from" type="date" value={filters.dateFrom} max={filters.dateTo || undefined} onChange={(event) => setFilters({ ...filters, dateFrom: event.target.value })} /></div></div>
+          <div className="vp-field"><label htmlFor="vp-date-to">Date To</label><div className="vp-control vp-date-control"><span className="vp-input-icon"><TbCalendarEvent aria-hidden="true" /></span><input id="vp-date-to" type="date" value={filters.dateTo} min={filters.dateFrom || undefined} onChange={(event) => setFilters({ ...filters, dateTo: event.target.value })} /></div></div>
+          <div className="vp-field"><label htmlFor="vp-status">Status</label><div className="vp-control"><span className="vp-input-icon"><TbList aria-hidden="true" /></span><select id="vp-status" value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}><option value="">Select Status</option><option value="Applied">Applied</option><option value="Approved">Approved</option><option value="Rejected">Rejected</option></select><TbChevronDown className="vp-select-chevron" aria-hidden="true" /></div></div>
+          <div className="vp-field"><label htmlFor="vp-search">Search (Voucher ID or Description)</label><div className="vp-control vp-search-control"><span className="vp-input-icon"><TbSearch aria-hidden="true" /></span><input id="vp-search" type="search" value={filters.search} onChange={(event) => setFilters({ ...filters, search: event.target.value })} placeholder="Search voucher ID or description..." /></div></div>
+        </div>
+        {validationError && <p className="vp-validation-error" role="alert">{validationError}</p>}
+        <div className="vp-filter-actions"><button className="vp-primary" type="submit" disabled={loading}><TbFilter aria-hidden="true" />{loading ? "Loading..." : "Apply Filter"}</button><button className="vp-secondary" type="button" onClick={resetFilters} disabled={loading}><TbRefresh aria-hidden="true" />Reset</button></div>
+      </form>
+    </section>
+
+    <section className="vp-results-card" aria-label="Payment records" aria-busy={loading}>
+      <div className="vp-stats" aria-label="Payment summary" aria-live="polite">{stats.map(({ label, value, icon: Icon, color }) => <div className={`vp-stat vp-stat-${color}`} key={label}><span className="vp-stat-icon"><Icon aria-hidden="true" /></span><div><h2>{label}</h2><strong>{loading ? "..." : value}</strong></div></div>)}</div>
+      <div className="vp-table-wrap">
+        <div className="vp-table-scroll" role="region" aria-label="Payment vouchers" tabIndex={0}>
+          <table className="vp-table"><colgroup><col className="vp-col-number" /><col className="vp-col-voucher" /><col className="vp-col-date" /><col className="vp-col-company" /><col className="vp-col-account" /><col className="vp-col-description" /><col className="vp-col-credit" /><col className="vp-col-amount" /><col className="vp-col-status" /><col className="vp-col-receipt" /><col className="vp-col-editor" /><col className="vp-col-action" /></colgroup>
+            <thead><tr>{["#", "Voucher ID", "Date", "Company Agent", "Debit Account", "Description", "Credit Account", "Amount", "Status", "Receipt", "Edited By", "Action"].map((label) => <th scope="col" key={label}>{label}</th>)}</tr></thead>
+            <tbody>{visiblePayments.map((payment, index) => <tr key={payment._id}>
+              <td className="vp-row-number">{index + 1}</td>
+              <td className="vp-voucher-cell" data-label="Voucher ID"><strong>{payment.voucherId}</strong></td>
+              <td data-label="Date"><time dateTime={payment.date}>{formatDate(payment.date)}</time></td>
+              <td data-label="Company Agent">{payment.user?.companyName || payment.user?.name || "-"}</td>
+              <td data-label="Debit Account"><span className="vp-muted">-</span></td>
+              <td className="vp-description-cell" data-label="Description">{payment.description}</td>
+              <td data-label="Credit Account">{payment.remarks || "-"}</td>
+              <td data-label="Amount"><span className="vp-row-amount">PKR {formatCurrency(payment.amount)}</span></td>
+              <td data-label="Status"><span className={`vp-status-badge ${payment.status === "Approved" ? "vp-status-approved" : payment.status === "Rejected" ? "vp-status-rejected" : "vp-status-pending"}`}>{payment.status}</span></td>
+              <td data-label="Receipt"><Receipt payment={payment} /></td>
+              <td data-label="Edited By"><div className="vp-editor"><span>{payment.editedBy?.name || "Not Yet Approved"}</span>{payment.editedAt && <small>Dated: {formatDate(payment.editedAt)}</small>}</div></td>
+              <td className="vp-details-cell"><Link className="vp-details" to={`/view-payment-voucher/edit/${payment._id}`}>Details<TbExternalLink aria-hidden="true" /></Link></td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+        {loading ? <div className="vp-empty vp-loading" role="status">Loading payments...</div> : error ? <div className="vp-empty vp-error" role="alert"><TbFileDescription aria-hidden="true" /><h2>Unable to load payments</h2><p>{error}</p><button type="button" className="vp-secondary" onClick={() => setRefreshKey((key) => key + 1)}><TbRefresh aria-hidden="true" />Try again</button></div> : visiblePayments.length === 0 ? <div className="vp-empty"><img src={emptyPayments} alt="" /><h2>No payments found for the selected filters</h2><p>Try adjusting your filter criteria or date range to see results.</p></div> : null}
+        <div className="vp-total-footer" aria-live="polite"><span>Total:</span><strong>{loading ? "..." : `PKR ${formatCurrency(total)}`}</strong></div>
+      </div>
+    </section>
+  </div>;
+}

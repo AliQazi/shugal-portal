@@ -281,10 +281,9 @@ layer(base);
 }
 
 @layer utilities {
-  /* For Remove Date Icon */
+  /* Hide spin controls and the custom time field's native icon. */
   input[type="date"]::-webkit-inner-spin-button,
   input[type="time"]::-webkit-inner-spin-button,
-  input[type="date"]::-webkit-calendar-picker-indicator,
   input[type="time"]::-webkit-calendar-picker-indicator {
     display: none;
     -webkit-appearance: none;
@@ -690,9 +689,18 @@ span.flatpickr-weekday,
 }
 
 .input-date-icon::-webkit-inner-spin-button,
-.input-date-icon::-webkit-calendar-picker-indicator {
+.input-date-icon:not([type="date"])::-webkit-calendar-picker-indicator {
   opacity: 0;
   -webkit-appearance: none;
+}
+
+input[type="date"]:not(:disabled):not([readonly]) {
+  cursor: pointer;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  display: block;
+  cursor: pointer;
 }
 
 .swiper-button-prev svg,

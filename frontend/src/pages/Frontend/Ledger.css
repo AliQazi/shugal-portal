@@ -12,7 +12,7 @@
 .ledger-filter-field label{display:block;margin-bottom:4px;color:#1e355a;font-size:10px;font-weight:650}
 .ledger-filter-date,.ledger-filter-search{position:relative;height:31px}
 .ledger-filter-date>svg,.ledger-filter-search>svg{position:absolute;z-index:1;left:11px;top:8px;width:14px;height:14px;color:#187be2;pointer-events:none}
-.ledger-filter-date .react-datepicker-wrapper,.ledger-filter-date .react-datepicker__input-container{display:block;width:100%;height:100%}
+.ledger-filter-date .calendar-date-wrapper{display:block;width:100%;height:100%}
 .ledger-filter-date input,.ledger-filter-search input{width:100%!important;height:31px!important;min-height:31px!important;margin:0!important;padding:0 10px 0 34px!important;border:1px solid #d4dfec!important;border-radius:6px!important;background:#fff!important;color:#3c5477!important;font-size:11px!important;outline:0!important;box-shadow:none!important}
 .ledger-filter-date input:focus,.ledger-filter-search input:focus{border-color:#2889e9!important;box-shadow:0 0 0 2px #2889e921!important}
 .ledger-filter-search input::placeholder{color:#8497b3;font-size:11px}

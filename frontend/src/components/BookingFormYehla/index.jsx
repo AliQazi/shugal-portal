@@ -770,7 +770,6 @@ export default function BookingForm() {
                                                             value={passenger.dateOfBirth}
                                                             onChange={(e) => handlePassengerChange(index, 'dateOfBirth', e.target.value)}
                                                             max={new Date().toISOString().split('T')[0]}
-                                                            onClick={(e) => e.target.showPicker?.()}
                                                             className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
                                                             title="Click to select date of birth"
                                                         />
@@ -781,7 +780,6 @@ export default function BookingForm() {
                                                             value={passenger.passportExpiry}
                                                             onChange={(e) => handlePassengerChange(index, 'passportExpiry', e.target.value)}
                                                             min={new Date().toISOString().split('T')[0]}
-                                                            onClick={(e) => e.target.showPicker?.()}
                                                             className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
                                                             title="Click to select passport expiry date"
                                                         />

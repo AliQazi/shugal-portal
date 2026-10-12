@@ -401,7 +401,7 @@
 .admin-bookings-search input { padding-left: 42px; }
 .admin-bookings-search input::placeholder { color: #6a86ad; opacity: 1; }
 .admin-bookings-filter-grid select { padding-right: 22px; }
-.admin-bookings-date > div, .admin-bookings-date .react-datepicker-wrapper { width: 100%; }
+.admin-bookings-date > div, .admin-bookings-date .calendar-date-wrapper { width: 100%; }
 .admin-bookings-date { position: relative; }
 .admin-bookings-date > svg {
   position: absolute;

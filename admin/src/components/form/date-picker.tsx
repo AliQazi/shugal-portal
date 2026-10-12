@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import flatpickr from "flatpickr";
 import "flatpickr/dist/flatpickr.css";
+import { decorateDateCalendar, positionDateCalendar } from "../../../../shared/date-calendar";
+import "../../../../shared/date-calendar.css";
 import Label from "./Label";
 import { CalenderIcon } from "../../icons";
 import Hook = flatpickr.Options.Hook;
@@ -25,12 +27,16 @@ export default function DatePicker({
 }: PropsType) {
   useEffect(() => {
     const flatPickr = flatpickr(`#${id}`, {
-      mode: mode || "single",
-      static: true,
-      monthSelectorType: "static",
+      mode: mode === "time" ? "single" : mode || "single",
+      enableTime: mode === "time",
+      noCalendar: mode === "time",
+      disableMobile: true,
+      position: positionDateCalendar,
+      monthSelectorType: "dropdown",
       dateFormat: "Y-m-d",
       defaultDate,
       onChange,
+      onReady: (_dates, _value, instance) => { if (mode !== "time") decorateDateCalendar(instance); },
     });
 
     return () => {

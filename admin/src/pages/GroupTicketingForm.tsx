@@ -1,951 +1,232 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+﻿import { useEffect, useState, type ReactNode } from "react";
+import { Link, useNavigate, useParams } from "react-router";
 import AsyncSelect from "react-select/async";
+import type { StylesConfig } from "react-select";
+import type { IconType } from "react-icons";
+import { FiArrowLeft, FiChevronDown, FiChevronRight, FiCalendar, FiLayers, FiLock, FiMail, FiMapPin, FiPhone, FiShield, FiShoppingCart, FiTag, FiTrash2, FiUser, FiUsers, FiX } from "react-icons/fi";
+import { PiAirplaneTilt, PiBaby, PiCoins, PiTicket } from "react-icons/pi";
+import axios from "axios";
 import axiosInstance from "../Api/axios";
 import PageMeta from "../components/common/PageMeta";
-import PageBreadCrumb from "../components/common/PageBreadCrumb";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
+import "./group-ticketing-form.css";
 
 interface Flight {
-  airline: string;
-  flightNo: string;
-  depDate: string;
-  depTime: string;
-  arrDate: string;
-  arrTime: string;
-  sectorFrom: string;
-  sectorTo: string;
-  fromTerminal?: string;
-  toTerminal?: string;
-  flightClass?: string;
-  baggage?: string;
-  meal?: string;
+  airline: string; flightNo: string; depDate: string; depTime: string; arrDate: string; arrTime: string;
+  sectorFrom: string; sectorTo: string; fromTerminal: string; toTerminal: string; flightClass: string; baggage: string; meal: string;
 }
-
-interface Payment {
-  amount: number;
-  method: "Cash" | "Bank" | "Online";
-  status: "Pending" | "Paid" | "Refunded";
-  paymentDate?: string;
+interface Payment { amount: number; method: "Cash" | "Bank" | "Online"; status: "Pending" | "Paid" | "Refunded"; paymentDate?: string }
+interface Sector { _id: string; groupType: string; sectorTitle: string; fullSector: string }
+interface Airline { _id: string; airlineName: string }
+interface City { airportCode: string; cityEn: string }
+interface CityOption { value: string; label: string }
+const emptyFlight = (airline = ""): Flight => ({ airline, flightNo: "", depDate: "", depTime: "", arrDate: "", arrTime: "", sectorFrom: "", sectorTo: "", fromTerminal: "", toTerminal: "", flightClass: "", baggage: "", meal: "" });
+const initialForm = {
+  user: "", evoucherAccount: "", sector: "", airline: "", groupCategory: "", groupName: "", totalSeats: 0, days: 0, showSeat: false, groupType: "", flights: [emptyFlight()],
+  passengers: { adults: 0, children: 0, infants: 0 },
+  price: { buyingCurrency: "PKR", buyingAdultPrice: 0, buyingChildPrice: 0, buyingInfantPrice: 0, sellingCurrencyB2B: "PKR", sellingAdultPriceB2B: 0, sellingChildPriceB2B: 0, sellingInfantPriceB2B: 0 },
+  priceOnCall: { seats: false, adult: false, child: false, infant: false },
+  pnr: "", contactPersonPhone: "", contactPersonEmail: "", internalStatus: "Public", payments: [] as Payment[],
+};
+const steps = [
+  { id: "basic", title: "Basic Details", description: "Supplier, sector and group info" },
+  { id: "flights", title: "Flight Details", description: "Add flight sectors and schedule" },
+  { id: "pricing", title: "Pricing", description: "Set buying and selling prices" },
+  { id: "additional", title: "Additional Info", description: "Contact details and settings" },
+];
+function Field({ id, label, icon: Icon, required, children, extra }: { id: string; label: string; icon?: IconType; required?: boolean; children: ReactNode; extra?: ReactNode }) {
+  return <div className="cg-field"><div className="cg-label-row"><label htmlFor={id}>{label}{required && <span className="cg-required"> *</span>}</label>{extra}</div><div className={`cg-control${Icon ? " cg-control-icon" : ""}`}>{Icon && <span className="cg-input-icon"><Icon aria-hidden="true" /></span>}{children}</div></div>;
 }
-
-interface Sector {
-  _id: string;
-  groupType: string;
-  sectorTitle: string;
-  fullSector: string;
+function Toggle({ label, checked, onChange, small = false, disabled = false }: { label: string; checked: boolean; onChange: (checked: boolean) => void; small?: boolean; disabled?: boolean }) {
+  return <label className={`cg-toggle${small ? " cg-toggle-small" : ""}`}><input type="checkbox" role="switch" checked={checked} onChange={(event) => onChange(event.target.checked)} disabled={disabled} /><span>{label}</span></label>;
 }
-
-interface Airline {
-  _id: string;
-  airlineCode: string;
-  airlineName: string;
-  shortCode: string;
-  logo: string;
+function SectionHeading({ number, title, description, children }: { number: number; title: string; description: string; children?: ReactNode }) {
+  return <div className="cg-section-heading"><span className="cg-number">{number}</span><div><h2 id={`cg-heading-${number}`}>{title}</h2><p>{description}</p></div>{children && <div className="cg-heading-action">{children}</div>}</div>;
 }
+const priceFields = [
+  { label: "Adult", passenger: "adult", buying: "buyingAdultPrice", selling: "sellingAdultPriceB2B", icon: FiUser },
+  { label: "Child", passenger: "child", buying: "buyingChildPrice", selling: "sellingChildPriceB2B", icon: PiBaby },
+  { label: "Infant", passenger: "infant", buying: "buyingInfantPrice", selling: "sellingInfantPriceB2B", icon: PiBaby },
+] as const;
 
 const GroupTicketingForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const editMode = Boolean(id);
   const [loading, setLoading] = useState(false);
-  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [airlines, setAirlines] = useState<Airline[]>([]);
-  const [cityOptions, setCityOptions] = useState<{ value: string; label: string }[]>([]);
-
-  const [formData, setFormData] = useState({
-    user: "",
-    evoucherAccount: "",
-    sector: "",
-    airline: "",
-    groupCategory: "",
-    groupName: "",
-    totalSeats: 0,
-    days: 0,
-    showSeat: false,
-    groupType: "" as string,
-    flights: [{
-      airline: "",
-      flightNo: "",
-      depDate: "",
-      depTime: "",
-      arrDate: "",
-      arrTime: "",
-      sectorFrom: "",
-      sectorTo: "",
-      fromTerminal: "",
-      toTerminal: "",
-      flightClass: "",
-      baggage: "",
-      meal: ""
-    }],
-    passengers: {
-      adults: 0,
-      children: 0,
-      infants: 0
-    },
-    price: {
-      buyingCurrency: "SAR",
-      buyingAdultPrice: 0,
-      buyingChildPrice: 0,
-      buyingInfantPrice: 0,
-      sellingCurrencyB2B: "SAR",
-      sellingAdultPriceB2B: 0,
-      sellingChildPriceB2B: 0,
-      sellingInfantPriceB2B: 0
-    },
-    priceOnCall: {
-      seats: false,
-      adult: false,
-      child: false,
-      infant: false
-    },
-    pnr: "",
-    contactPersonPhone: "",
-    contactPersonEmail: "",
-    internalStatus: "Public",
-    payments: [] as Payment[]
-  });
+  const [cityOptions, setCityOptions] = useState<CityOption[]>([]);
+  const [activeStep, setActiveStep] = useState("basic");
+  const [sameAsBuying, setSameAsBuying] = useState(false);
+  const [formData, setFormData] = useState(initialForm);
 
   useEffect(() => {
-    fetchSectors();
-    fetchAirlines();
+    let cancelled = false;
+    const fetchOptions = async () => {
+      const results = await Promise.allSettled([
+        axiosInstance.get("/sector"), axiosInstance.get("/airline"),
+        fetch(`${import.meta.env.BASE_URL}data/cities.json`).then((response) => {
+          if (!response.ok) throw new Error("Could not load airport options");
+          return response.json() as Promise<City[]>;
+        }),
+      ]);
+      if (cancelled) return;
+      const [sectorResult, airlineResult, cityResult] = results;
+      if (sectorResult.status === "fulfilled" && sectorResult.value.data.success) setSectors(sectorResult.value.data.data);
+      if (airlineResult.status === "fulfilled" && airlineResult.value.data.success) setAirlines(airlineResult.value.data.data);
+      if (cityResult.status === "fulfilled") setCityOptions(cityResult.value.map((city) => ({ value: city.airportCode, label: `${city.cityEn} (${city.airportCode})` })));
+      if (results.some((result) => result.status === "rejected")) setError("Some form options could not be loaded. Refresh the page to try again.");
+    };
+    void fetchOptions();
     if (id) {
-      setEditMode(true);
-      fetchBookingDetails(id);
-    }
-
-    fetch("/admin-portal/data/cities.json")
-      .then((res) => res.json())
-      .then((data) => {
-        const options = data.map((c: any) => ({
-          value: c.airportCode,
-          label: `${c.cityEn} (${c.airportCode})`,
-        }));
-        setCityOptions(options);
-      })
-      .catch(() => setCityOptions([]));
-  }, [id]);
-
-  const fetchSectors = async () => {
-    try {
-      const response = await axiosInstance.get("/sector");
-      if (response.data.success) {
-        setSectors(response.data.data);
-      }
-    } catch (error) {
-      console.error("Error fetching sectors:", error);
-    }
-  };
-
-  const fetchAirlines = async () => {
-    try {
-      const response = await axiosInstance.get("/airline");
-      if (response.data.success) {
-        setAirlines(response.data.data);
-      }
-    } catch (error) {
-      console.error("Error fetching airlines:", error);
-    }
-  };
-
-  const fetchBookingDetails = async (bookingId: string) => {
-    try {
       setLoading(true);
-      const token = sessionStorage.getItem("admin_token");
-      const response = await axiosInstance.get(`/group-ticketing/${bookingId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.data.success) {
+      axiosInstance.get(`/group-ticketing/${id}`, { headers: { Authorization: `Bearer ${sessionStorage.getItem("admin_token")}` } }).then((response) => {
+        if (cancelled) return;
+        if (!response.data.success) throw new Error("Failed to load group details");
         const booking = response.data.data;
         setFormData({
-          user: booking.user || "",
-          evoucherAccount: booking.evoucherAccount || "",
-          sector: booking.sector || "",
-          airline: booking.airline || "",
-          groupCategory: booking.groupCategory || "",
-          groupName: booking.groupName || "",
-          totalSeats: booking.totalSeats || 0,
-          showSeat: booking.showSeat || false,
-          groupType: booking.groupType,
-          days: booking.days || 0,
-          flights: booking.flights.map((f: Flight) => ({
-            ...f,
-            airline: f.airline || booking.airline,
-            depDate: f.depDate.slice(0, 10),
-            arrDate: f.arrDate.slice(0, 10),
-            fromTerminal: f.fromTerminal || "",
-            toTerminal: f.toTerminal || "",
-            flightClass: f.flightClass || "",
-            baggage: f.baggage || "",
-            meal: f.meal || ""
-          })),
-          passengers: booking.passengers,
-          price: {
-            buyingCurrency: booking.price.buyingCurrency,
-            buyingAdultPrice: booking.price.buyingAdultPrice,
-            buyingChildPrice: booking.price.buyingChildPrice,
-            buyingInfantPrice: booking.price.buyingInfantPrice,
-            sellingCurrencyB2B: booking.price.sellingCurrencyB2B,
-            sellingAdultPriceB2B: booking.price.sellingAdultPriceB2B,
-            sellingChildPriceB2B: booking.price.sellingChildPriceB2B,
-            sellingInfantPriceB2B: booking.price.sellingInfantPriceB2B
-          },
-          priceOnCall: {
-            seats: booking.priceOnCall?.seats || false,
-            adult: booking.priceOnCall?.adult || false,
-            child: booking.priceOnCall?.child || false,
-            infant: booking.priceOnCall?.infant || false
-          },
-          pnr: booking.pnr || "",
-          contactPersonPhone: booking.contactPersonPhone || "",
-          contactPersonEmail: booking.contactPersonEmail || "",
-          internalStatus: booking.internalStatus || "Public",
-          payments: booking.payments
+          user: booking.user || "", evoucherAccount: booking.evoucherAccount || "",
+          sector: booking.sector || "", airline: booking.airline || "", groupCategory: booking.groupCategory || "",
+          groupName: booking.groupName || "", totalSeats: booking.totalSeats || 0, days: booking.days || 0,
+          showSeat: booking.showSeat || false, groupType: booking.groupType || "",
+          pnr: booking.pnr || "", contactPersonPhone: booking.contactPersonPhone || "",
+          contactPersonEmail: booking.contactPersonEmail || "", internalStatus: booking.internalStatus || "Public",
+          flights: booking.flights?.length ? booking.flights.map((flight: Partial<Flight>) => ({ ...emptyFlight(booking.airline), ...flight, depDate: flight.depDate?.slice(0, 10) || "", arrDate: flight.arrDate?.slice(0, 10) || "" })) : [emptyFlight(booking.airline)],
+          passengers: { ...initialForm.passengers, ...booking.passengers }, price: { ...initialForm.price, ...booking.price },
+          priceOnCall: { ...initialForm.priceOnCall, ...booking.priceOnCall }, payments: booking.payments || [],
         });
-      }
-    } catch (error) {
-      console.error("Error fetching booking details:", error);
-      window.alert("❌ Failed to load booking details");
-    } finally {
-      setLoading(false);
+      }).catch(() => { if (!cancelled) setError("Failed to load group details. Refresh the page to try again."); }).finally(() => { if (!cancelled) setLoading(false); });
     }
+    return () => { cancelled = true; };
+  }, [id]);
+
+  const selectStyles: StylesConfig<CityOption, false> = {
+    control: (base) => ({ ...base, minHeight: 36, height: 36, fontSize: 11, borderRadius: 7, borderColor: "var(--cg-border)", backgroundColor: "var(--cg-input)", boxShadow: "none" }),
+    valueContainer: (base) => ({ ...base, padding: "0 6px" }),
+    input: (base) => ({ ...base, margin: 0, padding: 0, color: "var(--cg-ink)" }),
+    singleValue: (base) => ({ ...base, color: "var(--cg-ink)" }), placeholder: (base) => ({ ...base, color: "var(--cg-muted)" }),
+    dropdownIndicator: (base) => ({ ...base, padding: 4 }), indicatorSeparator: () => ({ display: "none" }),
+    menuPortal: (base) => ({ ...base, zIndex: 9999, fontSize: 12 }),
+    menu: (base) => ({ ...base, backgroundColor: "var(--travel-surface)", color: "var(--travel-ink)" }),
+    option: (base, state) => ({ ...base, backgroundColor: state.isSelected ? "#0756ff" : state.isFocused ? "var(--travel-canvas)" : "transparent", color: state.isSelected ? "white" : "var(--travel-ink)" }),
   };
-
-  const getCustomSelectStyles = (hasError: boolean = false) => ({
-    control: (provided: any, state: any) => ({
-      ...provided,
-      minHeight: "36px",
-      height: "36px",
-      fontSize: "0.75rem",
-      borderColor: hasError ? "red" : provided.borderColor,
-      boxShadow: hasError ? "0 0 0 1px red" : state.isFocused ? provided.boxShadow : "none",
-      borderRadius: ".375rem",
-      "&:hover": {
-        borderColor: hasError ? "red" : provided.borderColor,
-      },
-    }),
-    valueContainer: (provided: any) => ({
-      ...provided,
-      padding: "0 0.5rem",
-    }),
-    indicatorsContainer: (provided: any) => ({
-      ...provided,
-      height: "36px",
-    }),
-    input: (provided: any) => ({
-      ...provided,
-      margin: "0",
-      padding: "0",
-    }),
-    menuPortal: (provided: any) => ({
-      ...provided,
-      zIndex: 9999,
-    }),
-  });
-
-  const loadCityOptions = (inputValue: string, callback: (options: any[]) => void) => {
-    fetch("/admin-portal/data/cities.json")
-      .then((res) => res.json())
-      .then((data) => {
-        const input = inputValue.toLowerCase();
-        const filtered = data
-          .filter((c: any) => {
-            const city = (c.cityEn || "").toLowerCase();
-            const code = (c.airportCode || "").toLowerCase();
-            const searchTerm = (c.titleKey || "").toLowerCase();
-            return (
-              !inputValue ||
-              city.includes(input) ||
-              code.includes(input) ||
-              searchTerm.includes(input)
-            );
-          })
-          .map((c: any) => ({
-            value: c.airportCode,
-            label: `${c.cityEn} (${c.airportCode})`,
-          }))
-          .slice(0, 50);
-        callback(filtered);
-      })
-      .catch(() => callback([]));
+  const loadCityOptions = (input: string) => Promise.resolve(cityOptions.filter((city) => city.label.toLowerCase().includes(input.toLowerCase())).slice(0, 50));
+  const updateFlight = (index: number, fields: Partial<Flight>) => setFormData((previous) => ({ ...previous, flights: previous.flights.map((flight, flightIndex) => flightIndex === index ? { ...flight, ...fields } : flight) }));
+  const updatePrice = (key: keyof typeof initialForm.price, value: string | number) => {
+    setFormData((previous) => {
+      const price = { ...previous.price, [key]: value };
+      if (sameAsBuying) {
+        price.sellingCurrencyB2B = price.buyingCurrency;
+        price.sellingAdultPriceB2B = price.buyingAdultPrice;
+        price.sellingChildPriceB2B = price.buyingChildPrice;
+        price.sellingInfantPriceB2B = price.buyingInfantPrice;
+      }
+      return { ...previous, price };
+    });
   };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const toggleSameAsBuying = (checked: boolean) => {
+    setSameAsBuying(checked);
+    if (checked) setFormData((previous) => ({ ...previous,
+      price: { ...previous.price, sellingCurrencyB2B: previous.price.buyingCurrency, sellingAdultPriceB2B: previous.price.buyingAdultPrice, sellingChildPriceB2B: previous.price.buyingChildPrice, sellingInfantPriceB2B: previous.price.buyingInfantPrice },
+      priceOnCall: { ...previous.priceOnCall, adult: false, child: false, infant: false },
+    }));
+  };
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); setError(""); setSaving(true);
     try {
-      setLoading(true);
-      const token = sessionStorage.getItem("admin_token");
-
-      if (editMode && id) {
-        const response = await axiosInstance.put(`/group-ticketing/${id}`, formData, {
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        });
-        if (response.data.success) {
-          window.alert("✅ Booking updated successfully!");
-          navigate("/group-ticketing");
-        }
-      } else {
-        const response = await axiosInstance.post("/group-ticketing", formData, {
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        });
-        if (response.data.success) {
-          window.alert("✅ Booking created successfully!");
-          navigate("/group-ticketing");
-        }
-      }
-    } catch (error: any) {
-      console.error("Error saving booking:", error);
-      window.alert("❌ " + (error.response?.data?.message || "Failed to save booking"));
-    } finally {
-      setLoading(false);
-    }
+      const config = { headers: { Authorization: `Bearer ${sessionStorage.getItem("admin_token")}`, "Content-Type": "application/json" } };
+      const response = editMode ? await axiosInstance.put(`/group-ticketing/${id}`, formData, config) : await axiosInstance.post("/group-ticketing", formData, config);
+      if (!response.data.success) throw new Error(response.data.message || "Failed to save group");
+      window.alert(editMode ? "Group updated successfully!" : "Group created successfully!"); navigate("/group-ticketing");
+    } catch (caught) {
+      setError(axios.isAxiosError<{ message: string }>(caught) ? caught.response?.data?.message || "Failed to save group. Please try again." : caught instanceof Error ? caught.message : "Failed to save group. Please try again.");
+    } finally { setSaving(false); }
   };
+  const currencyOptions = (current: string) => Array.from(new Set(["PKR", current].filter(Boolean))).map((currency) => <option key={currency} value={currency}>{currency}</option>);
+  const goToStep = (step: string) => { setActiveStep(step); document.getElementById(`cg-${step}`)?.scrollIntoView({ behavior: "smooth", block: "start" }); };
 
-  const addFlight = () => {
-    setFormData({
-      ...formData,
-      flights: [
-        ...formData.flights,
-        {
-          airline: formData.airline,
-          flightNo: "",
-          depDate: "",
-          depTime: "",
-          arrDate: "",
-          arrTime: "",
-          sectorFrom: "",
-          sectorTo: "",
-          fromTerminal: "",
-          toTerminal: "",
-          flightClass: "",
-          baggage: "",
-          meal: ""
-        }
-      ]
-    });
-  };
-
-  const handleDateMasking = (index: number, field: 'depDate' | 'arrDate', value: string) => {
-    let x = value.replace(/\D/g, '').match(/(\d{0,2})(\d{0,2})(\d{0,4})/);
-    if (!x) return;
-    let maskedValue = !x[2] ? x[1] : x[1] + '-' + x[2] + (x[3] ? '-' + x[3] : '');
-    const updatedFlights = [...formData.flights];
-    (updatedFlights[index] as any)[field] = maskedValue;
-    setFormData({ ...formData, flights: updatedFlights });
-  };
-
-  const parseISODate = (isoDate: string) => {
-    if (!isoDate) return null;
-    const [y, m, d] = isoDate.split('-');
-    return new Date(Number(y), Number(m) - 1, Number(d));
-  };
-
-  const dateToISO = (date: Date) => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  };
-
-  const removeFlight = (index: number) => {
-    setFormData({
-      ...formData,
-      flights: formData.flights.filter((_, i) => i !== index)
-    });
-  };
-
-  // ✅ UPDATED: ek saath multiple fields update karta hai - stale state problem fix
-  const updateFlight = (index: number, fields: Record<string, string>) => {
-    const updatedFlights = [...formData.flights];
-    updatedFlights[index] = { ...updatedFlights[index], ...fields };
-    setFormData({ ...formData, flights: updatedFlights });
-  };
-
-  if (loading) {
-    return (
-      <>
-        <PageMeta title={editMode ? "Edit Group" : "Create Group"} description="Group ticketing form" />
-        <PageBreadCrumb pageTitle={editMode ? "Edit Group" : "Create Group"} />
-        <div className="flex justify-center items-center py-20">
-          <div className="text-gray-500 dark:text-gray-400">Loading...</div>
-        </div>
-      </>
-    );
-  }
-
-  return (
-    <>
-      <PageMeta title={editMode ? "Edit Group" : "Create Group"} description="Group ticketing form" />
-      <PageBreadCrumb pageTitle={editMode ? "Edit Group" : "Create Group"} />
-
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-white/3">
-        <div className="bg-[#000] px-6 py-4 rounded-t-2xl">
-          <h3 className="text-xl font-bold text-white">
-            {editMode ? "Edit Airline Group" : "Add Airline Group"}
-          </h3>
-          <p className="text-blue-100 text-sm mt-1">Airline Group Details</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Top Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Enter Supplier Account
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.user}
-                onChange={(e) => setFormData({ ...formData, user: e.target.value })}
-                placeholder="Enter Supplier Account"
-                className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Sector
-              </label>
-              <select
-                value={formData.sector}
-                onChange={(e) => {
-                  const selectedSector = sectors.find(s => s.sectorTitle === e.target.value);
-                  setFormData({
-                    ...formData,
-                    sector: e.target.value,
-                    groupCategory: selectedSector?.groupType || "",
-                    groupType: selectedSector?.groupType || ""
-                  });
-                }}
-                className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              >
-                <option value="">Select Sector</option>
-                {sectors.map((sector) => (
-                  <option key={sector._id} value={sector.sectorTitle}>
-                    {sector.sectorTitle} - {sector.fullSector}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Airline, Group Category, Group Name, Total Seats */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Airline
-              </label>
-              <select
-                value={formData.airline}
-                onChange={(e) => {
-                  const selectedAirline = airlines.find(a => a.airlineName === e.target.value);
-                  const updatedFlights = formData.flights.map(flight => ({
-                    ...flight,
-                    airline: e.target.value
-                  }));
-                  setFormData({
-                    ...formData,
-                    airline: e.target.value,
-                    groupName: selectedAirline ? `${selectedAirline.airlineName}-${formData.sector || 'NULL'}` : formData.groupName,
-                    flights: updatedFlights
-                  });
-                }}
-                className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              >
-                <option value="">Select Airline</option>
-                {airlines.map((airline) => (
-                  <option key={airline._id} value={airline.airlineName}>
-                    {airline.airlineName} ({airline.shortCode})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Group Category
-              </label>
-              <input
-                type="text"
-                value={formData.groupCategory}
-                readOnly
-                className="w-full h-11 rounded border border-gray-300 bg-gray-100 px-4 text-sm text-gray-800 outline-none dark:border-gray-700 dark:bg-gray-700 dark:text-white/90 cursor-not-allowed"
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Group Name
-              </label>
-              <input
-                type="text"
-                value={formData.groupName}
-                readOnly
-                placeholder="e.g., AIR SIAL-NULL"
-                className="w-full h-11 rounded border border-gray-300 bg-gray-100 px-4 text-sm text-gray-800 outline-none dark:border-gray-700 dark:bg-gray-700 dark:text-white/90 cursor-not-allowed"
-              />
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Total Seats
-                </label>
-                <label className="flex items-center cursor-pointer" title="Show seats as 'On Call' to agents">
-                  <input
-                    type="checkbox"
-                    checked={formData.priceOnCall.seats}
-                    onChange={(e) => setFormData({ ...formData, priceOnCall: { ...formData.priceOnCall, seats: e.target.checked } })}
-                    className="w-8 h-5 appearance-none bg-gray-300 rounded-full relative cursor-pointer transition-colors checked:bg-red-500 before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 before:transition-transform checked:before:translate-x-3"
-                  />
-                  <span className="ml-1.5 text-[10px] font-semibold uppercase text-gray-500 dark:text-gray-400">On Call</span>
-                </label>
+  return <div className="create-group-page">
+    <PageMeta title={editMode ? "Edit Group" : "Create Group"} description="Configure airline group flights, pricing and settings" />
+    <aside className="cg-sidebar" aria-label="Group form sections">
+      <div className="cg-sidebar-intro"><Link className="cg-back" to="/group-ticketing"><FiArrowLeft aria-hidden="true" />Back to Groups</Link><h1>{editMode ? "Edit Group" : "Create Group"}</h1><p>Configure airline group with flight<br className="cg-desktop-break" /> sectors, pricing and settings.</p></div>
+      <nav className="cg-step-nav">{steps.map((step, index) => <button key={step.id} type="button" className={`cg-step${activeStep === step.id ? " is-active" : ""}`} aria-current={activeStep === step.id ? "step" : undefined} onClick={() => goToStep(step.id)}><span className="cg-step-number">{index + 1}</span><span><strong>{step.title}</strong><small>{step.description}</small></span></button>)}<p className="cg-sidebar-note">Organize group flights<br />effortlessly.</p></nav>
+    </aside>
+    <main className="cg-main">
+      <nav className="cg-breadcrumb" aria-label="Breadcrumb"><Link to="/">Home</Link><FiChevronRight aria-hidden="true" /><Link to="/group-ticketing">Airline Groups</Link><FiChevronRight aria-hidden="true" /><span aria-current="page">{editMode ? "Edit Group" : "Create Group"}</span></nav>
+      {error && <div className="cg-error" role="alert">{error}<button type="button" aria-label="Dismiss message" onClick={() => setError("")}><FiX /></button></div>}
+      {loading ? <div className="cg-loading" role="status">Loading group details...</div> : <form onSubmit={handleSubmit} onInvalidCapture={(event) => { const section = (event.target as HTMLElement).closest(".cg-section"); if (section) setActiveStep(section.id.replace("cg-", "")); }}>
+        <fieldset className="cg-form-fields" disabled={saving}>
+          <section id="cg-basic" className="cg-section cg-basic" aria-labelledby="cg-heading-1" onFocusCapture={() => setActiveStep("basic")}>
+            <SectionHeading number={1} title="Basic Information" description="Enter supplier, sector and airline details"><span className="cg-required-note"><FiShield aria-hidden="true" />Fields marked with <span className="cg-required">*</span> are required</span></SectionHeading>
+            <div className="cg-basic-fields">
+              <div className="cg-grid cg-grid-two">
+                <Field id="cg-supplier" label="Supplier Account" icon={FiUser} required><input id="cg-supplier" required value={formData.user} onChange={(event) => setFormData({ ...formData, user: event.target.value })} placeholder="Enter supplier account" /></Field>
+                <Field id="cg-sector" label="Sector" icon={FiMapPin} required><select id="cg-sector" required value={formData.sector} onChange={(event) => { const selected = sectors.find((sector) => sector.sectorTitle === event.target.value); setFormData({ ...formData, sector: event.target.value, groupCategory: selected?.groupType || "", groupType: selected?.groupType || "" }); }}><option value="">Select sector</option>{sectors.map((sector) => <option key={sector._id} value={sector.sectorTitle}>{sector.sectorTitle} - {sector.fullSector}</option>)}</select><FiChevronDown className="cg-select-chevron" aria-hidden="true" /></Field>
               </div>
-              <input
-                type="text"
-                value={formData.priceOnCall.seats ? '' : (formData.totalSeats ? formData.totalSeats.toLocaleString() : '')}
-                onChange={(e) => setFormData({ ...formData, totalSeats: Number(e.target.value.replace(/,/g, '')) || 0 })}
-                placeholder={formData.priceOnCall.seats ? "On Call" : "Enter total seats"}
-                disabled={formData.priceOnCall.seats}
-                className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-red-500 disabled:font-semibold dark:disabled:bg-gray-800"
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Days
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={formData.days || ''}
-                onChange={(e) => setFormData({ ...formData, days: Number(e.target.value) || 0 })}
-                placeholder="e.g., 7"
-                className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              />
-            </div>
-          </div>
-
-          {/* Show Seat */}
-          <div className="grid grid-cols-1 gap-4">
-            <div className="flex items-center">
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.showSeat}
-                  onChange={(e) => setFormData({ ...formData, showSeat: e.target.checked })}
-                  className="w-10 h-6 appearance-none bg-gray-300 rounded-full relative cursor-pointer transition-colors checked:bg-blue-600 before:absolute before:w-5 before:h-5 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 before:transition-transform checked:before:translate-x-4"
-                />
-                <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Show Seat</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Flight Details Table */}
-          <div className="overflow-x-auto">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-lg font-semibold text-gray-800 dark:text-white">Flight Details</h4>
-              <button
-                type="button"
-                onClick={addFlight}
-                className="rounded bg-green-600 px-6 py-2 text-sm font-medium text-white hover:bg-green-700"
-              >
-                + Add More
-              </button>
-            </div>
-            <table className="w-full border border-gray-300 dark:border-gray-700">
-              <thead className="bg-gray-100 dark:bg-gray-700">
-                <tr>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600">Flight#</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600">Dep Date</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600">Dep Time</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600">Sector From</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600">From Terminal</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600">Sector To</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600">To Terminal</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600">Class</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600">Arr Date</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600">Arr Time</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600">Baggage</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600">Meal</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {formData.flights.map((flight, index) => (
-                  <tr key={index} className="bg-white dark:bg-gray-800">
-                    <td className="px-2 py-2 border border-gray-300 dark:border-gray-600">
-                      <input
-                        type="text"
-                        required
-                        value={flight.flightNo}
-                        onChange={(e) => updateFlight(index, { flightNo: e.target.value })}
-                        className="w-full min-w-20 h-9 rounded border border-gray-300 px-2 text-xs outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                      />
-                    </td>
-                    <td className="px-2 py-2 border border-gray-300 dark:border-gray-600">
-                      <DatePicker
-                        selected={parseISODate(flight.depDate)}
-                        onChange={(date: Date | null) => {
-                          if (date) updateFlight(index, { depDate: dateToISO(date) });
-                        }}
-                        dateFormat="dd-MM-yyyy"
-                        customInput={
-                          <input
-                            type="text"
-                            placeholder="DD-MM-YYYY"
-                            value={flight.depDate}
-                            onChange={(e) => handleDateMasking(index, 'depDate', e.target.value)}
-                            className="w-full min-w-35 h-9 px-2 text-xs border border-gray-300 rounded bg-white text-gray-900"
-                          />
-                        }
-                      />
-                    </td>
-                    <td className="px-2 py-2 border border-gray-300 dark:border-gray-600">
-                      <input
-                        type="time"
-                        required
-                        value={flight.depTime}
-                        onChange={(e) => updateFlight(index, { depTime: e.target.value })}
-                        onClick={(e) => e.currentTarget.showPicker?.()}
-                        className="w-full min-w-30 h-9 px-2 text-xs border border-gray-300 rounded bg-white text-gray-900"
-                      />
-                    </td>
-                    {/* ✅ Sector From - automatically fromTerminal bhi set karta hai */}
-                    <td className="px-2 py-2 border border-gray-300 dark:border-gray-600">
-                      <AsyncSelect
-                        cacheOptions
-                        defaultOptions={cityOptions}
-                        loadOptions={loadCityOptions}
-                        styles={getCustomSelectStyles()}
-                        value={cityOptions.find((opt) => opt.value === flight.sectorFrom) || null}
-                        onChange={(option: any) => updateFlight(index, {
-                          sectorFrom: option?.value || "",
-                          fromTerminal: option?.label || "",
-                        })}
-                        placeholder="Select city"
-                        className="min-w-37.5"
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                      />
-                    </td>
-                    <td className="px-2 py-2 border border-gray-300 dark:border-gray-600">
-                      <input
-                        type="text"
-                        value={flight.fromTerminal}
-                        onChange={(e) => updateFlight(index, { fromTerminal: e.target.value })}
-                        placeholder="Terminal"
-                        className="w-full min-w-20 h-9 rounded border border-gray-300 px-2 text-xs outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                      />
-                    </td>
-                    {/* ✅ Sector To - automatically toTerminal bhi set karta hai */}
-                    <td className="px-2 py-2 border border-gray-300 dark:border-gray-600">
-                      <AsyncSelect
-                        cacheOptions
-                        defaultOptions={cityOptions}
-                        loadOptions={loadCityOptions}
-                        styles={getCustomSelectStyles()}
-                        value={cityOptions.find((opt) => opt.value === flight.sectorTo) || null}
-                        onChange={(option: any) => updateFlight(index, {
-                          sectorTo: option?.value || "",
-                          toTerminal: option?.label || "",
-                        })}
-                        placeholder="Select city"
-                        className="min-w-37.5"
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                      />
-                    </td>
-                    <td className="px-2 py-2 border border-gray-300 dark:border-gray-600">
-                      <input
-                        type="text"
-                        value={flight.toTerminal}
-                        onChange={(e) => updateFlight(index, { toTerminal: e.target.value })}
-                        placeholder="Terminal"
-                        className="w-full min-w-20 h-9 rounded border border-gray-300 px-2 text-xs outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                      />
-                    </td>
-                    <td className="px-2 py-2 border border-gray-300 dark:border-gray-600">
-                      <select
-                        value={flight.flightClass}
-                        onChange={(e) => updateFlight(index, { flightClass: e.target.value })}
-                        className="w-full min-w-25 h-9 rounded border border-gray-300 px-2 text-xs outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                      >
-                        <option value="">Select</option>
-                        <option value="Economy">Economy</option>
-                        <option value="Business">Business</option>
-                        <option value="First">First</option>
-                      </select>
-                    </td>
-                    <td className="px-2 py-2 border border-gray-300 dark:border-gray-600">
-                      <DatePicker
-                        selected={parseISODate(flight.arrDate)}
-                        onChange={(date: Date | null) => {
-                          if (date) updateFlight(index, { arrDate: dateToISO(date) });
-                        }}
-                        dateFormat="dd-MM-yyyy"
-                        customInput={
-                          <input
-                            type="text"
-                            placeholder="DD-MM-YYYY"
-                            value={flight.arrDate}
-                            onChange={(e) => handleDateMasking(index, 'arrDate', e.target.value)}
-                            className="w-full min-w-35 h-9 px-2 text-xs border border-gray-300 rounded bg-white text-gray-900"
-                          />
-                        }
-                      />
-                    </td>
-                    <td className="px-2 py-2 border border-gray-300 dark:border-gray-600">
-                      <input
-                        type="time"
-                        required
-                        value={flight.arrTime}
-                        onChange={(e) => updateFlight(index, { arrTime: e.target.value })}
-                        onClick={(e) => e.currentTarget.showPicker?.()}
-                        className="w-full min-w-30 h-9 px-2 text-xs border border-gray-300 rounded bg-white text-gray-900"
-                      />
-                    </td>
-                    <td className="px-2 py-2 border border-gray-300 dark:border-gray-600">
-                      <input
-                        type="text"
-                        value={flight.baggage}
-                        onChange={(e) => updateFlight(index, { baggage: e.target.value })}
-                        placeholder="e.g., 30kg"
-                        className="w-full min-w-20 h-9 rounded border border-gray-300 px-2 text-xs outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                      />
-                    </td>
-                    <td className="px-2 py-2 border border-gray-300 dark:border-gray-600">
-                      <select
-                        value={flight.meal}
-                        onChange={(e) => updateFlight(index, { meal: e.target.value })}
-                        className="w-full min-w-25 h-9 rounded border border-gray-300 px-2 text-xs outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                      >
-                        <option value="">Select</option>
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
-                      </select>
-                    </td>
-                    <td className="px-2 py-2 border border-gray-300 dark:border-gray-600">
-                      {formData.flights.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeFlight(index)}
-                          className="rounded bg-red-500 px-2 py-1 text-xs font-medium text-white hover:bg-red-600"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Buying Currency and Prices */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Buying Currency
-              </label>
-              <select
-                value={formData.price.buyingCurrency}
-                onChange={(e) => setFormData({ ...formData, price: { ...formData.price, buyingCurrency: e.target.value } })}
-                className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              >
-                <option value="PKR">PKR</option>
-              </select>
-            </div>
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Buying Price Per Seat (Adult)
-              </label>
-              <input
-                type="text"
-                value={formData.price.buyingAdultPrice ? formData.price.buyingAdultPrice.toLocaleString() : ''}
-                onChange={(e) => setFormData({ ...formData, price: { ...formData.price, buyingAdultPrice: Number(e.target.value.replace(/,/g, '')) || 0 } })}
-                placeholder="0"
-                className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Buying Price Per Seat (Child)
-              </label>
-              <input
-                type="text"
-                value={formData.price.buyingChildPrice ? formData.price.buyingChildPrice.toLocaleString() : ''}
-                onChange={(e) => setFormData({ ...formData, price: { ...formData.price, buyingChildPrice: Number(e.target.value.replace(/,/g, '')) || 0 } })}
-                placeholder="0"
-                className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Buying Price Per Seat (Infant)
-              </label>
-              <input
-                type="text"
-                value={formData.price.buyingInfantPrice ? formData.price.buyingInfantPrice.toLocaleString() : ''}
-                onChange={(e) => setFormData({ ...formData, price: { ...formData.price, buyingInfantPrice: Number(e.target.value.replace(/,/g, '')) || 0 } })}
-                placeholder="0"
-                className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              />
-            </div>
-          </div>
-
-          {/* Selling Currency B2B and Prices */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Selling Currency B2B
-              </label>
-              <select
-                value={formData.price.sellingCurrencyB2B}
-                onChange={(e) => setFormData({ ...formData, price: { ...formData.price, sellingCurrencyB2B: e.target.value } })}
-                className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              >
-                <option value="PKR">PKR</option>
-              </select>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Selling Price Per Seat B2B(Adult)
-                </label>
-                <label className="flex items-center cursor-pointer" title="Show adult price as 'On Call' to agents">
-                  <input
-                    type="checkbox"
-                    checked={formData.priceOnCall.adult}
-                    onChange={(e) => setFormData({ ...formData, priceOnCall: { ...formData.priceOnCall, adult: e.target.checked } })}
-                    className="w-8 h-5 appearance-none bg-gray-300 rounded-full relative cursor-pointer transition-colors checked:bg-red-500 before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 before:transition-transform checked:before:translate-x-3"
-                  />
-                  <span className="ml-1.5 text-[10px] font-semibold uppercase text-gray-500 dark:text-gray-400">On Call</span>
-                </label>
+              <div className="cg-grid cg-grid-three">
+                <Field id="cg-airline" label="Airline" icon={PiAirplaneTilt} required><select id="cg-airline" required value={formData.airline} onChange={(event) => { const selected = airlines.find((airline) => airline.airlineName === event.target.value); setFormData({ ...formData, airline: event.target.value, groupName: selected ? `${selected.airlineName}-${formData.sector || "NULL"}` : formData.groupName, flights: formData.flights.map((flight) => ({ ...flight, airline: event.target.value })) }); }}><option value="">Select airline</option>{airlines.map((airline) => <option key={airline._id} value={airline.airlineName}>{airline.airlineName}</option>)}</select><FiChevronDown className="cg-select-chevron" aria-hidden="true" /></Field>
+                <Field id="cg-category" label="Group Category" icon={FiLayers}><select id="cg-category" value={formData.groupCategory} onChange={(event) => setFormData({ ...formData, groupCategory: event.target.value, groupType: event.target.value })}><option value="">Select category</option>{Array.from(new Set([formData.groupCategory, ...sectors.map((sector) => sector.groupType)].filter(Boolean))).map((category) => <option key={category} value={category}>{category}</option>)}</select><FiChevronDown className="cg-select-chevron" aria-hidden="true" /></Field>
+                <Field id="cg-name" label="Group Name" icon={FiTag} required><input id="cg-name" required value={formData.groupName} onChange={(event) => setFormData({ ...formData, groupName: event.target.value })} placeholder="e.g. AIR SIAL-NULL" /></Field>
+                <Field id="cg-seats" label="Total Seats" icon={FiUsers} extra={<Toggle small label="On Call" checked={formData.priceOnCall.seats} onChange={(checked) => setFormData({ ...formData, priceOnCall: { ...formData.priceOnCall, seats: checked } })} />}><input id="cg-seats" type="number" min="0" step="1" disabled={formData.priceOnCall.seats} value={formData.priceOnCall.seats ? "" : formData.totalSeats || ""} onChange={(event) => setFormData({ ...formData, totalSeats: Number(event.target.value) || 0 })} placeholder={formData.priceOnCall.seats ? "On Call" : "Enter total seats"} /></Field>
+                <div className="cg-show-seat"><Toggle label="Show Seat" checked={formData.showSeat} onChange={(checked) => setFormData({ ...formData, showSeat: checked })} /><p>Enable to show seat selection for this group</p></div>
+                <Field id="cg-days" label="Days" icon={FiCalendar}><input id="cg-days" type="number" min="0" step="1" value={formData.days || ""} onChange={(event) => setFormData({ ...formData, days: Number(event.target.value) || 0 })} placeholder="e.g. 7" /></Field>
               </div>
-              <input
-                type="text"
-                value={formData.priceOnCall.adult ? '' : (formData.price.sellingAdultPriceB2B ? formData.price.sellingAdultPriceB2B.toLocaleString() : '')}
-                onChange={(e) => setFormData({ ...formData, price: { ...formData.price, sellingAdultPriceB2B: Number(e.target.value.replace(/,/g, '')) || 0 } })}
-                placeholder={formData.priceOnCall.adult ? "On Call" : "0"}
-                disabled={formData.priceOnCall.adult}
-                className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-red-500 disabled:font-semibold dark:disabled:bg-gray-800"
-              />
             </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Selling Price Per Seat B2B(Child)
-                </label>
-                <label className="flex items-center cursor-pointer" title="Show child price as 'On Call' to agents">
-                  <input
-                    type="checkbox"
-                    checked={formData.priceOnCall.child}
-                    onChange={(e) => setFormData({ ...formData, priceOnCall: { ...formData.priceOnCall, child: e.target.checked } })}
-                    className="w-8 h-5 appearance-none bg-gray-300 rounded-full relative cursor-pointer transition-colors checked:bg-red-500 before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 before:transition-transform checked:before:translate-x-3"
-                  />
-                  <span className="ml-1.5 text-[10px] font-semibold uppercase text-gray-500 dark:text-gray-400">On Call</span>
-                </label>
-              </div>
-              <input
-                type="text"
-                value={formData.priceOnCall.child ? '' : (formData.price.sellingChildPriceB2B ? formData.price.sellingChildPriceB2B.toLocaleString() : '')}
-                onChange={(e) => setFormData({ ...formData, price: { ...formData.price, sellingChildPriceB2B: Number(e.target.value.replace(/,/g, '')) || 0 } })}
-                placeholder={formData.priceOnCall.child ? "On Call" : "0"}
-                disabled={formData.priceOnCall.child}
-                className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-red-500 disabled:font-semibold dark:disabled:bg-gray-800"
-              />
+          </section>
+          <section id="cg-flights" className="cg-section cg-flights" aria-labelledby="cg-heading-2" onFocusCapture={() => setActiveStep("flights")}>
+            <SectionHeading number={2} title="Flight Details" description="Add flight sectors for this group"><button className="cg-primary" type="button" onClick={() => setFormData((previous) => ({ ...previous, flights: [...previous.flights, emptyFlight(previous.airline)] }))}><PiAirplaneTilt aria-hidden="true" />Add Flight</button></SectionHeading>
+            <div className="cg-flight-scroll" role="region" aria-label="Flight schedules" tabIndex={0}>
+              <table className="cg-flight-table"><thead><tr>{["#", "Flight No.", "Dep Date", "Dep Time", "Sector From", "From Terminal", "Sector To", "To Terminal", "Class", "Arr Date", "Arr Time", "Baggage", "Meal", "Action"].map((label) => <th key={label} scope="col">{label}</th>)}</tr></thead>
+                <tbody>{formData.flights.map((flight, index) => <tr key={index}>
+                  <td className="cg-row-number">{index + 1}</td>
+                  <td><input aria-label={`Flight ${index + 1} number`} required value={flight.flightNo} onChange={(event) => updateFlight(index, { flightNo: event.target.value })} placeholder="e.g. PK 301" /></td>
+                  <td><input type="date" aria-label={`Flight ${index + 1} departure date`} required value={flight.depDate} onChange={(event) => updateFlight(index, { depDate: event.target.value })} /></td>
+                  <td><input type="time" aria-label={`Flight ${index + 1} departure time`} required value={flight.depTime} onChange={(event) => updateFlight(index, { depTime: event.target.value })} /></td>
+                  <td><AsyncSelect<CityOption> inputId={`cg-from-${index}`} aria-label={`Flight ${index + 1} sector from`} required cacheOptions defaultOptions={cityOptions.slice(0, 50)} loadOptions={loadCityOptions} styles={selectStyles} value={cityOptions.find((city) => city.value === flight.sectorFrom) || (flight.sectorFrom ? { value: flight.sectorFrom, label: flight.sectorFrom } : null)} onChange={(option) => updateFlight(index, { sectorFrom: option?.value || "", fromTerminal: option?.label || "" })} placeholder="Select city" classNamePrefix="cg-city" menuPortalTarget={document.body} menuPosition="fixed" /></td>
+                  <td><input aria-label={`Flight ${index + 1} from terminal`} value={flight.fromTerminal} onChange={(event) => updateFlight(index, { fromTerminal: event.target.value })} placeholder="Terminal" /></td>
+                  <td><AsyncSelect<CityOption> inputId={`cg-to-${index}`} aria-label={`Flight ${index + 1} sector to`} required cacheOptions defaultOptions={cityOptions.slice(0, 50)} loadOptions={loadCityOptions} styles={selectStyles} value={cityOptions.find((city) => city.value === flight.sectorTo) || (flight.sectorTo ? { value: flight.sectorTo, label: flight.sectorTo } : null)} onChange={(option) => updateFlight(index, { sectorTo: option?.value || "", toTerminal: option?.label || "" })} placeholder="Select city" classNamePrefix="cg-city" menuPortalTarget={document.body} menuPosition="fixed" /></td>
+                  <td><input aria-label={`Flight ${index + 1} to terminal`} value={flight.toTerminal} onChange={(event) => updateFlight(index, { toTerminal: event.target.value })} placeholder="Terminal" /></td>
+                  <td><select aria-label={`Flight ${index + 1} class`} value={flight.flightClass} onChange={(event) => updateFlight(index, { flightClass: event.target.value })}><option value="">Select</option>{["Economy", "Business", "First"].map((value) => <option key={value}>{value}</option>)}</select></td>
+                  <td><input type="date" aria-label={`Flight ${index + 1} arrival date`} required value={flight.arrDate} onChange={(event) => updateFlight(index, { arrDate: event.target.value })} /></td>
+                  <td><input type="time" aria-label={`Flight ${index + 1} arrival time`} required value={flight.arrTime} onChange={(event) => updateFlight(index, { arrTime: event.target.value })} /></td>
+                  <td><input aria-label={`Flight ${index + 1} baggage`} value={flight.baggage} onChange={(event) => updateFlight(index, { baggage: event.target.value })} placeholder="e.g. 30kg" /></td>
+                  <td><select aria-label={`Flight ${index + 1} meal`} value={flight.meal} onChange={(event) => updateFlight(index, { meal: event.target.value })}><option value="">Select</option><option value="Yes">Yes</option><option value="No">No</option></select></td>
+                  <td><button type="button" className="cg-remove-flight" aria-label={`Remove flight ${index + 1}`} disabled={formData.flights.length === 1} onClick={() => setFormData((previous) => ({ ...previous, flights: previous.flights.filter((_, flightIndex) => flightIndex !== index) }))}><FiTrash2 aria-hidden="true" /></button></td>
+                </tr>)}</tbody>
+              </table>
             </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Selling Price Per Seat B2B(Infant)
-                </label>
-                <label className="flex items-center cursor-pointer" title="Show infant price as 'On Call' to agents">
-                  <input
-                    type="checkbox"
-                    checked={formData.priceOnCall.infant}
-                    onChange={(e) => setFormData({ ...formData, priceOnCall: { ...formData.priceOnCall, infant: e.target.checked } })}
-                    className="w-8 h-5 appearance-none bg-gray-300 rounded-full relative cursor-pointer transition-colors checked:bg-red-500 before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 before:transition-transform checked:before:translate-x-3"
-                  />
-                  <span className="ml-1.5 text-[10px] font-semibold uppercase text-gray-500 dark:text-gray-400">On Call</span>
-                </label>
-              </div>
-              <input
-                type="text"
-                value={formData.priceOnCall.infant ? '' : (formData.price.sellingInfantPriceB2B ? formData.price.sellingInfantPriceB2B.toLocaleString() : '')}
-                onChange={(e) => setFormData({ ...formData, price: { ...formData.price, sellingInfantPriceB2B: Number(e.target.value.replace(/,/g, '')) || 0 } })}
-                placeholder={formData.priceOnCall.infant ? "On Call" : "0"}
-                disabled={formData.priceOnCall.infant}
-                className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-red-500 disabled:font-semibold dark:disabled:bg-gray-800"
-              />
+          </section>
+          <section id="cg-pricing" className="cg-section cg-pricing" aria-labelledby="cg-heading-3" onFocusCapture={() => setActiveStep("pricing")}>
+            <SectionHeading number={3} title="Pricing Information" description="Set buying and selling prices for this group"><label className="cg-default-currency" htmlFor="cg-default-currency">Default Currency<PiCoins aria-hidden="true" /><select id="cg-default-currency" value={formData.price.buyingCurrency} onChange={(event) => setFormData({ ...formData, price: { ...formData.price, buyingCurrency: event.target.value, sellingCurrencyB2B: event.target.value } })}>{currencyOptions(formData.price.buyingCurrency)}</select><FiChevronDown aria-hidden="true" /></label></SectionHeading>
+            <div className="cg-price-panels">{(["buying", "selling"] as const).map((side) => {
+              const selling = side === "selling"; const currencyKey = selling ? "sellingCurrencyB2B" : "buyingCurrency";
+              return <div className={`cg-price-panel cg-price-${side}`} key={side}>
+                <div className="cg-price-heading"><span className="cg-price-icon">{selling ? <FiTag aria-hidden="true" /> : <FiShoppingCart aria-hidden="true" />}</span><h3>{selling ? "Selling Price (B2B)" : "Buying Price"}</h3>{selling && <Toggle small label="Same as Buying" checked={sameAsBuying} onChange={toggleSameAsBuying} />}</div>
+                <div className="cg-price-grid">
+                  <Field id={`cg-${side}-currency`} label="Currency" required><select id={`cg-${side}-currency`} disabled={selling && sameAsBuying} value={formData.price[currencyKey]} onChange={(event) => updatePrice(currencyKey, event.target.value)}>{currencyOptions(formData.price[currencyKey])}</select><FiChevronDown className="cg-select-chevron" aria-hidden="true" /></Field>
+                  {priceFields.map((field) => {
+                    const key = selling ? field.selling : field.buying; const onCall = selling && formData.priceOnCall[field.passenger];
+                    return <div className="cg-passenger-price" key={field.passenger}><Field id={`cg-${side}-${field.passenger}`} label={`${field.label} (Per Seat)`} icon={field.icon} required={!selling && field.passenger === "adult"}><input id={`cg-${side}-${field.passenger}`} type="number" min="0" step="0.01" disabled={onCall || (selling && sameAsBuying)} value={onCall ? "" : formData.price[key] || ""} onChange={(event) => updatePrice(key, Number(event.target.value) || 0)} placeholder={onCall ? "On Call" : "0.00"} /></Field>{selling && <Toggle small label="On Call" disabled={sameAsBuying} checked={formData.priceOnCall[field.passenger]} onChange={(checked) => setFormData({ ...formData, priceOnCall: { ...formData.priceOnCall, [field.passenger]: checked } })} />}</div>;
+                  })}
+                </div>
+              </div>;
+            })}</div>
+          </section>
+          <section id="cg-additional" className="cg-section cg-additional" aria-labelledby="cg-heading-4" onFocusCapture={() => setActiveStep("additional")}>
+            <SectionHeading number={4} title="Additional Information" description="Other details and settings" />
+            <div className="cg-grid cg-grid-four">
+              <Field id="cg-pnr" label="PNR" icon={PiTicket}><input id="cg-pnr" value={formData.pnr} onChange={(event) => setFormData({ ...formData, pnr: event.target.value })} placeholder="Enter PNR" /></Field>
+              <Field id="cg-phone" label="Contact Person Phone" icon={FiPhone}><input id="cg-phone" type="tel" value={formData.contactPersonPhone} onChange={(event) => setFormData({ ...formData, contactPersonPhone: event.target.value })} placeholder="Phone number" /></Field>
+              <Field id="cg-email" label="Contact Person Email" icon={FiMail}><input id="cg-email" type="email" value={formData.contactPersonEmail} onChange={(event) => setFormData({ ...formData, contactPersonEmail: event.target.value })} placeholder="Email address" /></Field>
+              <Field id="cg-status" label="Internal Status" icon={FiLock}><select id="cg-status" value={formData.internalStatus} onChange={(event) => setFormData({ ...formData, internalStatus: event.target.value })}><option value="Public">Public</option><option value="Private">Private</option></select><FiChevronDown className="cg-select-chevron" aria-hidden="true" /></Field>
             </div>
-          </div>
-
-          {/* PNR, Contact, Email, Status */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">PNR</label>
-              <input
-                type="text"
-                value={formData.pnr}
-                onChange={(e) => setFormData({ ...formData, pnr: e.target.value })}
-                placeholder="Enter PNR"
-                className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Contact Person Phone</label>
-              <input
-                type="tel"
-                value={formData.contactPersonPhone}
-                onChange={(e) => setFormData({ ...formData, contactPersonPhone: e.target.value })}
-                placeholder="Phone Number"
-                className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Contact Person Email</label>
-              <input
-                type="email"
-                value={formData.contactPersonEmail}
-                onChange={(e) => setFormData({ ...formData, contactPersonEmail: e.target.value })}
-                placeholder="Email Address"
-                className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Internal Status</label>
-              <select
-                value={formData.internalStatus}
-                onChange={(e) => setFormData({ ...formData, internalStatus: e.target.value })}
-                className="w-full h-11 rounded border border-gray-300 bg-white px-4 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              >
-                <option value="Public">Public</option>
-                <option value="Private">Private</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Submit Buttons */}
-          <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button
-              type="button"
-              onClick={() => navigate("/group-ticketing")}
-              className="rounded bg-gray-500 px-8 py-3 text-sm font-medium text-white hover:bg-gray-600 transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="rounded bg-blue-600 px-8 py-3 text-sm font-medium text-white hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? "Saving..." : editMode ? "Update Group" : "Create Group"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </>
-  );
+          </section>
+          <div className="cg-form-actions"><button type="button" className="cg-secondary" onClick={() => navigate("/group-ticketing")}><FiX aria-hidden="true" />Cancel</button><button className="cg-primary" type="submit"><PiAirplaneTilt aria-hidden="true" />{saving ? "Saving..." : editMode ? "Update Group" : "Create Group"}</button></div>
+        </fieldset>
+      </form>}
+    </main>
+  </div>;
 };
-
 export default GroupTicketingForm;

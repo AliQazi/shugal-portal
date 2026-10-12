@@ -4,8 +4,9 @@ import { HiArrowUp } from "react-icons/hi";
 import Routes from "./pages/Routes.jsx";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import DateInputSupport from "./components/common/DateInputSupport";
 
-const WHATSAPP_NUMBER = "923247629076";
+const WHATSAPP_NUMBER = "923331546241";
 const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}`;
 
 export default function App() {
@@ -76,6 +77,7 @@ export default function App() {
 
   return (
     <>
+      <DateInputSupport />
       <Routes />
       {showScrollButton && (
         <button

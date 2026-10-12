@@ -2,6 +2,8 @@ import { useEffect, useRef } from "react";
 import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 import flatpickr from "flatpickr";
+import { decorateDateCalendar, positionDateCalendar } from "../../../../shared/date-calendar";
+import "../../../../shared/date-calendar.css";
 import ChartTab from "../common/ChartTab";
 import { CalenderIcon } from "../../icons";
 
@@ -17,11 +19,13 @@ export default function StatisticsChart() {
 
     const fp = flatpickr(datePickerRef.current, {
       mode: "range",
-      static: true,
-      monthSelectorType: "static",
+      disableMobile: true,
+      position: positionDateCalendar,
+      monthSelectorType: "dropdown",
       dateFormat: "M d",
       defaultDate: [sevenDaysAgo, today],
       clickOpens: true,
+      onReady: (_dates, _value, instance) => decorateDateCalendar(instance),
       prevArrow:
         '<svg class="stroke-current" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12.5 15L7.5 10L12.5 5" stroke="" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       nextArrow:

@@ -22,6 +22,7 @@ import Blank from "./pages/Blank";
 import TestEmail from "./pages/TestEmail";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
+import DateInputSupport from "./components/common/DateInputSupport";
 import Home from "./pages/Dashboard/Home";
 import { AuthProvider } from "./context/AuthContext";
 import PrivateRoute from "./context/PrivateRoute";
@@ -55,6 +56,7 @@ import UmrahPackageBookingsAdmin from "./pages/UmrahPackage/UmrahPackageBookings
 export default function App() {
   return (
     <>
+      <DateInputSupport />
       <AuthProvider>
         <Router basename="/admin-portal/">
           <ScrollToTop />

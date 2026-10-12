@@ -1,291 +1,201 @@
-import React, { useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
+import { isAxiosError } from "axios";
+import { Link } from "react-router";
+import { toast } from "react-toastify";
+import { TbArrowsSort, TbCalendar, TbChevronDown, TbChevronRight, TbDotsVertical, TbEye, TbFileDescription, TbHome, TbInbox, TbLayoutGrid, TbList, TbPhoto, TbPencil, TbPlus, TbSearch, TbStack2, TbTrash, TbUpload, TbX } from "react-icons/tb";
 import axiosInstance from "../../Api/axios";
+import PageMeta from "../../components/common/PageMeta";
+import "./special-offers.css";
 
-interface Offer {
-    _id: string;
-    title: string;
-    image: string;
-    createdAt: string;
+interface Offer { _id: string; title: string; image?: string; createdAt: string; }
+const errorMessage = (error: unknown, fallback: string) => isAxiosError<{ message?: string }>(error) ? error.response?.data?.message || fallback : fallback;
+const dateLabel = (date: string) => {
+    const value = new Date(date);
+    return Number.isNaN(value.getTime()) ? "Date unavailable" : value.toLocaleDateString("en-GB", { timeZone: "Asia/Karachi" });
+};
+const monthLabel = (date: string) => {
+    const value = new Date(date);
+    return Number.isNaN(value.getTime()) ? "" : new Intl.DateTimeFormat("en-GB", { month: "2-digit", year: "numeric", timeZone: "Asia/Karachi" }).format(value);
+};
+const titleLines = (title: string) => {
+    const [heading, ...description] = title.split(/\r?\n/);
+    return { heading, description: description.join("\n").trim() };
+};
+function OfferImage({ offer }: { offer: Offer }) {
+    const [failed, setFailed] = useState(false);
+    useEffect(() => setFailed(false), [offer.image]);
+    return offer.image && !failed ? <img src={offer.image} alt={titleLines(offer.title).heading} onError={() => setFailed(true)} />
+        : <div className="ic-image-empty"><TbPhoto aria-hidden="true" /><span>{failed ? "Image unavailable" : "Text-only card"}</span></div>;
 }
-
-interface FormData {
-    title: string;
-    image: File | null;
+function CardBadge({ offer }: { offer: Offer }) {
+    return <span className={`ic-badge ${offer.image ? "ic-badge-image" : "ic-badge-text"}`}>
+        {offer.image ? <TbPhoto aria-hidden="true" /> : <TbFileDescription aria-hidden="true" />}
+        {offer.image ? "Image" : "Text Only"}
+    </span>;
 }
-
-interface SnackbarState {
-    open: boolean;
-    message: string;
-    severity: "success" | "error";
+function MoreActions({ title, busy, onView, onEdit, onDelete }: {
+    title: string; busy: boolean; onView: () => void; onEdit: () => void; onDelete: () => void;
+}) {
+    const menuRef = useRef<HTMLDetailsElement>(null);
+    useEffect(() => {
+        const closeOutside = (event: PointerEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) menuRef.current.open = false;
+        };
+        const closeOnEscape = (event: KeyboardEvent) => {
+            if (event.key === "Escape" && menuRef.current?.open) {
+                menuRef.current.open = false;
+                menuRef.current.querySelector("summary")?.focus();
+            }
+        };
+        document.addEventListener("pointerdown", closeOutside);
+        document.addEventListener("keydown", closeOnEscape);
+        return () => {
+            document.removeEventListener("pointerdown", closeOutside);
+            document.removeEventListener("keydown", closeOnEscape);
+        };
+    }, []);
+    const choose = (action: () => void) => {
+        if (menuRef.current) menuRef.current.open = false;
+        action();
+    };
+    return <details className="ic-more" ref={menuRef}>
+        <summary aria-label={`More actions for ${title}`}><TbDotsVertical aria-hidden="true" /></summary>
+        <div className="ic-more-menu" aria-label={`Actions for ${title}`}>
+            <button onClick={() => choose(onView)}><TbEye aria-hidden="true" />View offer</button>
+            <button onClick={() => choose(onEdit)} disabled={busy}><TbPencil aria-hidden="true" />Edit offer</button>
+            <button className="ic-more-delete" onClick={() => choose(onDelete)} disabled={busy}><TbTrash aria-hidden="true" />Delete offer</button>
+        </div>
+    </details>;
 }
-
 export default function SpecialOffers() {
     const [offers, setOffers] = useState<Offer[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [showForm, setShowForm] = useState<boolean>(false);
-    const [editMode, setEditMode] = useState<boolean>(false);
-    const [submitting, setSubmitting] = useState<boolean>(false);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState("");
+    const [showForm, setShowForm] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
     const [currentOffer, setCurrentOffer] = useState<Offer | null>(null);
-    const [formData, setFormData] = useState<FormData>({
-        title: "",
-        image: null,
-    });
-    const [imagePreview, setImagePreview] = useState<string>("");
-    const [snackbar, setSnackbar] = useState<SnackbarState>({
-        open: false,
-        message: "",
-        severity: "success",
-    });
+    const [title, setTitle] = useState("");
+    const [image, setImage] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState("");
+    const [search, setSearch] = useState("");
+    const [filter, setFilter] = useState("all");
+    const [sort, setSort] = useState("latest");
+    const [view, setView] = useState<"grid" | "list">("grid");
+    const [viewOffer, setViewOffer] = useState<Offer | null>(null);
+    const titleRef = useRef<HTMLTextAreaElement>(null);
+    const fileRef = useRef<HTMLInputElement>(null);
+    const dialogRef = useRef<HTMLDialogElement>(null);
+    const busy = submitting || deletingId !== null;
 
-    useEffect(() => {
-        fetchOffers();
-    }, []);
-
-    const fetchOffers = async () => {
+    const fetchOffers = useCallback(async () => {
+        setLoading(true); setLoadError("");
         try {
-            setLoading(true);
             const response = await axiosInstance.get("/specialOffer/getSpecialOffers");
-            if (response.data.success) {
-                setOffers(response.data.data);
-            }
-        } catch (error) {
-            showSnackbar("Failed to fetch offers", "error");
-        } finally {
-            setLoading(false);
-        }
+            if (!response.data.success) throw new Error("Failed to load offers");
+            setOffers(response.data.data);
+        } catch (error) { setLoadError(errorMessage(error, "Unable to load index cards. Please try again.")); }
+        finally { setLoading(false); }
+    }, []);
+    useEffect(() => { void fetchOffers(); }, [fetchOffers]);
+    useEffect(() => {
+        if (!image) { setImagePreview(currentOffer?.image || ""); return; }
+        const url = URL.createObjectURL(image); setImagePreview(url);
+        return () => URL.revokeObjectURL(url);
+    }, [image, currentOffer]);
+    useEffect(() => { if (showForm) titleRef.current?.focus(); }, [showForm, currentOffer]);
+    useEffect(() => {
+        const dialog = dialogRef.current;
+        if (viewOffer && dialog && !dialog.open) dialog.showModal();
+        else if (!viewOffer && dialog?.open) dialog.close();
+    }, [viewOffer]);
+    const openForm = (offer: Offer | null = null) => {
+        setCurrentOffer(offer); setTitle(offer?.title || ""); setImage(null);
+        if (fileRef.current) fileRef.current.value = "";
+        setShowForm(true); window.scrollTo({ top: 0, behavior: "smooth" });
     };
-
-    const handleOpenForm = (offer: Offer | null = null) => {
-        if (offer) {
-            setEditMode(true);
-            setCurrentOffer(offer);
-            setFormData({ title: offer.title, image: null });
-            setImagePreview(offer.image);
-        } else {
-            setEditMode(false);
-            setCurrentOffer(null);
-            setFormData({ title: "", image: null });
-            setImagePreview("");
-        }
-        setShowForm(true);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
-    const handleCloseForm = () => {
-        setShowForm(false);
-        setEditMode(false);
-        setCurrentOffer(null);
-        setFormData({ title: "", image: null });
-        setImagePreview("");
-    };
-
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setFormData({ ...formData, image: file });
-            setImagePreview(URL.createObjectURL(file));
-        }
-    };
-
-    const handleSubmit = async () => {
+    const closeForm = () => { setShowForm(false); setCurrentOffer(null); setTitle(""); setImage(null); };
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault(); if (!title.trim() || busy) return; setSubmitting(true);
         try {
-            setSubmitting(true);
-            const data = new FormData();
-            data.append("title", formData.title);
-            if (formData.image) {
-                data.append("image", formData.image);
-            }
-
-            if (editMode && currentOffer) {
-                data.append("id", currentOffer._id);
-                const response = await axiosInstance.put("/specialOffer/updateSpecialOffer", data, {
-                    headers: { "Content-Type": "multipart/form-data" },
-                });
-                if (response.data.success) {
-                    showSnackbar("Offer updated successfully", "success");
-                    fetchOffers();
-                    handleCloseForm();
-                }
-            } else {
-                const response = await axiosInstance.post("/specialOffer/createSpecialOffer", data, {
-                    headers: { "Content-Type": "multipart/form-data" },
-                });
-                if (response.data.success) {
-                    showSnackbar("Offer created successfully", "success");
-                    fetchOffers();
-                    handleCloseForm();
-                }
-            }
-        } catch (error: any) {
-            showSnackbar(error.response?.data?.message || "Operation failed", "error");
-        } finally {
-            setSubmitting(false);
-        }
+            const data = new FormData(); data.append("title", title);
+            if (image) data.append("image", image);
+            if (currentOffer) data.append("id", currentOffer._id);
+            const response = currentOffer
+                ? await axiosInstance.put("/specialOffer/updateSpecialOffer", data, { headers: { "Content-Type": "multipart/form-data" } })
+                : await axiosInstance.post("/specialOffer/createSpecialOffer", data, { headers: { "Content-Type": "multipart/form-data" } });
+            if (!response.data.success) { toast.error(response.data.message || "Unable to save offer"); return; }
+            const saved: Offer = response.data.data;
+            setOffers(previous => currentOffer ? previous.map(offer => offer._id === saved._id ? saved : offer) : [saved, ...previous]);
+            toast.success(currentOffer ? "Offer updated successfully" : "Offer created successfully"); closeForm();
+        } catch (error) { toast.error(errorMessage(error, "Unable to save offer. Please try again.")); }
+        finally { setSubmitting(false); }
     };
-
-    const handleDelete = async (id: string) => {
-        if (!window.confirm("Are you sure you want to delete this offer?")) return;
+    const handleDelete = async (offer: Offer) => {
+        if (busy || !window.confirm("Are you sure you want to delete this offer?")) return;
+        setDeletingId(offer._id);
         try {
-            const response = await axiosInstance.delete("/specialOffer/deleteSpecialOffer", { data: { id } });
-            if (response.data.success) {
-                showSnackbar("Offer deleted successfully", "success");
-                fetchOffers();
-            }
-        } catch (error) {
-            showSnackbar("Failed to delete offer", "error");
-        }
+            const response = await axiosInstance.delete("/specialOffer/deleteSpecialOffer", { data: { id: offer._id } });
+            if (!response.data.success) { toast.error(response.data.message || "Unable to delete offer"); return; }
+            setOffers(previous => previous.filter(item => item._id !== offer._id));
+            if (currentOffer?._id === offer._id) closeForm();
+            toast.success("Offer deleted successfully");
+        } catch (error) { toast.error(errorMessage(error, "Unable to delete offer. Please try again.")); }
+        finally { setDeletingId(null); }
     };
-
-    const showSnackbar = (message: string, severity: "success" | "error") => {
-        setSnackbar({ open: true, message, severity });
-        setTimeout(() => handleCloseSnackbar(), 3000);
-    };
-
-    const handleCloseSnackbar = () => setSnackbar({ ...snackbar, open: false });
-
-    if (loading) {
-        return (
-            <div className="flex justify-center items-center min-h-[400px]">
-                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="p-6 max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-8">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-800">Index Cards</h1>
-                    <p className="text-gray-500">Manage your promotional content</p>
-                </div>
-                {!showForm && (
-                    <button
-                        onClick={() => handleOpenForm()}
-                        className="flex items-center gap-2 px-6 py-3 bg-[#1e4a76] text-white rounded-xl hover:bg-[#153659] shadow-lg transition-all duration-200"
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add New Offer
-                    </button>
-                )}
-            </div>
-
-            {/* Inline Form Section */}
-            {showForm && (
-                <div className="mb-10 bg-white border border-blue-100 rounded-2xl shadow-sm overflow-hidden animate-fade-in">
-                    <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-                        <h2 className="text-xl font-semibold text-gray-700">
-                            {editMode ? "Edit Offer Details" : "Create New Offer"}
-                        </h2>
-                        <button onClick={handleCloseForm} className="text-gray-400 hover:text-gray-600">
-                            Cancel
-                        </button>
-                    </div>
-
-                    <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-1">Offer Title</label>
-                                <textarea
-                                    rows={3}
-                                    value={formData.title}
-                                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-y"
-                                    placeholder="e.g. Summer Sale 2026&#10;More details here..."
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-1">Offer Image (optional)</label>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleImageChange}
-                                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                                />
-                            </div>
-                            <div className="flex gap-3 pt-4">
-                                <button
-                                    onClick={handleSubmit}
-                                    disabled={submitting || !formData.title.trim()}
-                                    className="flex items-center justify-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg font-medium disabled:bg-gray-400 disabled:cursor-not-allowed transition-all min-w-[140px]"
-                                >
-                                    {submitting ? (
-                                        <>
-                                            <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                            </svg>
-                                            <span>Processing...</span>
-                                        </>
-                                    ) : (
-                                        editMode ? "Save Changes" : "Create Offer"
-                                    )}
-                                </button>
-                                <button
-                                    onClick={handleCloseForm}
-                                    className="px-6 py-2 border border-gray-200 text-gray-600 rounded-lg"
-                                >
-                                    Dismiss
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="bg-gray-50 rounded-xl border border-dashed border-gray-300 flex items-center justify-center p-4 min-h-[200px]">
-                            {imagePreview ? (
-                                <img src={imagePreview} alt="Preview" className="max-h-48 rounded shadow-sm" />
-                            ) : (
-                                <span className="text-gray-400 text-sm">Image preview will appear here</span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Offers Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {offers.map((offer) => (
-                    <div key={offer._id} className="bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-overflow-hidden">
-                        {offer.image && (
-                            <img
-                                src={offer.image}
-                                alt={offer.title}
-                                className="w-full h-40 object-cover rounded-t-xl"
-                            />
-                        )}
-                        <div className="p-4">
-                            <h3 className="font-bold text-gray-800 truncate">{offer.title}</h3>
-                            <div className="mt-4 flex justify-between items-center">
-                                <span className="text-xs text-gray-400">{new Date(offer.createdAt).toLocaleDateString()}</span>
-                                <div className="flex gap-2">
-                                    <button onClick={() => handleOpenForm(offer)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg">
-                                        Edit
-                                    </button>
-                                    <button onClick={() => handleDelete(offer._id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
-                                        Delete
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* Snackbar */}
-            {snackbar.open && (
-                <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-slide-up">
-                    <div className={`w-2 h-2 rounded-full ${snackbar.severity === 'success' ? 'bg-green-400' : 'bg-red-400'}`} />
-                    {snackbar.message}
-                </div>
-            )}
-
-            <style>{`
-                @keyframes fade-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-                .animate-fade-in { animation: fade-in 0.3s ease-out; }
-                @keyframes slide-up { from { bottom: -50px; opacity: 0; } to { bottom: 40px; opacity: 1; } }
-                .animate-slide-up { animation: slide-up 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-            `}</style>
+    const withImages = offers.filter(offer => offer.image).length;
+    const currentMonth = monthLabel(new Date().toISOString());
+    const stats = [
+        { label: "Total Cards", value: offers.length, description: "All promotional content", icon: TbStack2, color: "blue" },
+        { label: "With Images", value: withImages, description: "Image-based promotions", icon: TbPhoto, color: "green" },
+        { label: "Text Only", value: offers.length - withImages, description: "Cards without an image", icon: TbFileDescription, color: "amber" },
+        { label: "Added This Month", value: offers.filter(offer => monthLabel(offer.createdAt) === currentMonth).length, description: "Recently created content", icon: TbCalendar, color: "pink" },
+    ];
+    const visibleOffers = offers.filter(offer => offer.title.toLowerCase().includes(search.trim().toLowerCase()) && (filter === "all" || (filter === "images" ? !!offer.image : !offer.image)))
+        .sort((a, b) => sort === "title" ? a.title.localeCompare(b.title) : ((Date.parse(a.createdAt) || 0) - (Date.parse(b.createdAt) || 0)) * (sort === "latest" ? -1 : 1));
+    return <div className="index-cards">
+        <PageMeta title="Index Cards | Travel Portal" description="Manage your promotional index cards and offers." />
+        <nav className="ic-breadcrumb" aria-label="Breadcrumb"><Link to="/" aria-label="Dashboard home"><TbHome /></Link><span className="ic-breadcrumb-divider" /><Link to="/">Dashboard</Link><TbChevronRight aria-hidden="true" /><span aria-current="page">Index Cards</span></nav>
+        <header className="ic-heading"><div><h1>Index Cards</h1><p>Manage your promotional content</p></div><button className="ic-primary" onClick={() => openForm()} disabled={busy}><TbPlus aria-hidden="true" />Add New Offer</button></header>
+        <div className="ic-stats" aria-label="Index card summaries">{stats.map(({ label, value, description, icon: Icon, color }) => <div className={`ic-stat ic-stat-${color}`} key={label}><span className="ic-stat-icon"><Icon aria-hidden="true" /></span><div><strong>{loading || loadError ? "—" : value}</strong><h2>{label}</h2><p>{description}</p></div></div>)}</div>
+        {showForm && <section className="ic-form-panel" aria-labelledby="ic-form-heading">
+            <div className="ic-form-heading"><h2 id="ic-form-heading">{currentOffer ? "Edit Offer Details" : "Create New Offer"}</h2><button className="ic-button" onClick={closeForm} disabled={busy}><TbX aria-hidden="true" />Cancel</button></div>
+            <form id="ic-form" onSubmit={handleSubmit}><fieldset disabled={busy} className="ic-form-grid"><div className="ic-form-fields">
+                <label htmlFor="ic-title">Offer Title <span>*</span></label><textarea id="ic-title" name="title" ref={titleRef} rows={4} required value={title} onChange={event => setTitle(event.target.value)} placeholder={"e.g. Umrah Special Offer 2026\nMore details here..."} />
+                <label htmlFor="ic-image">Offer Image <span className="ic-optional">(optional)</span></label><div className="ic-upload"><TbUpload aria-hidden="true" /><input id="ic-image" name="image" ref={fileRef} type="file" accept="image/*" onChange={event => {
+                    const file = event.target.files?.[0] || null;
+                    if (file && !file.type.startsWith("image/")) { toast.error("Please choose an image file."); event.target.value = ""; return; }
+                    setImage(file);
+                }} /></div>
+                <div className="ic-form-actions"><button type="submit" className="ic-primary" disabled={busy || !title.trim()}>{submitting ? "Saving..." : currentOffer ? "Save Changes" : "Create Offer"}</button><button type="button" className="ic-button" onClick={closeForm}>Dismiss</button></div>
+            </div><div className="ic-image-preview">{imagePreview ? <img src={imagePreview} alt="Offer preview" /> : <><TbPhoto aria-hidden="true" /><p>Image preview will appear here</p></>}</div></fieldset></form>
+        </section>}
+        <div className="ic-toolbar">
+            <div className="ic-search"><TbSearch aria-hidden="true" /><input id="ic-search" type="search" aria-label="Search index cards" placeholder="Search index cards by title or description..." value={search} onChange={event => setSearch(event.target.value)} /></div>
+            <div className="ic-select"><select id="ic-filter" aria-label="Filter card content" value={filter} onChange={event => setFilter(event.target.value)}><option value="all">All Content</option><option value="images">With Images</option><option value="text">Text Only</option></select><TbChevronDown aria-hidden="true" /></div>
+            <div className="ic-select ic-sort"><TbArrowsSort aria-hidden="true" /><select id="ic-sort" aria-label="Sort index cards" value={sort} onChange={event => setSort(event.target.value)}><option value="latest">Sort by Latest</option><option value="oldest">Sort by Oldest</option><option value="title">Sort by Title</option></select><TbChevronDown aria-hidden="true" /></div>
+            <div className="ic-view-toggle" role="group" aria-label="Card layout"><button aria-label="Grid view" aria-pressed={view === "grid"} onClick={() => setView("grid")}><TbLayoutGrid /></button><button aria-label="List view" aria-pressed={view === "list"} onClick={() => setView("list")}><TbList /></button></div>
         </div>
-    );
+        {loading ? <div className="ic-state" role="status"><span className="ic-spinner" />Loading index cards...</div>
+            : loadError ? <div className="ic-state" role="alert"><TbInbox /><h2>Unable to load index cards</h2><p>{loadError}</p><button className="ic-button" onClick={() => void fetchOffers()}>Retry</button></div>
+            : visibleOffers.length === 0 ? <div className="ic-state"><TbInbox /><h2>{offers.length ? "No matching cards" : "No index cards yet"}</h2><p>{offers.length ? "Try another search or content filter." : "Create your first offer to start sharing promotional content."}</p><button className="ic-button" disabled={busy} onClick={() => { if (offers.length) { setSearch(""); setFilter("all"); } else openForm(); }}>{offers.length ? "Clear filters" : "Add New Offer"}</button></div>
+            : <div className={`ic-cards ic-cards-${view}`} aria-label="Promotional cards">{visibleOffers.map(offer => {
+                const { heading, description } = titleLines(offer.title);
+                return <article className="ic-card" key={offer._id}>
+                    <div className="ic-card-image"><OfferImage offer={offer} />{view === "grid" && <CardBadge offer={offer} />}</div>
+                    <div className="ic-card-content">{view === "list" && <CardBadge offer={offer} />}<h2>{heading}</h2>{description && <p className="ic-card-description">{description}</p>}<time className="ic-date" dateTime={offer.createdAt}><TbCalendar aria-hidden="true" />{dateLabel(offer.createdAt)}</time></div>
+                    <div className="ic-card-actions">
+                        {view === "list" ? <MoreActions title={heading} busy={busy} onView={() => setViewOffer(offer)} onEdit={() => openForm(offer)} onDelete={() => void handleDelete(offer)} /> : <>
+                            <button className="ic-button ic-view" aria-label={`View ${heading}`} onClick={() => setViewOffer(offer)}><TbEye aria-hidden="true" />View</button>
+                            <button className="ic-button ic-edit" aria-label={`Edit ${heading}`} onClick={() => openForm(offer)} disabled={busy}><TbPencil aria-hidden="true" />Edit</button>
+                            <button className="ic-button ic-delete" aria-label={`Delete ${heading}`} onClick={() => void handleDelete(offer)} disabled={busy}><TbTrash aria-hidden="true" />{deletingId === offer._id ? "Deleting..." : "Delete"}</button>
+                        </>}
+                    </div>
+                </article>;
+            })}</div>}
+        {!loading && !loadError && offers.length > 0 && <p className="ic-results" role="status">Showing {visibleOffers.length} of {offers.length} cards</p>}
+        <dialog ref={dialogRef} className="ic-dialog" aria-labelledby="ic-view-title" onCancel={() => setViewOffer(null)} onClose={() => setViewOffer(null)} onClick={event => { if (event.target === event.currentTarget) setViewOffer(null); }}>
+            {viewOffer && <div className="ic-dialog-content"><div className="ic-dialog-heading"><h2 id="ic-view-title">Offer Preview</h2><button className="ic-button" aria-label="Close offer preview" onClick={() => setViewOffer(null)}><TbX /></button></div>{viewOffer.image && <div className="ic-dialog-image"><OfferImage offer={viewOffer} /></div>}<h3>{titleLines(viewOffer.title).heading}</h3>{titleLines(viewOffer.title).description && <p>{titleLines(viewOffer.title).description}</p>}<time className="ic-date" dateTime={viewOffer.createdAt}><TbCalendar aria-hidden="true" />{dateLabel(viewOffer.createdAt)}</time></div>}
+        </dialog>
+    </div>;
 }

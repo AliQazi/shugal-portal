@@ -10,7 +10,7 @@ export default defineConfig({
     port: 5174, // or any other
     // rewrite all requests to index.html for SPA routing
     fs: {
-      allow: ["./"],
+      allow: ["./", "../shared"],
     },
   },
   plugins: [

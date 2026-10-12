@@ -1,6 +1,6 @@
 export const companyContact = {
   name: "Stack Works Flow",
-  mobile: "03247629076",
+  mobile: "03331546241",
   email: "aliqazi1996@gmail.com",
   address: "Faisalabad",
   website: "shaheenwingstravels.com",

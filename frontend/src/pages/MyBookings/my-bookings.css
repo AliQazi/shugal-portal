@@ -75,7 +75,7 @@
 .agent-bookings-search input { padding-left: 42px; }
 .agent-bookings-search input::placeholder { color: #6a86ad; opacity: 1; }
 .agent-bookings-date > div,
-.agent-bookings-date .react-datepicker-wrapper { width: 100%; }
+.agent-bookings-date .calendar-date-wrapper { width: 100%; }
 .agent-bookings-date input { padding-left: 38px; }
 .agent-bookings-reset {
   display: inline-flex;

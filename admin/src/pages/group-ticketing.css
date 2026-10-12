@@ -1,0 +1,159 @@
+.group-ticketing-page {
+  --gt-ink: #0c2049; --gt-muted: #6b7fa3; --gt-border: #dbe3f0;
+  --gt-surface: #fff; --gt-soft: #f3f7ff; --gt-blue: #1263ff;
+  width: 100%; min-width: 0; color: var(--gt-ink);
+}
+.group-ticketing-page :is(a, button, input, select, [tabindex]):focus-visible { outline: 3px solid #8ab4ff; outline-offset: 3px; }
+.group-ticketing-page button { cursor: pointer; }
+.group-ticketing-page button:disabled { cursor: not-allowed; opacity: .5; }
+.gt-page-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+.group-ticketing-page .gt-page-heading h1 { font-size: 32px; line-height: 1.25; font-weight: 750; color: var(--gt-ink); letter-spacing: -.03em; }
+.gt-page-heading p { margin-top: 6px; font-size: 18px; color: var(--gt-muted); }
+.gt-page-heading nav { display: flex; align-items: center; gap: 10px; padding-top: 6px; font-size: 15px; white-space: nowrap; }
+.gt-page-heading nav a { color: var(--gt-muted); }
+.gt-page-heading nav a:hover { color: var(--gt-blue); }
+.gt-page-heading nav svg { width: 17px; height: 17px; color: var(--gt-muted); }
+.gt-panel { border: 1px solid #fff; border-radius: 19px; background: var(--gt-surface); box-shadow: 0 6px 20px #31527a07; }
+.gt-banner { display: flex; align-items: center; gap: 25px; min-height: 108px; padding: 16px 28px; border-radius: 18px 18px 0 0; background: #eef5ff url("../assets/images/group-ticketing-banner-v2.png") right center / 100% auto no-repeat; }
+.gt-banner-icon { display: grid; place-items: center; flex-shrink: 0; width: 74px; height: 74px; border-radius: 17px; background: #dde8ff; color: #1768ff; }
+.gt-banner-icon svg { width: 43px; height: 43px; }
+.gt-banner h2 { font-size: 29px; font-weight: 750; letter-spacing: -.03em; line-height: 1.25; }
+.gt-banner p { margin-top: 5px; font-size: 18px; color: var(--gt-muted); }
+.gt-create { display: inline-flex; align-items: center; justify-content: center; gap: 11px; min-height: 49px; margin-left: auto; padding: 0 21px; border: 1px solid #1665ff; border-radius: 11px; background: #216bff; color: #fff; font-size: 16px; font-weight: 650; white-space: nowrap; box-shadow: 0 3px 9px #1665ff0a; }
+.gt-create svg { width: 20px; height: 20px; }
+.gt-create:hover { background: #0d58e9; }
+.gt-content { padding: 21px 28px 23px; min-width: 0; }
+.gt-filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.07fr); gap: 26px; }
+.gt-filters label { display: block; margin-bottom: 8px; font-size: 16px; font-weight: 650; }
+.gt-filter-control { display: flex; align-items: center; position: relative; min-width: 0; height: 51px; border: 1px solid var(--gt-border); border-radius: 20px; background: var(--gt-surface); box-shadow: 0 3px 8px #15356803; }
+.gt-filter-control > svg:first-child { flex-shrink: 0; width: 24px; height: 24px; margin-left: 19px; color: var(--gt-ink); }
+.gt-filter-control input, .gt-filter-control select { min-width: 0; width: 100%; height: 100%; background: transparent; color: var(--gt-ink); border: 0; padding: 0 18px; border-radius: inherit; outline: none; font-size: 16px; }
+.gt-filter-control input::placeholder { color: var(--gt-muted); }
+.gt-filter-control select { appearance: none; padding-right: 42px; cursor: pointer; }
+.gt-filter-control:focus-within { border-color: #87adff; box-shadow: 0 0 0 3px #1263ff0b; }
+.gt-filter-control select option { background: var(--gt-surface); }
+.gt-chevron { position: absolute; right: 16px; width: 18px; height: 18px; color: var(--gt-ink); pointer-events: none; }
+.gt-table-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin: 19px 0 23px; }
+.gt-entries { display: flex; align-items: center; gap: 10px; color: #526b94; font-size: 16px; }
+.gt-entries > span { position: relative; }
+.group-ticketing-page .gt-entries select { appearance: none; width: 94px; height: 47px; border: 1px solid var(--gt-border); border-radius: 24px; padding: 0 32px 0 20px; background: var(--gt-surface); color: var(--gt-ink); cursor: pointer; }
+.gt-entries svg { position: absolute; right: 16px; top: 15px; width: 18px; height: 18px; pointer-events: none; }
+.gt-total { display: inline-flex; align-items: center; gap: 11px; min-height: 46px; padding: 0 18px; border-radius: 11px; background: #edf3ff; color: #2c4878; font-weight: 600; font-size: 15px; }
+.gt-total svg { width: 21px; height: 21px; color: #216bff; }
+.gt-table-scroll { min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: #b6c5de #eff4fb; }
+.group-ticketing-page .gt-table { width: 100%; min-width: 1210px; table-layout: fixed; border-collapse: collapse; }
+.gt-col-number { width: 3%; }.gt-col-group { width: 24%; }.gt-col-route { width: 11%; }.gt-col-airline { width: 18%; }.gt-col-seats { width: 12%; }.gt-col-price { width: 13%; }.gt-col-actions { width: 19%; }
+.group-ticketing-page .gt-table th { padding: 16px 18px; height: 55px; text-align: left; background: #eaf0fb; color: #324d76; border-bottom: 1px solid var(--gt-border); font-size: 15px; font-weight: 650; letter-spacing: 0; white-space: nowrap; }
+.gt-table th:first-child { border-radius: 8px 0 0 0; }
+.gt-table th:last-child { border-radius: 0 8px 0 0; }
+.gt-table th button { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; text-align: left; }
+.gt-table th svg { width: 16px; height: 16px; flex-shrink: 0; color: #9cacc6; }
+.gt-table th svg.is-active { color: var(--gt-blue); }
+.group-ticketing-page .gt-table td { padding: 18px; border-bottom: 1px solid #e9eef7; color: var(--gt-ink); background: var(--gt-surface); vertical-align: middle; font-size: 16px; }
+.group-ticketing-page .gt-table tbody tr:last-child td { border-bottom: 1px solid #e9eef7; }
+.gt-table tbody tr:hover td { background: var(--gt-soft); }
+.group-ticketing-page .gt-table .gt-row-number { color: #526b94; font-size: 15px; }
+.gt-group-info { display: flex; align-items: center; gap: 25px; min-width: 0; }
+.gt-group-info > div { min-width: 0; }
+.gt-group-icon { display: grid; place-items: center; width: 48px; height: 48px; flex-shrink: 0; border-radius: 17px; background: #e0eaff; color: #216bff; }
+.gt-group-icon svg { width: 28px; height: 28px; }
+.gt-group-info strong { display: block; font-size: 16px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
+.gt-group-info p { margin-top: 5px; font-size: 14px; line-height: 1.4; color: var(--gt-muted); overflow-wrap: anywhere; }
+.gt-meta-divider { margin: 0 2px; }
+.gt-group-badge { display: inline-flex; align-items: center; margin-top: 5px; padding: 4px 10px; border-radius: 11px; background: #f0dfff; color: #7912df; font-size: 13px; font-weight: 600; line-height: 1.3; }
+.gt-routes { display: flex; flex-direction: column; gap: 14px; }
+.gt-route-codes { display: flex; align-items: center; gap: 12px; font-size: 17px; }
+.gt-route-codes strong { font-weight: 700; }
+.gt-route-codes svg { width: 23px; height: 23px; color: #1768ff; flex-shrink: 0; }
+.gt-route-cities { display: flex; align-items: flex-start; gap: 15px; margin-top: 4px; color: var(--gt-muted); font-size: 14px; }
+.gt-route-cities span { overflow-wrap: anywhere; min-width: 0; }
+.gt-route-date { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 7px; font-size: 14px; color: var(--gt-muted); }
+.gt-route-date > svg { width: 20px; height: 20px; flex-shrink: 0; color: #4a6490; }
+.gt-departure-time { font-size: 11px; color: #8798b4; }
+.gt-airline-info { display: flex; align-items: center; gap: 18px; }
+.gt-airline-info > div { min-width: 0; }
+.gt-airline-info strong { display: block; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
+.gt-airline-logo { display: grid; place-items: center; width: 39px; height: 39px; flex-shrink: 0; border-radius: 6px; overflow: hidden; }
+.gt-airline-logo img { width: 100%; height: 100%; object-fit: contain; }
+.gt-airline-logo-empty { background: #edf3ff; color: #4a7cce; }
+.gt-airline-logo-empty svg { width: 24px; height: 24px; }
+.gt-pnr { display: inline-block; margin-top: 5px; border-radius: 8px; padding: 5px 13px; background: #edf5ff; color: #1768ff; font-size: 14px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.gt-muted { color: var(--gt-muted); font-size: 13px; }
+.gt-no-pnr { display: block; margin-top: 5px; }
+.gt-seats { display: flex; align-items: center; gap: 13px; min-height: 76px; padding: 12px 17px; border-radius: 13px; background: #f0fbf5; }
+.gt-seats > svg { width: 28px; height: 28px; flex-shrink: 0; color: #00a046; }
+.gt-seats strong { display: block; font-size: 16px; font-weight: 700; line-height: 1.4; }
+.gt-seats span { display: block; margin-top: 2px; color: var(--gt-muted); text-transform: uppercase; font-size: 11px; white-space: nowrap; }
+.gt-seats-blue { background: #eef3ff; }
+.gt-seats-blue > svg { color: #216bff; }
+.gt-price strong { display: block; color: #009e36; font-size: 21px; font-weight: 750; line-height: 1.4; white-space: nowrap; }
+.gt-price span { display: block; margin-top: 2px; color: var(--gt-muted); font-size: 14px; }
+.gt-on-call { color: #df3657 !important; font-size: 15px !important; }
+.gt-row-actions { display: flex; align-items: center; gap: 11px; }
+.gt-edit, .gt-delete, .gt-more-button { display: inline-flex; align-items: center; justify-content: center; gap: 11px; flex-shrink: 0; height: 47px; border: 1px solid #74a0ff; border-radius: 9px; padding: 0 17px; font-size: 15px; font-weight: 600; background: #f8faff; color: #216bff; }
+.gt-edit svg, .gt-delete svg { width: 21px; height: 21px; }
+.gt-delete { border-color: #ff8a9e; color: #ff2548; background: #fffafb; }
+.gt-more-button { width: 45px; border-color: var(--gt-border); padding: 0; background: var(--gt-surface); color: #59719a; margin-left: auto; }
+.gt-more-button svg { width: 22px; height: 22px; }
+.gt-edit:hover { background: #edf3ff; }.gt-delete:hover:not(:disabled) { background: #fff0f3; }.gt-more-button:hover { background: var(--gt-soft); }
+.gt-more-menu { position: fixed; width: 200px; z-index: 100001; padding: 6px; border: 1px solid #dbe3f0; border-radius: 10px; background: #fff; color: #0c2049; box-shadow: 0 8px 30px #1b3f741c; }
+.gt-more-menu button { display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 10px; border-radius: 7px; text-align: left; font-size: 13px; cursor: pointer; }
+.gt-more-menu button:hover { background: #f0f5ff; }.gt-more-menu button:focus-visible { outline: 2px solid #8ab4ff; }
+.gt-more-menu button svg { width: 17px; height: 17px; }.gt-more-menu .gt-menu-delete { color: #e72f4e; }
+.gt-pagination-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 18px; color: var(--gt-muted); font-size: 16px; }
+.gt-pagination-footer nav { display: flex; align-items: center; gap: 8px; }
+.gt-pagination-footer button { display: grid; place-items: center; min-width: 44px; height: 47px; border: 1px solid var(--gt-border); border-radius: 8px; background: var(--gt-surface); color: #5d759e; font-size: 16px; }
+.gt-pagination-footer button svg { width: 20px; height: 20px; }
+.gt-pagination-footer button[aria-current="page"] { background: #216bff; border-color: #216bff; color: #fff; box-shadow: 0 3px 8px #216bff12; }
+.gt-pagination-footer button:hover:not(:disabled):not([aria-current]) { background: var(--gt-soft); }
+.gt-page-item { display: inline-flex; align-items: center; gap: 8px; }.gt-page-ellipsis { color: var(--gt-muted); }
+.gt-empty { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; min-height: 170px; padding: 25px; color: var(--gt-muted); text-align: center; }
+.gt-empty > svg { width: 35px; height: 35px; color: #6796e7; }
+.gt-empty button { border: 1px solid var(--gt-border); border-radius: 8px; background: var(--gt-soft); color: var(--gt-blue); padding: 9px 15px; font-size: 13px; font-weight: 600; }
+.gt-load-error { color: #c22c46; }
+.gt-mobile-sort { display: none; }
+.dark .group-ticketing-page { --gt-ink: #dbe8fc; --gt-muted: #a2b7d8; --gt-border: #344a67; --gt-surface: #192c44; --gt-soft: #213a59; --gt-blue: #8bb8ff; }
+.dark .gt-panel { border-color: var(--gt-border); }
+.dark .gt-banner { background-color: #203c61; background-image: none; }
+.dark .gt-banner-icon, .dark .gt-group-icon { background: #2a4776; color: #91baff; }
+.dark .gt-entries { color: var(--gt-muted); }
+.dark .gt-total { background: #223e65; color: #c6dbff; }
+.dark .gt-total svg { color: #8abaff; }
+.dark .group-ticketing-page .gt-table th { background: #243d5e; color: #c6d9f5; }
+.dark .group-ticketing-page .gt-table td { border-color: var(--gt-border); }
+.dark .gt-group-badge { background: #41345f; color: #d6b2ff; }
+.dark .gt-pnr, .dark .gt-airline-logo-empty { background: #254367; color: #96c0ff; }
+.dark .gt-seats { background: #1e4137; }.dark .gt-seats-blue { background: #233e67; }
+.dark .gt-seats > svg, .dark .gt-price strong { color: #67dfa5; }.dark .gt-seats-blue > svg { color: #84b3ff; }
+.dark .gt-edit { background: #233e67; color: #9dc2ff; border-color: #6485bb; }.dark .gt-delete { background: #452c42; color: #ffa8b9; border-color: #a15d75; }
+.dark .gt-more-menu { background: #192c44; color: #dbe8fc; border-color: #344a67; }.dark .gt-more-menu button:hover { background: #213a59; }.dark .gt-more-menu .gt-menu-delete { color: #ffa8b9; }
+@media (max-width: 1599px) {
+  .gt-group-info { gap: 14px; }.gt-airline-info { gap: 11px; }
+  .group-ticketing-page .gt-table td, .group-ticketing-page .gt-table th { padding-left: 12px; padding-right: 12px; }
+  .group-ticketing-page .gt-table th { font-size: 12px; }.gt-group-info strong, .gt-airline-info strong { font-size: 14px; }
+  .gt-group-info p { font-size: 12px; }.gt-group-badge { font-size: 11px; }.gt-group-icon { width: 42px; height: 42px; }
+  .gt-seats { padding: 12px 10px; gap: 8px; }.gt-seats span { font-size: 9px; }.gt-seats > svg { width: 23px; height: 23px; }
+  .gt-price strong { font-size: 18px; }.gt-edit, .gt-delete { padding: 0 12px; gap: 7px; font-size: 13px; }.gt-more-button { width: 35px; }.gt-row-actions { gap: 7px; }
+}
+@media (max-width: 1099px) {
+  .gt-page-heading { margin-bottom: 20px; }.group-ticketing-page .gt-page-heading h1 { font-size: 29px; }.gt-page-heading p { font-size: 15px; }.gt-page-heading nav { font-size: 13px; }
+  .gt-banner { gap: 17px; padding: 16px 20px; background-size: auto 420px; }
+  .gt-banner-icon { width: 58px; height: 58px; }.gt-banner-icon svg { width: 34px; height: 34px; }.gt-banner h2 { font-size: 25px; }.gt-banner p { font-size: 14px; max-width: 330px; }.gt-create { font-size: 14px; padding: 0 16px; }
+  .gt-content { padding: 20px; }.gt-filters { gap: 18px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); }.gt-filters label { font-size: 14px; }
+  .gt-filter-control input, .gt-filter-control select { font-size: 14px; padding-left: 11px; }.gt-filter-control > svg:first-child { margin-left: 14px; }
+}
+@media (max-width: 700px) {
+  .gt-page-heading { flex-direction: column-reverse; gap: 13px; }.gt-page-heading nav { padding-top: 0; font-size: 12px; }.group-ticketing-page .gt-page-heading h1 { font-size: 28px; }.gt-page-heading p { font-size: 14px; line-height: 1.5; }
+  .gt-panel { border-radius: 15px; }.gt-banner { flex-wrap: wrap; gap: 12px; border-radius: 14px 14px 0 0; padding: 17px; background-size: auto 420px; background-position: left center; }.gt-banner-icon { width: 48px; height: 48px; border-radius: 12px; }.gt-banner-icon svg { width: 29px; height: 29px; }.gt-banner > div { flex: 1; min-width: 0; }.gt-banner h2 { font-size: 22px; }.gt-banner p { font-size: 12px; line-height: 1.5; }.gt-create { flex-basis: 100%; width: 100%; margin: 5px 0 0; min-height: 43px; }
+  .gt-content { padding: 16px 12px; }.gt-filters { grid-template-columns: 1fr; gap: 15px; }.gt-filter-control { border-radius: 13px; height: 45px; }.gt-filter-control input, .gt-filter-control select { font-size: 16px; }.gt-filter-control input { padding-right: 9px; }.gt-filter-control > svg:first-child { width: 20px; height: 20px; margin-left: 12px; }.gt-filters label { font-size: 13px; margin-bottom: 6px; }
+  .gt-table-toolbar { flex-wrap: wrap; gap: 10px; margin: 17px 0; }.gt-entries { font-size: 13px; gap: 7px; }.group-ticketing-page .gt-entries select { width: 72px; height: 38px; font-size: 16px; padding-left: 14px; }.gt-entries svg { right: 10px; top: 11px; width: 16px; height: 16px; }.gt-total { min-height: 38px; font-size: 12px; padding: 0 10px; gap: 7px; }.gt-total svg { width: 18px; height: 18px; }
+  .gt-mobile-sort { display: flex; flex-basis: 100%; align-items: center; gap: 10px; color: var(--gt-muted); font-size: 13px; }
+  .gt-mobile-sort select { flex: 1; min-width: 0; height: 40px; padding: 0 10px; border: 1px solid var(--gt-border); border-radius: 9px; background: var(--gt-surface); color: var(--gt-ink); font-size: 16px; }
+  .gt-table-scroll { overflow: visible; }.group-ticketing-page .gt-table { display: block; min-width: 0; width: 100%; }.gt-table colgroup { display: none; }.gt-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }.gt-table tbody { display: grid; gap: 14px; }.gt-table tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 14px; gap: 18px 12px; border: 1px solid var(--gt-border); border-radius: 13px; background: var(--gt-surface); }
+  .group-ticketing-page .gt-table td, .group-ticketing-page .gt-table tbody tr:last-child td { display: block; min-width: 0; padding: 0; border: 0; background: transparent; }.group-ticketing-page .gt-table .gt-row-number { display: none; }.gt-group-cell, .gt-actions-cell { grid-column: 1 / -1; }.gt-table td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 7px; color: var(--gt-muted); font-size: 10px; font-weight: 600; }
+  .gt-group-info { gap: 11px; }.gt-group-info strong { font-size: 14px; }.gt-group-info p { font-size: 11px; }.gt-group-icon { width: 40px; height: 40px; border-radius: 12px; }.gt-group-badge { font-size: 10px; }
+  .gt-route-codes { font-size: 13px; gap: 7px; }.gt-route-codes svg { width: 17px; height: 17px; }.gt-route-cities { font-size: 11px; gap: 8px; }.gt-route-date { font-size: 11px; gap: 4px; }.gt-route-date > svg { width: 15px; height: 15px; }.gt-departure-time { font-size: 10px; }
+  .gt-airline-info { gap: 7px; align-items: flex-start; }.gt-airline-info strong { font-size: 12px; }.gt-airline-logo { width: 29px; height: 29px; }.gt-pnr { font-size: 11px; padding: 4px 8px; }.gt-seats { min-height: 60px; padding: 9px; }.gt-seats strong { font-size: 14px; }.gt-seats span { font-size: 8px; }.gt-seats > svg { width: 20px; height: 20px; }.gt-price strong { font-size: 15px; white-space: normal; overflow-wrap: anywhere; }.gt-price span { font-size: 12px; }
+  .gt-row-actions { gap: 8px; padding-top: 12px; border-top: 1px solid var(--gt-border); }.gt-edit, .gt-delete { height: 40px; padding: 0 12px; font-size: 12px; gap: 6px; }.gt-edit svg, .gt-delete svg { width: 18px; height: 18px; }.gt-more-button { height: 40px; width: 35px; }
+  .gt-pagination-footer { flex-wrap: wrap; font-size: 12px; gap: 12px; }.gt-pagination-footer nav { gap: 5px; margin-left: auto; }.gt-pagination-footer button { height: 35px; min-width: 32px; font-size: 13px; }.gt-page-item { gap: 5px; }.gt-pagination-footer button svg { width: 16px; height: 16px; }
+}
