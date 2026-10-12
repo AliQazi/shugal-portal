@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
 import type { IconType } from "react-icons";
 import {
-  FaBed, FaBuilding, FaBus, FaCog, FaCube, FaFileAlt, FaFileInvoice,
+  FaBed, FaBuilding, FaBus,
+  //  FaCog, 
+  FaCube, FaFileAlt, FaFileInvoice,
   FaListUl, FaPassport, FaPlane, FaPlusCircle, FaThLarge, FaUniversity,
   FaUser, FaUsers, FaWallet,
 } from "react-icons/fa";
